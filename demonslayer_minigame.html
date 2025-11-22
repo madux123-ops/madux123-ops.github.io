@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>鬼滅之刃：鬼殺隊人生大富翁</title>
+    <style>
+        :root {
+            --bg-color: #2c2c2c;
+            --board-bg: #f4e4bc; /* 榻榻米色 */
+            --p1-color: #2ecc71; /* 炭治郎綠 */
+            --p2-color: #f1c40f; /* 善逸黃 */
+            --danger: #e74c3c;
+            --text: #333;
+        }
+        body {
+            font-family: 'Microsoft JhengHei', sans-serif;
+            background-color: var(--bg-color);
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 { margin-bottom: 10px; text-shadow: 2px 2px 4px #000; }
+        
+        /* 遊戲面板佈局 */
+        .game-container {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        /* 地圖設計 */
+        .board {
+            display: grid;
+            grid-template-columns: repeat(5, 80px);
+            grid-template-rows: repeat(5, 80px);
+            gap: 5px;
+            background: #5d4037;
+            padding: 10px;
+            border-radius: 10px;
+            border: 4px solid #ecf0f1;
+        }
+
+        .cell {
+            background-color: var(--board-bg);
+            color: var(--text);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            text-align: center;
+            border-radius: 4px;
+            position: relative;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.1);
+            font-weight: bold;
+        }
+
+        /* 特殊格子顏色 */
+        .cell.start { background: #fff; border: 2px solid gold; }
+        .cell.safe { background: #d5f5e3; } /* 蝶屋 */
+        .cell.danger { background: #fadbd8; } /* 鬼出沒 */
+        .cell.bonus { background: #d6eaf8; } /* 鍛刀村 */
+
+        /* 玩家標記 */
+        .player-token {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            position: absolute;
+            bottom: 5px;
+            transition: all 0.3s ease;
+            box-shadow: 1px 1px 3px rgba(0,0,0,0.5);
+            z-index: 10;
+        }
+        .p1-token { background: var(--p1-color); border: 2px solid #000; left: 20%; content: "炭"; }
+        .p2-token { background: var(--p2-color); border: 2px solid #000; right: 20%; }
+
+        /* 控制台與資訊 */
+        .info-panel {
+            background: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+            width: 300px;
+        }
+
+        .stats {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 15px;
+            padding: 10px;
+            background: #444;
+            border-radius: 5px;
+        }
+
+        .stat-box { text-align: center; }
+        .stat-value { font-size: 1.2em; font-weight: bold; }
+
+        button {
+            background: #e67e22;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            width: 100%;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            transition: 0.2s;
+        }
+        button:hover { background: #d35400; }
+        button:disabled { background: #7f8c8d; cursor: not-allowed; }
+
+        #log {
+            height: 150px;
+            overflow-y: auto;
+            background: #222;
+            padding: 10px;
+            border: 1px solid #555;
+            font-size: 14px;
+            color: #ddd;
+            margin-top: 10px;
+        }
+        .log-entry { margin-bottom: 5px; border-bottom: 1px solid #333; padding-bottom: 2px; }
+        .log-p1 { color: var(--p1-color); }
+        .log-p2 { color: var(--p2-color); }
+        .log-danger { color: #ff6b6b; }
+
+        /* 格子排列邏輯 (繞圈圈) */
+        .cell:nth-child(1) { grid-area: 1 / 1 / 2 / 2; }
+        .cell:nth-child(2) { grid-area: 1 / 2 / 2 / 3; }
+        .cell:nth-child(3) { grid-area: 1 / 3 / 2 / 4; }
+        .cell:nth-child(4) { grid-area: 1 / 4 / 2 / 5; }
+        .cell:nth-child(5) { grid-area: 1 / 5 / 2 / 6; }
+        .cell:nth-child(6) { grid-area: 2 / 5 / 3 / 6; }
+        .cell:nth-child(7) { grid-area: 3 / 5 / 4 / 6; }
+        .cell:nth-child(8) { grid-area: 4 / 5 / 5 / 6; }
+        .cell:nth-child(9) { grid-area: 5 / 5 / 6 / 6; }
+        .cell:nth-child(10) { grid-area: 5 / 4 / 6 / 5; }
+        .cell:nth-child(11) { grid-area: 5 / 3 / 6 / 4; }
+        .cell:nth-child(12) { grid-area: 5 / 2 / 6 / 3; }
+        .cell:nth-child(13) { grid-area: 5 / 1 / 6 / 2; }
+        .cell:nth-child(14) { grid-area: 4 / 1 / 5 / 2; }
+        .cell:nth-child(15) { grid-area: 3 / 1 / 4 / 2; }
+        .cell:nth-child(16) { grid-area: 2 / 1 / 3 / 2; }
+
+        /* 中央裝飾 */
+        .center-deco {
+            grid-area: 2 / 2 / 5 / 5;
+            background-image: url('https://upload.wikimedia.org/wikipedia/commons/thumb/6/69/Japanese_pattern_checkerboard.svg/1200px-Japanese_pattern_checkerboard.svg.png');
+            background-size: cover;
+            opacity: 0.3;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: rgba(255,255,255,0.8);
+            font-size: 2em;
+            font-weight: bold;
+            writing-mode: vertical-rl;
+        }
+
+    </style>
+</head>
+<body>
+
+    <h1>🗡️ 鬼殺隊：生存大富翁</h1>
+
+    <div class="game-container">
+        <div class="board" id="board">
+            <div class="center-deco">惡鬼滅殺</div>
+        </div>
+
+        <div class="info-panel">
+            <h3>目前回合: <span id="current-turn" style="color:var(--p1-color)">炭治郎</span></h3>
+            
+            <div class="stats">
+                <div class="stat-box">
+                    <div style="color:var(--p1-color)">🌊 炭治郎</div>
+                    <div>HP: <span id="p1-hp">100</span></div>
+                    <div>日圓: <span id="p1-money">1000</span></div>
+                </div>
+                <div class="stat-box">
+                    <div style="color:var(--p2-color)">⚡ 善逸</div>
+                    <div>HP: <span id="p2-hp">100</span></div>
+                    <div>日圓: <span id="p2-money">1000</span></div>
+                </div>
+            </div>
+
+            <button id="roll-btn" onclick="playTurn()">擲骰子 (呼吸法運轉)</button>
+            <div id="dice-result" style="text-align:center; margin-bottom:10px; height:20px;"></div>
+
+            <div id="log">
+                <div class="log-entry">遊戲開始！目標：存活並賺取 5000 日圓。</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 遊戲設定
+        const mapData = [
+            { name: "起點", type: "start", effect: 0 },
+            { name: "狹霧山", type: "safe", desc: "鱗瀧師父特訓，HP+10", val: 10 },
+            { name: "沼澤鬼", type: "danger", desc: "遭遇異能鬼！HP-15", val: 15 },
+            { name: "淺草", type: "bonus", desc: "遇見珠世小姐，獲得藥水，日圓+200", val: 200 },
+            { name: "鼓之宅邸", type: "danger", desc: "空間迴轉，暈眩 HP-10", val: 10 },
+            { name: "藤之家", type: "safe", desc: "紫藤花家紋休息，HP全滿", val: 999 },
+            { name: "那田蜘蛛山", type: "danger", desc: "對戰下弦之伍！HP-30", val: 30 },
+            { name: "鎹鴉任務", type: "bonus", desc: "完成傳令任務，日圓+300", val: 300 },
+            { name: "無限列車", type: "danger", desc: "夢境深淵，日圓-200 (買票)", val: -200 },
+            { name: "煉獄家", type: "safe", desc: "炎柱的熱情，攻擊力UP(象徵性)", val: 0 },
+            { name: "吉原遊郭", type: "danger", desc: "墮姬來襲！HP-25", val: 25 },
+            { name: "鍛刀村", type: "bonus", desc: "鋼鐵塚磨刀，日圓-100 但 HP+20", val: -100 }, // 特殊邏輯寫在JS
+            { name: "柱合會議", type: "bonus", desc: "主公賞賜，日圓+500", val: 500 },
+            { name: "無限城", type: "danger", desc: "遭遇上弦！HP-40", val: 40 },
+            { name: "產屋敷", type: "safe", desc: "絕對安全區，HP+10", val: 10 },
+            { name: "最終選拔", type: "danger", desc: "手鬼襲擊，HP-20", val: 20 }
+        ];
+
+        const players = [
+            { id: 1, name: "炭治郎", pos: 0, hp: 100, money: 1000, color: "var(--p1-color)", icon: "🌊" },
+            { id: 2, name: "善逸", pos: 0, hp: 100, money: 1000, color: "var(--p2-color)", icon: "⚡" } // 電腦
+        ];
+
+        let currentPlayerIndex = 0;
+        let isGameOver = false;
+
+        // 初始化地圖
+        function initBoard() {
+            const board = document.getElementById('board');
+            // 移除除了 center-deco 以外的元素
+            const deco = document.querySelector('.center-deco');
+            board.innerHTML = '';
+            board.appendChild(deco);
+
+            mapData.forEach((data, index) => {
+                const cell = document.createElement('div');
+                cell.className = `cell ${data.type}`;
+                cell.innerHTML = `<div>${data.name}</div>`;
+                
+                // 這種排版是為了配合 grid-area，確保是繞圈圈
+                // 這裡我們用 JS 簡單動態生成 grid-area 太複雜，直接用 CSS 寫死的順序
+                // 所以 DOM 順序必須符合 CSS nth-child 的順序
+                board.appendChild(cell);
+            });
+
+            // 初始化玩家位置
+            updatePlayerTokens();
+        }
+
+        function updatePlayerTokens() {
+            // 清除舊的 token
+            document.querySelectorAll('.player-token').forEach(el => el.remove());
+            
+            players.forEach((p, idx) => {
+                const cellIndex = p.pos;
+                // CSS nth-child 是從 1 開始，且我們有 center-deco 在裡面，所以要小心
+                // 簡單解法：我們在 board 裡抓 .cell
+                const cells = document.querySelectorAll('.cell');
+                const targetCell = cells[cellIndex];
+
+                const token = document.createElement('div');
+                token.className = `player-token p${p.id}-token`;
+                
+                // 稍微錯開位置避免重疊
+                if(idx === 0) token.style.left = "10px";
+                if(idx === 1) token.style.right = "10px";
+
+                targetCell.appendChild(token);
+            });
+        }
+
+        function log(msg, type="") {
+            const logDiv = document.getElementById('log');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.innerText = msg;
+            logDiv.prepend(entry); // 新訊息在最上面
+        }
+
+        function updateStats() {
+            document.getElementById('p1-hp').innerText = players[0].hp;
+            document.getElementById('p1-money').innerText = players[0].money;
+            document.getElementById('p2-hp').innerText = players[1].hp;
+            document.getElementById('p2-money').innerText = players[1].money;
+        }
+
+        function checkWinCondition() {
+            const p1 = players[0];
+            const p2 = players[1];
+
+            if (p1.hp <= 0) {
+                alert("炭治郎力竭倒下了... 善逸獲勝！");
+                isGameOver = true;
+                return true;
+            }
+            if (p2.hp <= 0) {
+                alert("善逸嚇暈了... 炭治郎獲勝！");
+                isGameOver = true;
+                return true;
+            }
+            if (p1.money >= 5000) {
+                alert("炭治郎籌夠了資金，成為了柱！獲勝！");
+                isGameOver = true;
+                return true;
+            }
+            if (p2.money >= 5000) {
+                alert("善逸賺夠了錢去娶禰豆子(誤)！獲勝！");
+                isGameOver = true;
+                return true;
+            }
+            return false;
+        }
+
+        function playTurn() {
+            if (isGameOver) return;
+
+            const btn = document.getElementById('roll-btn');
+            btn.disabled = true;
+            const player = players[currentPlayerIndex];
+            
+            // 1. 擲骰子
+            const dice = Math.floor(Math.random() * 6) + 1;
+            document.getElementById('dice-result').innerText = `${player.icon} ${player.name} 擲出了 ${dice} 點`;
+            
+            // 2. 移動
+            player.pos = (player.pos + dice) % mapData.length;
+            
+            // 如果經過起點 (簡單邏輯：如果新位置比舊位置小，且不是剛開始)
+            // 這裡簡化：每次踩到或經過起點給獎勵太複雜，直接看格子效果
+
+            updatePlayerTokens();
+
+            // 3. 觸發效果
+            const cell = mapData[player.pos];
+            const logClass = player.id === 1 ? "log-p1" : "log-p2";
+            
+            setTimeout(() => {
+                log(`${player.name} 到達了 【${cell.name}】`, logClass);
+                
+                if (cell.type === 'danger') {
+                    player.hp -= cell.val;
+                    log(`⚠ ${cell.desc} (HP -${cell.val})`, "log-danger");
+                } else if (cell.type === 'safe') {
+                    if (cell.val === 999) player.hp = 100;
+                    else player.hp = Math.min(100, player.hp + cell.val);
+                    log(`💚 ${cell.desc}`, logClass);
+                } else if (cell.type === 'bonus') {
+                    // 特殊處理鍛刀村
+                    if (cell.name === "鍛刀村") {
+                        player.money -= 100;
+                        player.hp = Math.min(100, player.hp + 20);
+                        log(`🔨 ${cell.desc} (日圓-100, HP+20)`, logClass);
+                    } else {
+                        player.money += cell.val;
+                        log(`💰 ${cell.desc} (日圓 +${cell.val})`, logClass);
+                    }
+                } else if (cell.name === "無限列車") {
+                     // 特殊負錢
+                     player.money += cell.val; // val is negative
+                     log(`🚂 ${cell.desc}`, "log-danger");
+                }
+
+                updateStats();
+
+                if (checkWinCondition()) {
+                    btn.innerText = "遊戲結束";
+                    return;
+                }
+
+                // 換人
+                currentPlayerIndex = (currentPlayerIndex + 1) % players.length;
+                const nextPlayer = players[currentPlayerIndex];
+                document.getElementById('current-turn').innerText = nextPlayer.name;
+                document.getElementById('current-turn').style.color = nextPlayer.color;
+
+                // 如果下一位是電腦(善逸)，自動執行
+                if (nextPlayer.id === 2) {
+                    btn.innerText = "善逸思考中...";
+                    setTimeout(() => {
+                        playTurn();
+                        if(!isGameOver) btn.innerText = "擲骰子 (呼吸法運轉)";
+                        btn.disabled = false;
+                    }, 1500);
+                } else {
+                    btn.disabled = false;
+                }
+
+            }, 500); // 移動動畫延遲
+        }
+
+        // 啟動
+        initBoard();
+    </script>
+</body>
+</html>
