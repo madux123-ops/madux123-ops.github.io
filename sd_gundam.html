@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SD鋼彈G世代：邊境拓荒版</title>
+    <style>
+        :root {
+            --bg-color: #050505;
+            --panel-color: #1c1c1e;
+            --accent-color: #0a84ff;
+            --text-color: #f2f2f7;
+            --tile-size: 36px;
+        }
+
+        body {
+            font-family: 'Segoe UI', 'Microsoft JhengHei', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        /* --- 左側地圖區 --- */
+        #game-area {
+            flex: 3;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: #000;
+            position: relative;
+            border-right: 1px solid #333;
+        }
+
+        #map-container {
+            overflow: auto;
+            max-width: 100%;
+            max-height: 100%;
+            padding: 20px;
+            box-shadow: inset 0 0 50px rgba(0,0,0,0.8);
+        }
+
+        #map-grid {
+            display: grid;
+            grid-template-columns: repeat(15, var(--tile-size));
+            grid-template-rows: repeat(15, var(--tile-size));
+            gap: 1px;
+            background: #333;
+            border: 1px solid #555;
+        }
+
+        .tile {
+            width: var(--tile-size);
+            height: var(--tile-size);
+            background-color: #111;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            position: relative;
+            font-size: 10px;
+        }
+
+        .tile:hover { z-index: 10; outline: 2px solid #fff; }
+        .tile.player { background-color: rgba(10, 132, 255, 0.2); }
+        .tile.enemy { background-color: rgba(255, 69, 58, 0.2); }
+        .tile.selected { box-shadow: inset 0 0 0 2px #ffd60a; }
+
+        .unit-icon { font-size: 22px; z-index: 2; pointer-events: none; filter: drop-shadow(0 2px 2px rgba(0,0,0,0.8)); }
+        
+        /* 城市等級標示 */
+        .city-icon { position: absolute; top: 1px; right: 1px; font-size: 9px; pointer-events:none; font-weight: bold;}
+        .city-lv1 { color: #a0a0a0; }
+        .city-lv2 { color: #ffd60a; }
+        .city-lv3 { color: #bf5af2; text-shadow: 0 0 4px #bf5af2; }
+
+        .hp-bar { position: absolute; bottom: 2px; left: 2px; width: calc(100% - 4px); height: 3px; background: #444; border-radius: 1px; }
+        .hp-val { height: 100%; background: #32d74b; border-radius: 1px; transition: width 0.3s; }
+        .hp-val.enemy { background: #ff453a; }
+
+        /* --- 右側控制面板 --- */
+        #control-panel {
+            flex: 1.3;
+            min-width: 340px;
+            background-color: var(--panel-color);
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            border-left: 1px solid #333;
+        }
+
+        .header { display: flex; justify-content: space-between; margin-bottom: 15px; background: #2c2c2e; padding: 10px; border-radius: 8px; }
+        .res-item { font-family: monospace; font-size: 1.1em; font-weight: bold; }
+        
+        .panel-box { background: #2c2c2e; padding: 12px; margin-bottom: 10px; border-radius: 8px; }
+        h3 { margin: 0 0 8px 0; color: var(--accent-color); font-size: 0.95em; text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid #444; padding-bottom: 5px;}
+
+        .btn {
+            background: var(--accent-color); color: white; border: none; padding: 10px; margin: 5px 0;
+            cursor: pointer; width: 100%; border-radius: 6px; font-weight: 600; transition: 0.2s; display: flex; justify-content: space-between;
+        }
+        .btn:hover { filter: brightness(1.2); transform: translateY(-1px); }
+        .btn:disabled { background: #444; color: #888; cursor: not-allowed; transform: none; }
+        .btn-small { width: auto; padding: 6px 12px; font-size: 0.85em; display: inline-block; margin-right: 5px; margin-bottom: 5px;}
+
+        #log-area { flex: 1; background: #000; color: #32d74b; font-family: 'Courier New', monospace; padding: 10px; overflow-y: auto; font-size: 12px; border-radius: 4px; border: 1px solid #333; max-height: 200px;}
+
+        /* --- 列表樣式 --- */
+        .list-row { display: flex; justify-content: space-between; align-items: center; padding: 8px; border-bottom: 1px solid #333; font-size: 0.9em; }
+        .list-row:last-child { border-bottom: none; }
+
+        /* --- 彈窗 --- */
+        .modal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85); backdrop-filter: blur(5px);
+            display: none; align-items: center; justify-content: center; z-index: 100;
+        }
+        .modal-content {
+            background: #1c1c1e; padding: 25px; width: 600px; max-height: 85vh; overflow-y: auto;
+            border: 1px solid #444; border-radius: 12px; box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+        }
+        .close-btn { float: right; cursor: pointer; font-size: 1.5em; color: #888; }
+        .close-btn:hover { color: #fff; }
+
+        /* --- 戰鬥 UI --- */
+        .battle-layout { display: flex; flex-direction: column; height: 400px; }
+        .battle-stage { flex: 2; display: flex; justify-content: space-between; align-items: center; padding: 20px; background: #000; border: 1px solid #333; border-radius: 4px; margin-bottom: 10px; }
+        .side { width: 45%; }
+        .side-p { text-align: left; border-right: 1px dashed #333; padding-right: 10px; }
+        .side-e { text-align: right; border-left: 1px dashed #333; padding-left: 10px; }
+        .b-unit { margin: 5px 0; padding: 5px; background: #222; font-size: 0.9em; }
+    </style>
+</head>
+<body>
+
+    <div id="game-area">
+        <div style="margin-bottom: 10px; font-size: 1.1em; font-weight: bold;">
+            TURN <span id="turn-display" style="color: var(--accent-color);">1</span>
+        </div>
+        <div id="map-container">
+            <div id="map-grid"></div>
+        </div>
+        <div style="margin-top: 10px; color: #666; font-size: 0.85em;">
+            提示：部署機體後將自動搜索與發展該區域。
+        </div>
+    </div>
+
+    <div id="control-panel">
+        <div class="header">
+            <div class="res-item" title="資金">💰 <span id="money">3000</span></div>
+            <div class="res-item" title="零件">⚙️ <span id="parts">50</span></div>
+            <div class="res-item" title="行動力" style="color: #ff9f0a;">⚡ <span id="ap">3</span>/3</div>
+        </div>
+
+        <div class="panel-box">
+            <h3>📍 地塊情報</h3>
+            <div id="tile-info" style="font-size: 0.9em; color: #aaa; min-height: 45px; margin-bottom: 10px;">
+                請選擇地圖上的區域...
+            </div>
+            <div id="tile-actions"></div>
+        </div>
+
+        <div class="panel-box">
+            <h3>🚧 生產與研發 (無AP消耗)</h3>
+            <div id="queue-list" style="font-size: 0.85em; color: #666; min-height: 20px;">無任務進行中</div>
+        </div>
+
+        <div class="panel-box" style="flex: 1; display: flex; flex-direction: column; overflow: hidden;">
+            <h3>🤖 格納庫 (免費出擊)</h3>
+            <div id="hangar-list" style="overflow-y: auto; flex: 1;"></div>
+        </div>
+
+        <div>
+            <button class="btn" onclick="openModal('research-modal')">🧪 研究所 (研發新機體)</button>
+            <button class="btn" onclick="openModal('recruit-modal')">🏭 工廠 (生產機體)</button>
+            <button class="btn" style="background-color: #ff453a; text-align: center; justify-content: center;" onclick="nextTurn()">🌙 結束回合 (結算)</button>
+        </div>
+
+        <div id="log-area"><div>系統: 歡迎指揮官。敵軍數量增加，請小心應戰。</div></div>
+    </div>
+
+    <div id="research-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" onclick="closeModal('research-modal')">&times;</span>
+            <h2>MS 開發計畫</h2>
+            <div id="research-list"></div>
+        </div>
+    </div>
+
+    <div id="recruit-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" onclick="closeModal('recruit-modal')">&times;</span>
+            <h2>機體生產線</h2>
+            <div id="recruit-list"></div>
+        </div>
+    </div>
+
+    <div id="squad-modal" class="modal">
+        <div class="modal-content" style="width: 400px;">
+            <span class="close-btn" onclick="closeModal('squad-modal')">&times;</span>
+            <h2>⚔️ 戰鬥編成</h2>
+            <p>目標：<strong id="target-name" style="color:#ff453a;"></strong></p>
+            <p style="font-size:0.9em; color:#aaa;">勾選參與圍攻的鄰近機體：</p>
+            <div id="squad-list" style="background:#111; padding:10px; border-radius:4px; margin-bottom:15px;"></div>
+            <button class="btn" onclick="startBattle()">開始戰鬥 (消耗1AP)</button>
+        </div>
+    </div>
+
+    <div id="battle-modal" class="modal">
+        <div class="modal-content" style="width: 700px; border: 1px solid #ff453a;">
+            <h2 style="text-align: center; color: #ff453a;">⚠️ BATTLE START</h2>
+            <div class="battle-layout">
+                <div class="battle-stage">
+                    <div class="side side-p" id="battle-p-side"></div>
+                    <div style="font-weight:bold; color:#555;">VS</div>
+                    <div class="side side-e" id="battle-e-side"></div>
+                </div>
+                <div id="battle-log" style="flex:1; background:#111; padding:10px; overflow-y:auto; font-family:monospace; font-size:12px; color:#32d74b;"></div>
+            </div>
+            <div style="margin-top:10px; text-align:right;">
+                <button id="battle-next-btn" class="btn" style="width:auto; display:inline-block;" onclick="battleRound()">下一輪攻防</button>
+                <button id="battle-end-btn" class="btn" style="width:auto; display:none; background:#555;" onclick="closeModal('battle-modal')">離開戰場</button>
+            </div>
+        </div>
+    </div>
+
+<script>
+/* ================= 資料庫 ================= */
+const UNIT_DB = [
+    { id: 0, name: "吉姆 (GM)", hp: 150, atk: 30, def: 10, cost: 500, prod: 1, unlocked: true },
+    { id: 1, name: "薩克II", hp: 180, atk: 35, def: 8, cost: 550, prod: 1, unlocked: true },
+    { id: 2, name: "鋼彈 RX-78", hp: 400, atk: 80, def: 30, cost: 2500, res:{m:3000,p:50}, resT:2, prod:2, unlocked:false },
+    { id: 3, name: "Z鋼彈", hp: 380, atk: 90, def: 25, cost: 2800, res:{m:3500,p:60}, resT:3, prod:2, unlocked:false },
+    { id: 4, name: "ZZ鋼彈", hp: 500, atk: 110, def: 40, cost: 3500, res:{m:4500,p:80}, resT:3, prod:3, unlocked:false },
+    { id: 5, name: "自由鋼彈", hp: 450, atk: 120, def: 20, cost: 4000, res:{m:5000,p:100}, resT:4, prod:3, unlocked:false },
+    { id: 6, name: "飛翼零式", hp: 360, atk: 140, def: 15, cost: 3800, res:{m:4800,p:90}, resT:3, prod:3, unlocked:false },
+    { id: 7, name: "獨角獸鋼彈", hp: 480, atk: 105, def: 35, cost: 4200, res:{m:5500,p:120}, resT:4, prod:3, unlocked:false },
+    { id: 8, name: "獵魔鋼彈", hp: 550, atk: 130, def: 25, cost: 3600, res:{m:4600,p:110}, resT:3, prod:3, unlocked:false },
+    { id: 9, name: "Nu鋼彈", hp: 460, atk: 100, def: 35, cost: 3900, res:{m:5200,p:100}, resT:4, prod:3, unlocked:false },
+
+    // 敵軍
+    { id: 90, name: "薩克II (敵)", hp: 200, atk: 35, def: 5, cost:0, unlocked:true },
+    { id: 91, name: "古夫 (菁英)", hp: 350, atk: 60, def: 15, cost:0, unlocked:true },
+    { id: 99, name: "精神感應鋼彈", hp: 2500, atk: 150, def: 80, cost:0, unlocked:true }
+];
+
+const MAP_SIZE = 15;
+const MAX_AP = 3;
+const TILE = { EMPTY: 0, CITY: 1, BASE: 2 };
+
+let state = {
+    turn: 1,
+    money: 3000,
+    parts: 20,
+    ap: MAX_AP,
+    map: [],
+    units: [],
+    enemies: [],
+    selectedTile: -1,
+    qProd: [],
+    qRes: [],
+    battle: null
+};
+
+/* ================= 核心邏輯 ================= */
+
+function init() {
+    // 生成地圖
+    for(let i=0; i<MAP_SIZE*MAP_SIZE; i++) {
+        state.map.push({ idx: i, type: TILE.EMPTY, level: 1, owner: null });
+    }
+    // 玩家基地
+    setTile(0, 'player', TILE.BASE);
+    setTile(1, 'player', TILE.CITY);
+    setTile(15, 'player', TILE.CITY);
+
+    // 敵軍配置 (3名)
+    let bossIdx = 224; // 右下角
+    setTile(bossIdx, 'enemy', TILE.BASE);
+    spawnEnemy(bossIdx, 99); // Boss
+    spawnEnemy(bossIdx-1, 91); // 古夫
+    spawnEnemy(bossIdx-15, 90); // 薩克
+
+    // 隨機城市
+    for(let i=0; i<10; i++) {
+        let r = Math.floor(Math.random()*225);
+        if(state.map[r].type === TILE.EMPTY) state.map[r].type = TILE.CITY;
+    }
+
+    // 初始機體
+    addUnit(0); addUnit(0);
+
+    renderMap();
+    updateUI();
+}
+
+function setTile(idx, owner, type) {
+    state.map[idx].owner = owner;
+    state.map[idx].type = type;
+}
+
+function getXY(idx) { return { x: idx%MAP_SIZE, y: Math.floor(idx/MAP_SIZE) }; }
+function getNeighbors(idx) {
+    let p = getXY(idx);
+    let res = [];
+    for(let y=p.y-1; y<=p.y+1; y++) {
+        for(let x=p.x-1; x<=p.x+1; x++) {
+            if(x>=0 && x<MAP_SIZE && y>=0 && y<MAP_SIZE && !(x===p.x && y===p.y))
+                res.push(y*MAP_SIZE+x);
+        }
+    }
+    return res;
+}
+
+/* ================= 地圖渲染 ================= */
+
+function renderMap() {
+    const grid = document.getElementById('map-grid');
+    grid.innerHTML = '';
+    state.map.forEach(t => {
+        let el = document.createElement('div');
+        el.className = `tile ${t.owner === 'player' ? 'player' : (t.owner === 'enemy' ? 'enemy' : '')}`;
+        if(t.idx === state.selectedTile) el.classList.add('selected');
+        
+        // 地標
+        let icon = '';
+        if(t.type === TILE.BASE) icon = '⚓';
+        if(t.type === TILE.CITY) icon = `<span class="city-icon city-lv${t.level}">Lv.${t.level}</span>🏙️`; // 修正為 icon 在內
+        
+        // 單位
+        let pUnit = state.units.find(u => u.deployed && u.idx === t.idx);
+        let eUnit = state.enemies.find(u => u.idx === t.idx);
+        
+        let inner = '';
+        if(t.type === TILE.CITY) inner += `<span class="city-icon city-lv${t.level}">Lv${t.level}</span>`;
+        if(t.type === TILE.BASE) inner += `<span class="city-icon" style="color:#fff">⚓</span>`;
+
+        if(pUnit) {
+            let pct = (pUnit.hp/pUnit.maxHp)*100;
+            inner += `<div class="unit-icon">🤖</div><div class="hp-bar"><div class="hp-val" style="width:${pct}%"></div></div>`;
+        } else if(eUnit) {
+            let pct = (eUnit.hp/eUnit.maxHp)*100;
+            inner += `<div class="unit-icon">👿</div><div class="hp-bar"><div class="hp-val enemy" style="width:${pct}%"></div></div>`;
+        } else if (t.type === TILE.CITY || t.type === TILE.BASE) {
+            inner += `<div style="font-size:14px; opacity:0.5;">${t.type===TILE.BASE?'⚓':'🏙️'}</div>`;
+        }
+
+        el.innerHTML = inner;
+        el.onclick = () => selectTile(t.idx);
+        grid.appendChild(el);
+    });
+}
+
+function selectTile(idx) {
+    state.selectedTile = idx;
+    renderMap();
+    const t = state.map[idx];
+    const info = document.getElementById('tile-info');
+    const act = document.getElementById('tile-actions');
+    
+    let typeName = t.type === TILE.BASE ? "基地" : (t.type === TILE.CITY ? "城市" : "荒地");
+    let ownerName = t.owner === 'player' ? "我軍" : (t.owner === 'enemy' ? "敵軍" : "無人");
+    
+    let pUnit = state.units.find(u => u.deployed && u.idx === idx);
+    let eUnit = state.enemies.find(u => u.idx === idx);
+
+    info.innerHTML = `<strong>[${getXY(idx).x}, ${getXY(idx).y}] ${typeName}</strong> (${ownerName})`;
+    if(pUnit) info.innerHTML += `<br>駐軍: ${pUnit.name} (HP:${pUnit.hp})`;
+    if(eUnit) info.innerHTML += `<br>敵軍: ${eUnit.name} (HP:${eUnit.hp})`;
+
+    act.innerHTML = '';
+    const hasAP = state.ap > 0;
+
+    if(t.owner === 'player') {
+        // 建設/升級
+        if(t.type === TILE.EMPTY) {
+            addBtn(act, "🏗️ 建設城市 ($800, 1AP)", () => buildCity(idx), hasAP);
+        } else if (t.type === TILE.CITY && t.level < 3) {
+            let cost = t.level === 1 ? 1500 : 3000;
+            addBtn(act, `⏫ 升級城市 ($${cost}, 1AP)`, () => upgradeCity(idx, cost), hasAP);
+        }
+        // 部署 (免費)
+        if(!pUnit) {
+            addBtn(act, "🚀 部署機體 (免費)", () => deployUnit(idx), true);
+        }
+    } else {
+        // 敵軍/中立
+        let near = getNeighbors(idx).some(n => state.map[n].owner === 'player' || state.units.some(u => u.deployed && u.idx === n));
+        if(near) {
+            if(eUnit) {
+                addBtn(act, "⚔️ 發動攻擊 (1AP)", () => prepBattle(idx), hasAP);
+            } else {
+                addBtn(act, "🚩 佔領區域 (1AP)", () => captureTile(idx), hasAP);
+            }
+        }
+    }
+}
+
+function addBtn(p, txt, cb, en) {
+    let b = document.createElement('button');
+    b.className = 'btn btn-small';
+    b.innerText = txt;
+    b.onclick = cb;
+    b.disabled = !en;
+    p.appendChild(b);
+}
+
+/* ================= 行動指令 ================= */
+
+function buildCity(idx) {
+    if(state.money >= 800) {
+        state.money -= 800; state.ap--;
+        state.map[idx].type = TILE.CITY;
+        state.map[idx].level = 1;
+        log("城市建設完成。");
+        updateUI(); renderMap(); selectTile(idx);
+    } else alert("資金不足");
+}
+
+function upgradeCity(idx, cost) {
+    if(state.money >= cost) {
+        state.money -= cost; state.ap--;
+        state.map[idx].level++;
+        log(`城市升級至 Lv${state.map[idx].level}！`);
+        updateUI(); renderMap(); selectTile(idx);
+    } else alert("資金不足");
+}
+
+function deployUnit(idx) {
+    let u = state.units.find(u => !u.deployed);
+    if(u) {
+        u.deployed = true; u.idx = idx;
+        log(`${u.name} 已部署。將自動搜索並發展此處。`);
+        updateUI(); renderMap(); selectTile(idx);
+    } else alert("無閒置機體");
+}
+
+function captureTile(idx) {
+    state.ap--;
+    state.map[idx].owner = 'player';
+    log("區域佔領成功。");
+    updateUI(); renderMap(); selectTile(idx);
+}
+
+/* ================= 回合與自動系統 ================= */
+
+function nextTurn() {
+    state.turn++;
+    state.ap = MAX_AP;
+    log(`=== 第 ${state.turn} 回合 ===`);
+
+    let totalSearchM = 0;
+    let totalSearchP = 0;
+
+    // 1. 玩家機體自動行為
+    state.units.forEach(u => {
+        if(u.deployed) {
+            // A. 自動搜索 (資源區分)
+            let tile = state.map[u.idx];
+            let isRich = (tile.type === TILE.CITY || tile.type === TILE.BASE);
+            
+            // 荒地很少，城市很多
+            let foundM = isRich ? (Math.floor(Math.random()*300)+200) : (Math.floor(Math.random()*50)+10);
+            let foundP = isRich ? (Math.floor(Math.random()*10)+5) : (Math.floor(Math.random()*2)); // 0-1 parts
+            
+            totalSearchM += foundM;
+            totalSearchP += foundP;
+
+            // B. 自動發展 (如果在荒地，變城市)
+            if(tile.type === TILE.EMPTY && tile.owner === 'player') {
+                tile.type = TILE.CITY;
+                tile.level = 1;
+                log(`${u.name} 將荒地開拓為城市！`);
+            }
+
+            // C. 自動佔領周圍 (非敵軍控制區)
+            let neighbors = getNeighbors(u.idx);
+            neighbors.forEach(n => {
+                let t = state.map[n];
+                let hasEnemy = state.enemies.some(e => e.idx === n);
+                if(!hasEnemy && t.type !== TILE.BASE && t.owner !== 'player' && t.owner !== 'enemy') {
+                    t.owner = 'player';
+                }
+            });
+        }
+    });
+
+    if(totalSearchM > 0 || totalSearchP > 0) {
+        state.money += totalSearchM;
+        state.parts += totalSearchP;
+        log(`部隊搜索回報: 獲得 $${totalSearchM} 及 ⚙️${totalSearchP}`);
+    }
+
+    // 2. 城市稅收
+    let income = 0;
+    state.map.forEach(t => {
+        if(t.owner === 'player') {
+            if(t.type === TILE.BASE) income += 200;
+            if(t.type === TILE.CITY) income += (200 * Math.pow(2, t.level-1));
+        }
+    });
+    state.money += income;
+    log(`領地稅收: $${income}`);
+
+    // 3. 生產/研發推進
+    processQ(state.qProd, (i) => { addUnit(i.id); log(`${i.name} 生產完成`); });
+    processQ(state.qRes, (i) => { UNIT_DB.find(u=>u.id===i.id).unlocked = true; log(`${i.name} 研發完成`); });
+
+    // 4. 敵軍行動
+    runEnemyAI();
+
+    // 5. 維修
+    state.units.forEach(u => { if(!u.deployed && u.hp < u.maxHp) u.hp = Math.min(u.maxHp, u.hp+200); });
+
+    updateUI(); renderMap();
+}
+
+function processQ(q, cb) {
+    for(let i=q.length-1; i>=0; i--) {
+        q[i].t--;
+        if(q[i].t <= 0) { cb(q[i]); q.splice(i,1); }
+    }
+}
+
+function runEnemyAI() {
+    state.enemies.forEach(e => {
+        // 佔領腳下
+        if(state.map[e.idx].owner !== 'enemy') state.map[e.idx].owner = 'enemy';
+        
+        // 攻擊
+        let neighbors = getNeighbors(e.idx);
+        let target = state.units.find(u => u.deployed && neighbors.includes(u.idx));
+        
+        if(target) {
+            let dmg = Math.max(10, e.atk - target.def);
+            target.hp -= dmg;
+            log(`敵機 ${e.name} 攻擊 ${target.name} (-${dmg}HP)`);
+            if(target.hp <= 0) {
+                log(`💔 ${target.name} 被擊墜！`);
+                state.units = state.units.filter(u => u !== target);
+            }
+        } else {
+            // 移動
+            let moves = neighbors.filter(n => !state.enemies.some(z => z.idx === n) && !state.units.some(z => z.deployed && z.idx === n));
+            if(moves.length > 0) {
+                e.idx = moves[Math.floor(Math.random()*moves.length)];
+                state.map[e.idx].owner = 'enemy';
+            }
+        }
+    });
+    // 增援
+    if(state.turn % 6 === 0) {
+        let base = state.map.find(t => t.type === TILE.BASE && t.owner === 'enemy');
+        if(base) { spawnEnemy(base.idx, 90); log("⚠️ 敵軍增援出現！"); }
+    }
+}
+
+/* ================= 戰鬥 ================= */
+
+function prepBattle(idx) {
+    let enemy = state.enemies.find(e => e.idx === idx);
+    if(!enemy) return;
+
+    let neighbors = getNeighbors(idx);
+    let attackers = state.units.filter(u => u.deployed && neighbors.includes(u.idx));
+    
+    if(attackers.length === 0) { alert("無鄰近我方單位"); return; }
+
+    document.getElementById('target-name').innerText = enemy.name;
+    let list = document.getElementById('squad-list');
+    list.innerHTML = '';
+    attackers.forEach(u => {
+        list.innerHTML += `<div class="list-row"><label><input type="checkbox" value="${u.uuid}" checked> ${u.name} (ATK:${u.atk})</label></div>`;
+    });
+
+    state.battle = { enemyIdx: idx, enemy: enemy };
+    openModal('squad-modal');
+}
+
+function startBattle() {
+    let cbs = document.querySelectorAll('#squad-list input:checked');
+    if(cbs.length === 0) return;
+    state.ap--;
+    closeModal('squad-modal');
+
+    let ids = Array.from(cbs).map(c => parseFloat(c.value));
+    state.battle.squad = state.units.filter(u => ids.includes(u.uuid));
+
+    openModal('battle-modal');
+    document.getElementById('battle-next-btn').style.display = 'inline-block';
+    document.getElementById('battle-end-btn').style.display = 'none';
+    document.getElementById('battle-log').innerHTML = "戰鬥開始...";
+    updateBattleUI();
+    updateUI();
+}
+
+function battleRound() {
+    let b = state.battle;
+    let logD = document.getElementById('battle-log');
+    let aliveSquad = b.squad.filter(u => u.hp > 0);
+
+    if(aliveSquad.length === 0) {
+        logD.innerHTML += `<div>我方全滅...</div>`;
+        endBattleState(); return;
+    }
+
+    // 我方攻
+    let dmg = 0;
+    aliveSquad.forEach(u => dmg += Math.max(1, u.atk - b.enemy.def*0.6));
+    b.enemy.hp -= Math.floor(dmg);
+    logD.innerHTML += `<div style="color:#32d74b">>> 我方齊射: ${Math.floor(dmg)} 傷害</div>`;
+
+    if(b.enemy.hp <= 0) {
+        logD.innerHTML += `<div style="color:yellow; font-weight:bold;">>> 敵機擊破！</div>`;
+        state.enemies = state.enemies.filter(e => e !== b.enemy);
+        state.map[b.enemyIdx].owner = 'player';
+        endBattleState(); return;
+    }
+
+    // 敵反擊
+    let target = aliveSquad[Math.floor(Math.random()*aliveSquad.length)];
+    let eDmg = Math.floor(Math.max(1, b.enemy.atk - target.def*0.5));
+    target.hp -= eDmg;
+    logD.innerHTML += `<div style="color:#ff453a">>> 敵方反擊 ${target.name}: ${eDmg} 傷害</div>`;
+
+    if(target.hp <= 0) {
+        logD.innerHTML += `<div style="color:red">!! ${target.name} 撤退</div>`;
+        state.units = state.units.filter(u => u !== target);
+    }
+
+    updateBattleUI();
+    logD.scrollTop = logD.scrollHeight;
+}
+
+function endBattleState() {
+    document.getElementById('battle-next-btn').style.display = 'none';
+    document.getElementById('battle-end-btn').style.display = 'inline-block';
+    renderMap();
+}
+function updateBattleUI() {
+    let b = state.battle;
+    let pSide = document.getElementById('battle-p-side');
+    let eSide = document.getElementById('battle-e-side');
+    pSide.innerHTML = ''; eSide.innerHTML = '';
+    
+    b.squad.forEach(u => pSide.innerHTML += `<div class="b-unit" style="color:${u.hp>0?'white':'red'}">${u.name} ${u.hp>0?u.hp:'X'}</div>`);
+    eSide.innerHTML = `<div class="b-unit" style="color:${b.enemy.hp>0?'white':'red'}">${b.enemy.name} ${Math.max(0,b.enemy.hp)}</div>`;
+}
+
+/* ================= UI ================= */
+
+function addUnit(id) {
+    let t = UNIT_DB.find(u=>u.id===id);
+    state.units.push({ ...t, uuid: Math.random(), maxHp: t.hp, deployed: false, idx: -1 });
+    updateUI();
+}
+function spawnEnemy(idx, id) {
+    let t = UNIT_DB.find(u=>u.id===id);
+    state.enemies.push({ ...t, uuid: Math.random(), maxHp: t.hp, idx: idx });
+}
+
+function startProd(id) {
+    let u = UNIT_DB.find(x=>x.id===id);
+    if(state.money >= u.cost) {
+        state.money -= u.cost;
+        state.qProd.push({id:id, name:u.name, t:u.prod});
+        closeModal('recruit-modal'); updateUI();
+    } else alert("資金不足");
+}
+function startRes(id) {
+    let u = UNIT_DB.find(x=>x.id===id);
+    if(state.money >= u.res.m && state.parts >= u.res.p) {
+        state.money -= u.res.m; state.parts -= u.res.p;
+        state.qRes.push({id:id, name:u.name, t:u.resT});
+        closeModal('research-modal'); updateUI();
+    } else alert("資源不足");
+}
+
+function updateUI() {
+    document.getElementById('money').innerText = state.money;
+    document.getElementById('parts').innerText = state.parts;
+    document.getElementById('ap').innerText = state.ap;
+    document.getElementById('turn-display').innerText = state.turn;
+
+    // Queue
+    let qEl = document.getElementById('queue-list');
+    qEl.innerHTML = '';
+    state.qProd.forEach(i => qEl.innerHTML += `<div class="list-row"><span>🏭 ${i.name}</span><span>${i.t}回</span></div>`);
+    state.qRes.forEach(i => qEl.innerHTML += `<div class="list-row"><span>🧪 ${i.name}</span><span>${i.t}回</span></div>`);
+
+    // Hangar
+    let hEl = document.getElementById('hangar-list');
+    hEl.innerHTML = '';
+    state.units.filter(u=>!u.deployed).forEach(u => {
+        hEl.innerHTML += `<div class="list-row"><span>${u.name}</span><span>${u.hp}HP</span></div>`;
+    });
+
+    // Build Lists
+    let rList = document.getElementById('research-list');
+    rList.innerHTML = '';
+    UNIT_DB.filter(u=>!u.unlocked && u.res).forEach(u => {
+        let ing = state.qRes.find(q=>q.id===u.id);
+        rList.innerHTML += `<div class="list-row"><div>${u.name}<br><small>$${u.res.m} ⚙️${u.res.p}</small></div><button class="btn btn-small" ${ing?'disabled':''} onclick="startRes(${u.id})">${ing?'中':'研發'}</button></div>`;
+    });
+    let pList = document.getElementById('recruit-list');
+    pList.innerHTML = '';
+    UNIT_DB.filter(u=>u.unlocked && u.id<90).forEach(u => {
+        pList.innerHTML += `<div class="list-row"><div>${u.name}<br><small>$${u.cost}</small></div><button class="btn btn-small" onclick="startProd(${u.id})">生產</button></div>`;
+    });
+}
+
+function log(msg) {
+    let d = document.getElementById('log-area');
+    d.innerHTML += `<div>> ${msg}</div>`;
+    d.scrollTop = d.scrollHeight;
+}
+function openModal(id) { document.getElementById(id).style.display = 'flex'; }
+function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+
+init();
+</script>
+</body>
+</html>
