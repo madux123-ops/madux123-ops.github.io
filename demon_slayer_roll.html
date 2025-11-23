@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>鬼滅之刃：無限城決戰</title>
+    <style>
+        body {
+            margin: 0; padding: 0; background-color: #050505;
+            display: flex; justify-content: center; align-items: center;
+            height: 100vh; font-family: "Microsoft JhengHei", sans-serif;
+            overflow: hidden; user-select: none;
+        }
+        #game-container { position: relative; box-shadow: 0 0 80px rgba(100, 0, 255, 0.3); }
+        /* 背景微調，配合較高的地圖 */
+        canvas { background: linear-gradient(to bottom, #0a0a1a 0%, #16213e 40%, #0f3460 100%); border: 2px solid #666; display: block; }
+        
+        #ui-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;
+            padding: 20px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between;
+        }
+        .status-box { color: white; text-shadow: 2px 2px 0 #000; z-index: 10; }
+        .bar-wrap { width: 280px; height: 14px; background: #222; border: 1px solid #777; margin-top: 4px; position: relative; }
+        .bar-fill { height: 100%; transition: width 0.1s linear; }
+        .skill-icons { display: flex; gap: 8px; margin-top: 10px; }
+        .skill-box {
+            width: 55px; height: 55px; background: rgba(0,0,0,0.6); border: 2px solid #aaa;
+            display: flex; flex-direction: column; justify-content: center; align-items: center; 
+            color: white; font-size: 10px; position: relative;
+        }
+        .skill-key { font-size: 14px; font-weight: bold; color: #f1c40f; }
+        .skill-cd { position: absolute; bottom: 0; left: 0; width: 100%; background: rgba(255, 0, 0, 0.6); height: 0%; transition: height 0.1s; }
+        .v-skill { border-color: #e74c3c !important; box-shadow: 0 0 10px #e74c3c; }
+
+        .overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95);
+            display: flex; flex-direction: column; justify-content: center; align-items: center; color: white; z-index: 100; pointer-events: auto;
+        }
+        .grid-container { 
+            display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-top: 20px; max-width: 850px;
+        }
+        .card {
+            width: 130px; height: 120px; border: 1px solid #555; cursor: pointer; background: #222;
+            display: flex; flex-direction: column; align-items: center; justify-content: center; 
+            transition: 0.2s; padding: 5px; text-align: center;
+        }
+        .card:hover { transform: scale(1.1); border-color: #fff; background: #444; box-shadow: 0 0 15px rgba(255,255,255,0.2); }
+        .boss-warning {
+            position: absolute; top: 35%; width: 100%; text-align: center; color: #ff0044; font-size: 80px; font-weight: 900;
+            display: none; text-shadow: 0 0 30px #ff0044; letter-spacing: 10px; animation: pulse 0.3s infinite alternate;
+        }
+        @keyframes pulse { from {transform:scale(1);} to {transform:scale(1.1);} }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <canvas id="canvas" width="960" height="540"></canvas>
+    
+    <div id="ui-layer" style="display:none;">
+        <div style="display:flex; justify-content:space-between;">
+            <div class="status-box">
+                <div id="p-name" style="font-size: 22px; font-weight: bold;"></div>
+                <div class="bar-wrap"><div id="hp-bar" class="bar-fill" style="background:#e74c3c;"></div></div>
+                <div class="bar-wrap" style="height:6px; margin-top:2px;"><div id="mp-bar" class="bar-fill" style="background:#3498db;"></div></div>
+                <div class="skill-icons">
+                    <div class="skill-box"><span class="skill-key">Z</span><span id="n-z"></span><div id="cd-z" class="skill-cd"></div></div>
+                    <div class="skill-box"><span class="skill-key">X</span><span id="n-x"></span><div id="cd-x" class="skill-cd"></div></div>
+                    <div class="skill-box"><span class="skill-key">C</span><span id="n-c"></span><div id="cd-c" class="skill-cd"></div></div>
+                    <div class="skill-box v-skill"><span class="skill-key" style="color:#ff7675">V</span><span id="n-v"></span><div id="cd-v" class="skill-cd"></div></div>
+                </div>
+            </div>
+            <div class="status-box" style="text-align: right;">
+                <div style="font-size: 24px;">KILL: <span id="score">0</span></div>
+                <div id="boss-ui" style="display:none; margin-top:10px; width:300px;">
+                    <div id="boss-name" style="color:#ff00ff; font-size:16px;"></div>
+                    <div class="bar-wrap" style="width:100%; border-color:#ff00ff;"><div id="boss-hp" class="bar-fill" style="background:#800080;"></div></div>
+                </div>
+            </div>
+        </div>
+        <div id="msg-area" style="text-align:center; color:#ffff00; font-size:24px; font-weight:bold; height:30px; text-shadow: 2px 2px black;"></div>
+    </div>
+
+    <div id="menu-overlay" class="overlay">
+        <h1 style="font-size: 36px; margin: 0 0 10px 0;">鬼滅之刃：無限城決戰</h1>
+        <p style="color:#aaa;">Boss外觀進化 | 召喚小兵機制 | 地圖擴展</p>
+        <div class="grid-container">
+            <div class="card" onclick="startGame('tanjiro')" style="border-bottom: 4px solid #27ae60"><h3>炭治郎</h3><p>水之呼吸<br>V: 毀滅頭槌</p></div>
+            <div class="card" onclick="startGame('zenitsu')" style="border-bottom: 4px solid #f1c40f"><h3>善逸</h3><p>雷之呼吸<br>V: 神速・二連</p></div>
+            <div class="card" onclick="startGame('inosuke')" style="border-bottom: 4px solid #7f8c8d"><h3>伊之助</h3><p>獸之呼吸<br>V: 狂亂雙斬</p></div>
+            <div class="card" onclick="startGame('nezuko')" style="border-bottom: 4px solid #fd79a8"><h3>禰豆子</h3><p>血鬼術<br>V: 爆裂重踏</p></div>
+            <div class="card" onclick="startGame('rengoku')" style="border-bottom: 4px solid #e67e22"><h3>杏壽郎</h3><p>炎之呼吸<br>V: 炎虎噬咬</p></div>
+            <div class="card" onclick="startGame('giyu')" style="border-bottom: 4px solid #34495e"><h3>義勇</h3><p>水之呼吸<br>V: 凪・反擊</p></div>
+            <div class="card" onclick="startGame('shinobu')" style="border-bottom: 4px solid #8e44ad"><h3>胡蝶忍</h3><p>蟲之呼吸<br>V: 致命連刺</p></div>
+            <div class="card" onclick="startGame('tengen')" style="border-bottom: 4px solid #95a5a6"><h3>天元</h3><p>音之呼吸<br>V: 定點爆破</p></div>
+        </div>
+    </div>
+
+    <div id="end-overlay" class="overlay" style="display:none;">
+        <h1 id="end-title" style="font-size: 60px;"></h1>
+        <h3 id="end-score"></h3>
+        <button onclick="location.reload()" style="padding:15px 40px; font-size:20px; cursor:pointer; margin-top:20px;">重新開始</button>
+    </div>
+
+    <div id="warning" class="boss-warning">BOSS WARNING</div>
+</div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+// 1. 地圖範圍向上延伸 (原280 -> 200)
+const GROUND = 200;
+
+const keys = {};
+window.onkeydown = e => keys[e.key.toLowerCase()] = true;
+window.onkeyup = e => keys[e.key.toLowerCase()] = false;
+
+const SKIN_COLOR = '#ffdbac';
+const PALE_SKIN = '#f0e6d2'; // Boss皮膚色
+
+// --- BOSS 資料庫 (加入視覺特徵) ---
+const BOSS_DATA = [
+    {
+        name: "下弦之伍・累", color: "#c0392b", hp: 3000, speed: 1.5,
+        visuals: { hair: '#fff', skin: PALE_SKIN, marks: 'dots' },
+        skills: [
+            { name: "刻線輪轉", type: 'circle_multi', range: 160, dmg: 30, cd: 150, color: '#fff' },
+            { name: "殺目籠", type: 'beam', range: 400, dmg: 40, cd: 200, color: '#eee' },
+            { name: "血鬼術・絲", type: 'projectile', dmg: 20, cd: 100, color: '#f00' }
+        ]
+    },
+    {
+        name: "下弦之壹・魘夢", color: "#8e44ad", hp: 4000, speed: 1.3,
+        visuals: { hair: '#222', hairTip: '#c0392b', skin: PALE_SKIN, marks: 'dream' },
+        skills: [
+            { name: "強制昏睡", type: 'stun_circle', range: 220, dmg: 15, cd: 250, color: '#a29bfe' },
+            { name: "夢境觸手", type: 'slash_multi', range: 130, dmg: 40, cd: 120, color: '#6c5ce7' },
+            { name: "夢話", type: 'projectile', dmg: 25, cd: 80, color: '#d1ccc0' }
+        ]
+    },
+    {
+        name: "上弦之陸・墮姬", color: "#fd79a8", hp: 6000, speed: 2.0,
+        visuals: { hair: '#silver', hairTip: '#90ee90', skin: PALE_SKIN, marks: 'sash' },
+        skills: [
+            { name: "八重帶斬", type: 'slash_multi', range: 200, dmg: 50, cd: 120, color: '#e84393' },
+            { name: "蚯蚓帶", type: 'dash', range: 280, dmg: 60, cd: 180, color: '#ff7675' },
+            { name: "血鬼術・帶", type: 'beam', range: 380, dmg: 45, cd: 150, color: '#d63031' }
+        ]
+    },
+    {
+        name: "上弦之參・猗窩座", color: "#ff00ff", hp: 8000, speed: 2.5,
+        visuals: { hair: '#ff69b4', skin: PALE_SKIN, marks: 'stripes' },
+        skills: [
+            { name: "破壞殺・亂式", type: 'dash_knock', range: 220, dmg: 70, cd: 140, color: '#00BFFF' },
+            { name: "破壞殺・腳式", type: 'circle', range: 180, dmg: 80, cd: 160, color: '#1e90ff' },
+            { name: "術式展開・羅針", type: 'buff_inv', range: 120, dmg: 25, cd: 300, color: '#87cefa' }
+        ]
+    },
+    {
+        name: "上弦之壹・黑死牟", color: "#333", hp: 12000, speed: 2.2,
+        visuals: { hair: '#000', skin: PALE_SKIN, marks: 'eyes' },
+        skills: [
+            { name: "月之呼吸", type: 'slash_multi', range: 320, dmg: 90, cd: 100, color: '#f1c40f' },
+            { name: "災禍月魄", type: 'circle_multi', range: 280, dmg: 110, cd: 200, color: '#e67e22' },
+            { name: "虛哭神去", type: 'beam', range: 550, dmg: 130, cd: 280, color: '#d35400' }
+        ]
+    }
+];
+
+// 角色數據
+const CHAR_DATA = {
+    tanjiro: {
+        name: "竈門 炭治郎", color: "#27ae60", hair:'#7f3e3e', hp: 350, mp: 120, speed: 4.5, haori: 'checkered',
+        skills: {
+            z: { name: "水面斬", type: 'slash', dmg: 20, cost: 0, cd: 15, rangeX: 90, rangeY: 40, color: '#00BFFF' },
+            x: { name: "水之車", type: 'dash', dmg: 40, cost: 25, cd: 60, rangeX: 180, rangeY: 30, color: '#00BFFF' },
+            c: { name: "火之神", type: 'circle', dmg: 100, cost: 60, cd: 180, rangeX: 140, rangeY: 140, color: '#FF4500' },
+            v: { name: "毀滅頭槌", type: 'stun', dmg: 80, cost: 20, cd: 100, rangeX: 60, rangeY: 30, color: '#ddd' }
+        }
+    },
+    zenitsu: {
+        name: "我妻 善逸", color: "#f1c40f", hair:'#f1c40f', hp: 280, mp: 150, speed: 7, haori: 'triangle',
+        skills: {
+            z: { name: "一閃", type: 'slash', dmg: 18, cost: 0, cd: 12, rangeX: 70, rangeY: 20, color: '#FFFFE0' },
+            x: { name: "六連", type: 'dash_pierce', dmg: 35, cost: 20, cd: 50, rangeX: 350, rangeY: 20, color: '#FFD700' },
+            c: { name: "火雷神", type: 'beam', dmg: 140, cost: 70, cd: 220, rangeX: 600, rangeY: 60, color: '#FFF' },
+            v: { name: "神速", type: 'dash', dmg: 110, cost: 40, cd: 150, rangeX: 550, rangeY: 40, color: '#fffacd' }
+        }
+    },
+    inosuke: {
+        name: "嘴平 伊之助", color: "#7f8c8d", hair:null, hp: 400, mp: 100, speed: 5, haori: null,
+        skills: {
+            z: { name: "獠牙", type: 'slash', dmg: 25, cost: 0, cd: 20, rangeX: 70, rangeY: 50, color: '#BDC3C7' },
+            x: { name: "豬突猛進", type: 'dash_knock', dmg: 55, cost: 25, cd: 90, rangeX: 150, rangeY: 60, color: '#95a5a6' },
+            c: { name: "空間識覺", type: 'circle_multi', dmg: 90, cost: 45, cd: 160, rangeX: 160, rangeY: 160, color: '#3498db' },
+            v: { name: "狂亂斬", type: 'slash_multi', dmg: 100, cost: 30, cd: 120, rangeX: 110, rangeY: 60, color: '#bbb' }
+        }
+    },
+    nezuko: {
+        name: "竈門 禰豆子", color: "#fd79a8", hair:'#000', hp: 380, mp: 120, speed: 5.5, haori: 'kimono',
+        skills: {
+            z: { name: "踢擊", type: 'slash', dmg: 30, cost: 0, cd: 18, rangeX: 60, rangeY: 30, color: '#d63031' },
+            x: { name: "爆血", type: 'circle', dmg: 60, cost: 30, cd: 80, rangeX: 100, rangeY: 100, color: '#e84393' },
+            c: { name: "覺醒", type: 'dash', dmg: 120, cost: 60, cd: 190, rangeX: 200, rangeY: 50, color: '#ff7675' },
+            v: { name: "爆裂重踏", type: 'circle', dmg: 130, cost: 40, cd: 140, rangeX: 140, rangeY: 70, color: '#a00' }
+        }
+    },
+    rengoku: {
+        name: "煉獄 杏壽郎", color: "#e67e22", hair:'#f39c12', hp: 420, mp: 120, speed: 4.8, haori: 'flame',
+        skills: {
+            z: { name: "不知火", type: 'dash', dmg: 30, cost: 0, cd: 25, rangeX: 120, rangeY: 40, color: '#e74c3c' },
+            x: { name: "盛炎之渦", type: 'circle', dmg: 55, cost: 30, cd: 90, rangeX: 110, rangeY: 110, color: '#d35400' },
+            c: { name: "煉獄", type: 'dash_pierce', dmg: 160, cost: 80, cd: 250, rangeX: 400, rangeY: 80, color: '#ff4757' },
+            v: { name: "炎虎", type: 'beam', dmg: 150, cost: 50, cd: 180, rangeX: 280, rangeY: 70, color: '#ff6b6b' }
+        }
+    },
+    giyu: {
+        name: "富岡 義勇", color: "#2c3e50", hair:'#000', hp: 360, mp: 130, speed: 4.5, haori: 'split',
+        skills: {
+            z: { name: "水面斬", type: 'slash', dmg: 22, cost: 0, cd: 15, rangeX: 80, rangeY: 40, color: '#3498db' },
+            x: { name: "流流舞", type: 'dash', dmg: 40, cost: 20, cd: 60, rangeX: 150, rangeY: 50, color: '#2980b9' },
+            c: { name: "生生流轉", type: 'beam', dmg: 130, cost: 60, cd: 200, rangeX: 300, rangeY: 70, color: '#0984e3' },
+            v: { name: "凪・反擊", type: 'buff_inv', dmg: 60, cost: 40, cd: 200, rangeX: 100, rangeY: 100, color: '#74b9ff' }
+        }
+    },
+    shinobu: {
+        name: "胡蝶 忍", color: "#8e44ad", hair:'#000', hp: 250, mp: 160, speed: 7.5, haori: 'butterfly',
+        skills: {
+            z: { name: "戲弄", type: 'dash', dmg: 12, cost: 0, cd: 8, rangeX: 100, rangeY: 20, color: '#a29bfe' },
+            x: { name: "蜂牙", type: 'slash', dmg: 35, cost: 15, cd: 40, rangeX: 50, rangeY: 20, color: '#6c5ce7' },
+            c: { name: "蜈蚣舞", type: 'dash_pierce', dmg: 100, cost: 50, cd: 150, rangeX: 400, rangeY: 40, color: '#8e44ad' },
+            v: { name: "致命連刺", type: 'triangle', dmg: 90, cost: 30, cd: 100, rangeX: 120, width: 80, color: '#a29bfe' }
+        }
+    },
+    tengen: {
+        name: "宇髓 天元", color: "#95a5a6", hair:'#eee', hp: 380, mp: 110, speed: 5.2, haori: null,
+        skills: {
+            z: { name: "鳴弦奏", type: 'slash', dmg: 35, cost: 0, cd: 30, rangeX: 80, rangeY: 60, color: '#bdc3c7' },
+            x: { name: "炸藥丸", type: 'circle', dmg: 70, cost: 30, cd: 100, rangeX: 130, rangeY: 130, color: '#f39c12' },
+            c: { name: "譜面", type: 'circle_multi', dmg: 150, cost: 70, cd: 240, rangeX: 250, rangeY: 250, color: '#e67e22' },
+            v: { name: "定點爆破", type: 'distant_boom', dmg: 120, cost: 40, cd: 120, rangeX: 200, radius: 100, color: '#555' }
+        }
+    }
+};
+
+const state = { 
+    run: false, score: 0, entities: [], allies: [], particles: [], 
+    texts: [], projectiles: [], items: [], 
+    player: null, boss: null, shake: 0, bossIndex: 0
+};
+
+// --- 類別 ---
+
+class FloatingText {
+    constructor(text, x, y, color, size, velocityY) {
+        this.text = text; this.x = x; this.y = y; this.color = color;
+        this.size = size; this.life = 40; this.vy = velocityY;
+    }
+    update() { this.y -= this.vy; this.life--; }
+    draw() {
+        ctx.save(); ctx.globalAlpha = Math.max(0, this.life/40);
+        ctx.fillStyle = this.color; ctx.font = `bold ${this.size}px Arial`;
+        ctx.strokeStyle = '#000'; ctx.lineWidth = 3;
+        ctx.strokeText(this.text, this.x, this.y); ctx.fillText(this.text, this.x, this.y);
+        ctx.restore();
+    }
+}
+
+class Item {
+    constructor(x, y, type) { 
+        this.x = x; this.y = y; this.type = type;
+        this.yBase = y; this.floatOffset = Math.random() * Math.PI * 2;
+        this.life = 600; 
+    }
+    update() {
+        this.life--; this.floatOffset += 0.1;
+        let p = state.player;
+        if (Math.abs(p.x - this.x) < 40 && Math.abs(p.y - this.y) < 40) {
+            if (this.type === 'potion') {
+                p.hp = Math.min(p.hp + 200, p.maxHp);
+                state.texts.push(new FloatingText("+200 HP", p.x, p.y-80, '#2ecc71', 30, 1));
+            } else if (this.type === 'summon') {
+                spawnAlly();
+                state.texts.push(new FloatingText("強力支援!", p.x, p.y-80, '#f1c40f', 30, 1));
+            }
+            this.life = 0; 
+        }
+    }
+    draw() {
+        let drawY = this.y - 30 + Math.sin(this.floatOffset) * 5;
+        ctx.save(); ctx.translate(this.x, drawY);
+        if (this.type === 'potion') {
+            ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(0,0,15,0,Math.PI*2); ctx.fill();
+            ctx.fillStyle = '#2ecc71'; ctx.beginPath(); ctx.moveTo(-8,5); ctx.lineTo(0,-10); ctx.lineTo(8,5); ctx.fill();
+        } else {
+            ctx.fillStyle = '#f1c40f'; ctx.beginPath(); ctx.arc(0,0,15,0,Math.PI*2); ctx.fill();
+            ctx.fillStyle = '#000'; ctx.font="20px Arial"; ctx.textAlign="center"; ctx.fillText("鴉", 0, 7);
+        }
+        ctx.restore();
+    }
+}
+
+class Entity {
+    constructor(x, y, w, h, color) {
+        this.x = x; this.y = y; this.w = w; this.h = h; this.color = color;
+        this.hp = 100; this.maxHp = 100; this.dir = 1; this.hitTimer = 0; this.dead = false;
+    }
+    takeDamage(amt) {
+        this.hp -= amt; this.hitTimer = 8;
+        state.texts.push(new FloatingText(Math.floor(amt), this.x, this.y-this.h, '#fff', 24, 2));
+        if (this.hp <= 0) this.dead = true;
+        for(let i=0; i<5; i++) state.particles.push({x:this.x, y:this.y-this.h/2, vx:(Math.random()-0.5)*10, vy:(Math.random()-0.5)*10, life:20, color: this.hp<=0?'#fff':'#a00'});
+    }
+    
+    drawFeatures(key, dir) {
+        if (key !== 'inosuke') {
+            ctx.fillStyle = SKIN_COLOR; ctx.fillRect(-15, -65, 30, 25);
+            ctx.fillStyle = '#fff'; ctx.fillRect(dir > 0 ? 2 : -12, -55, 8, 6);
+            ctx.fillStyle = '#000'; ctx.fillRect(dir > 0 ? 6 : -8, -53, 3, 3);
+            ctx.fillStyle = '#d3a37f'; ctx.fillRect(dir > 0 ? 8 : -10, -48, 2, 2); ctx.fillRect(dir > 0 ? 5 : -8, -43, 6, 1);
+        }
+        let hairColor = CHAR_DATA[key].hair;
+        if (hairColor) {
+            ctx.fillStyle = hairColor;
+            ctx.beginPath(); ctx.moveTo(-20, -60); ctx.lineTo(-15, -78); ctx.lineTo(15, -78); ctx.lineTo(20, -60); ctx.lineTo(dir*22, -45); ctx.fill();
+        }
+        if (key === 'tanjiro') { ctx.fillStyle = '#800'; ctx.fillRect(-18, -62, 8, 8); }
+        if (key === 'nezuko') { ctx.fillStyle = '#27ae60'; ctx.fillRect(dir > 0 ? 2 : -14, -45, 12, 6); }
+        if (key !== 'inosuke' && key !== 'nezuko') { ctx.fillStyle = '#fff'; ctx.fillRect(-20, -35, 40, 8); } // 腰帶
+    }
+}
+
+class Ally extends Entity {
+    constructor(key) {
+        let d = CHAR_DATA[key];
+        super(state.player.x - 50, state.player.y, 40, 70, d.color);
+        this.data = d; this.key = key;
+        this.lifeTime = 1200; this.hp = 9999; this.atkCd = 0;
+    }
+    update() {
+        this.lifeTime--;
+        let target = null; let minDis = 9999;
+        let targets = [...state.entities]; if(state.boss) targets.push(state.boss);
+        targets.forEach(e => { let d = Math.abs(e.x-this.x)+Math.abs(e.y-this.y); if(d<minDis){minDis=d;target=e;} });
+        if (target) {
+            let dx=target.x-this.x, dy=target.y-this.y;
+            if (Math.abs(dx)>40 || Math.abs(dy)>10) { this.x+=(dx>0?1:-1)*3.5; this.y+=(dy>0?1:-1)*3.5; this.dir=dx>0?1:-1; }
+            else if (this.atkCd<=0) {
+                target.takeDamage(40); this.atkCd=35;
+                createSkillEffect(this, {type:'slash', color:this.data.skills.z.color, rangeX:60}, 0);
+            }
+        }
+        if(this.atkCd > 0) this.atkCd--;
+    }
+    draw() {
+        ctx.save(); ctx.translate(this.x, this.y); ctx.globalAlpha = 0.8;
+        if(this.key==='inosuke') { ctx.fillStyle='#d1ccc0'; ctx.fillRect(-20,-75,40,30); ctx.fillStyle='#000'; ctx.fillRect(this.dir*10,-60,5,5); }
+        ctx.fillStyle = this.color; ctx.fillRect(-20,-70,40,70);
+        this.drawFeatures(this.key, this.dir);
+        ctx.fillStyle = 'white'; ctx.fillRect(-20, -90, 40 * (this.lifeTime/1200), 4);
+        ctx.restore();
+    }
+}
+
+class Player extends Entity {
+    constructor(key) {
+        let d = CHAR_DATA[key];
+        super(100, 400, 40, 70, d.color);
+        this.data = d; this.key = key;
+        this.hp = d.hp; this.maxHp = d.hp; this.mp = d.mp; this.maxMp = d.mp;
+        this.cds = {z:0, x:0, c:0, v:0}; this.action = null; 
+    }
+    update() {
+        if (this.mp < this.maxMp) this.mp += 0.3;
+        Object.keys(this.cds).forEach(k => {if(this.cds[k]>0) this.cds[k]--});
+        if (this.hitTimer > 0) this.hitTimer--;
+        if (this.action) { this.action.timer--; if (this.action.timer <= 0) this.action = null; return; }
+
+        let speed = this.data.speed;
+        if (keys['arrowup'] && this.y > GROUND) this.y -= speed;
+        if (keys['arrowdown'] && this.y < H-10) this.y += speed;
+        if (keys['arrowleft'] && this.x > 30) { this.x -= speed; this.dir = -1; }
+        if (keys['arrowright'] && this.x < W-30) { this.x += speed; this.dir = 1; }
+
+        ['z','x','c','v'].forEach(k => { if(keys[k]) this.useSkill(k); });
+    }
+
+    useSkill(k) {
+        let s = this.data.skills[k];
+        if (this.cds[k] > 0 || this.mp < s.cost) return;
+        this.mp -= s.cost; this.cds[k] = s.cd;
+        this.action = { type: s.type, timer: 18, maxTimer: 18, skillData: s };
+        state.texts.push(new FloatingText(s.name, this.x, this.y - 80, s.color, 24, 0.5));
+        
+        if (s.type === 'projectile') {
+            for(let i=0; i<3; i++) state.projectiles.push({x:this.x, y:this.y-35, vx:Math.cos((i-1)*0.2)*10*this.dir, vy:Math.sin((i-1)*0.2)*10, life:60, color:s.color, owner:'player', dmg:s.dmg});
+            return;
+        }
+
+        let targets = [...state.entities]; if (state.boss) targets.push(state.boss);
+        targets.forEach(e => {
+            let dx = e.x - this.x, dy = Math.abs(e.y - this.y);
+            let hit = false;
+            
+            if (s.type === 'triangle') {
+                if (dx * this.dir > 0 && Math.abs(dx) < s.rangeX) { if (dy < (Math.abs(dx) / s.rangeX) * (s.width / 2)) hit = true; }
+            } else if (s.type === 'distant_boom') {
+                let centerX = this.x + this.dir * s.rangeX;
+                if (Math.sqrt((e.x - centerX)**2 + (e.y - this.y)**2) < s.radius) hit = true;
+            } else if (s.type === 'buff_inv' || s.type === 'stun_circle') { 
+                 if (Math.abs(dx) < s.rangeX && dy < (s.rangeY||s.rangeX)) hit = true;
+            } else {
+                 if (dy > 45) return;
+                 if (s.type.includes('circle')) { if (Math.sqrt(dx*dx + dy*dy) < s.rangeX) hit = true; }
+                 else if (s.type === 'beam') { if (dx * this.dir > 0 && Math.abs(dx) < s.rangeX && dy < 25) hit = true; }
+                 else { if (dx * this.dir > 0 && Math.abs(dx) < s.rangeX) hit = true; }
+            }
+
+            if (hit) {
+                e.takeDamage(s.dmg); state.shake = 5;
+                if(s.type.includes('stun')) e.hitTimer += 50; 
+                if (!s.type.includes('circle') && s.type !== 'buff_inv' && s.type !== 'distant_boom') e.x += this.dir * 30;
+            }
+        });
+        if(s.type === 'buff_inv') state.projectiles = state.projectiles.filter(p => Math.sqrt((p.x-this.x)**2+(p.y-(this.y-35))**2) > 80);
+    }
+
+    draw() {
+        ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(this.x, this.y, 20, 8, 0, 0, Math.PI*2); ctx.fill();
+        ctx.save(); ctx.translate(this.x, this.y);
+        if (this.hitTimer > 0 && Math.floor(Date.now()/50)%2) ctx.globalAlpha = 0.5;
+
+        ctx.fillStyle = this.color; ctx.fillRect(-20, -70, 40, 70); 
+        let h = this.data.haori;
+        if (h === 'checkered') {
+             ctx.fillStyle = '#000'; for(let i=0; i<4; i++) for(let j=0; j<7; j++) if((i+j)%2) ctx.fillRect(-20+i*10, -70+j*10, 10, 10);
+        } else if (h === 'triangle') {
+             ctx.fillStyle = '#fff'; for(let i=0; i<3; i++) { ctx.beginPath(); ctx.moveTo(-15+i*15,-70); ctx.lineTo(-7.5+i*15,-60); ctx.lineTo(0+i*15,-70); ctx.fill(); }
+        } else if (h === 'split') {
+             ctx.fillStyle = '#a52a2a'; ctx.fillRect(-20, -70, 20, 70);
+             ctx.fillStyle = '#27ae60'; ctx.fillRect(0, -70, 20, 70); ctx.fillStyle='#f1c40f'; for(let i=0;i<2;i++) for(let j=0;j<7;j++) ctx.fillRect(i*10, -70+j*10, 5, 5);
+        } else if (h === 'flame') {
+             ctx.fillStyle = '#f1c40f'; ctx.beginPath(); ctx.moveTo(-20,-10); ctx.lineTo(0,-30); ctx.lineTo(20,-10); ctx.lineTo(20,0); ctx.lineTo(-20,0); ctx.fill();
+        } else if (h === 'kimono') {
+             ctx.fillStyle = '#000'; ctx.fillRect(-20,-70,40,25); ctx.fillStyle = '#d63031'; ctx.fillRect(-18,-30,10,10); ctx.fillRect(8,-20,10,10);
+        } else if (h === 'butterfly') {
+            ctx.fillStyle = '#ccc'; ctx.beginPath(); ctx.moveTo(-20,-10); ctx.lineTo(-20,0); ctx.lineTo(20,0); ctx.lineTo(20,-10); ctx.lineTo(0,-30); ctx.fill();
+        }
+
+        if (this.key === 'inosuke') {
+             ctx.fillStyle = '#d1ccc0'; ctx.fillRect(-20, -75, 40, 30); ctx.fillStyle = '#000'; ctx.fillRect(this.dir*10, -60, 5, 5);
+        } else {
+             this.drawFeatures(this.key, this.dir);
+        }
+
+        if (this.action) createSkillEffect(this, this.action.skillData, this.action.maxTimer - this.action.timer);
+        ctx.restore();
+    }
+}
+
+function createSkillEffect(entity, s, timePassed) {
+    ctx.fillStyle = s.color; ctx.strokeStyle = s.color; ctx.lineWidth = 4;
+    if (s.type === 'triangle') {
+        ctx.globalAlpha = 0.6; ctx.beginPath(); ctx.moveTo(0, -35); ctx.lineTo(entity.dir * s.rangeX, -35 - s.width/2); ctx.lineTo(entity.dir * s.rangeX, -35 + s.width/2); ctx.fill();
+    } else if (s.type === 'distant_boom') {
+         ctx.globalAlpha = 0.5; ctx.beginPath(); ctx.arc(entity.dir * s.rangeX, -35, s.radius, 0, Math.PI*2); ctx.fill();
+    } else if (s.type === 'slash' || s.type === 'stun') {
+        ctx.beginPath(); ctx.moveTo(0,-35); ctx.lineTo(entity.dir*s.rangeX, -35 + (Math.random()-0.5)*40); ctx.stroke();
+    } else if (s.type.includes('dash') || s.type === 'slash_multi') {
+        ctx.globalAlpha = 0.5; ctx.fillRect(0, -60, entity.dir * s.rangeX, 60);
+    } else if (s.type === 'beam') {
+        ctx.fillRect(0, -45, entity.dir * s.rangeX, 20);
+    } else if (s.type.includes('circle') || s.type === 'buff_inv' || s.type === 'stun_circle') {
+        ctx.globalAlpha = 0.4; ctx.beginPath(); ctx.arc(0, -35, s.rangeX, 0, Math.PI*2); ctx.fill();
+    }
+}
+
+class Enemy extends Entity {
+    constructor(x, y, type, bossData = null) {
+        let isBoss = type === 'boss';
+        super(x, y, isBoss?70:40, isBoss?90:70, isBoss?bossData.color:(type==='ranged'?'#2980b9':'#c0392b'));
+        this.type = type; this.isBoss = isBoss;
+        this.hp = isBoss ? bossData.hp : (type==='ranged'?50:80);
+        this.maxHp = this.hp; this.speed = isBoss ? bossData.speed : 1.3; this.atkCd = 0;
+        
+        if(isBoss) { 
+            this.bossData = bossData; 
+            this.bossSkillCds = [0,0,0]; 
+            this.bossGlobalCd = 0; 
+            this.isCharging = false;
+            this.chargeTimer = 0;
+            this.pendingSkill = null;
+            this.summonTimer = 500; // 2. BOSS召喚計時器
+        }
+    }
+    update(p) {
+        if (this.hitTimer>0) { this.hitTimer--; return; } if (this.dead) return;
+        
+        if (this.isBoss) {
+            if (this.bossGlobalCd > 0) this.bossGlobalCd--;
+            this.bossSkillCds.forEach((cd,i) => { if(cd>0) this.bossSkillCds[i]-- });
+            
+            // 2. BOSS召喚邏輯
+            this.summonTimer--;
+            if (this.summonTimer <= 0) {
+                if (state.entities.length < 8) {
+                     let type = Math.random()<0.3 ? 'ranged' : 'melee';
+                     let spawnX = Math.random() < 0.5 ? -50 : W + 50;
+                     state.entities.push(new Enemy(spawnX, Math.random()*(H-GROUND-20)+GROUND, type));
+                     state.texts.push(new FloatingText("雜魚召喚!", this.x, this.y - 120, '#aaa', 24, 1));
+                }
+                this.summonTimer = 600 + Math.random() * 300; // 重置(10-15秒)
+            }
+
+            if (this.isCharging) {
+                this.chargeTimer--;
+                if (this.chargeTimer <= 0) {
+                    this.executeBossSkill(p);
+                    this.isCharging = false;
+                    this.bossGlobalCd = 180; 
+                }
+                return; 
+            }
+        }
+
+        let target = p; let minDis = Math.abs(p.x-this.x)+Math.abs(p.y-this.y);
+        state.allies.forEach(a => { let d = Math.abs(a.x-this.x)+Math.abs(a.y-this.y); if(d<minDis){minDis=d;target=a;} });
+
+        let dx = target.x-this.x, dy = target.y-this.y; let dist = Math.sqrt(dx*dx+dy*dy);
+        let stopDist = this.type === 'ranged' ? 350 : (this.isBoss?150:40);
+        
+        if (Math.abs(dx)>stopDist || Math.abs(dy)>20) {
+            this.x+=(dx>0?1:-1)*this.speed; this.y+=(dy>0?1:-1)*this.speed; this.dir=dx>0?1:-1;
+        }
+
+        if (this.isBoss) {
+            if (this.bossGlobalCd <= 0) {
+                let availableSkills = [];
+                this.bossData.skills.forEach((s, i) => { if(this.bossSkillCds[i] <= 0) availableSkills.push({s, i}); });
+                if (availableSkills.length > 0) {
+                    let chosen = availableSkills[Math.floor(Math.random()*availableSkills.length)];
+                    this.startCharging(chosen.s, chosen.i); 
+                }
+            }
+        } else {
+            if (this.atkCd <= 0) {
+                if (this.type === 'ranged' && Math.abs(dy) < 60) {
+                    state.projectiles.push({x:this.x, y:this.y-35, vx:Math.cos(Math.atan2(dy,dx))*8, vy:Math.sin(Math.atan2(dy,dx))*8, life:100, color:'#f00', owner:'enemy'});
+                    this.atkCd = 200; 
+                } else if (dist < 90) {
+                    target.takeDamage(10); this.atkCd = 110;
+                }
+            } else { this.atkCd--; }
+        }
+    }
+
+    startCharging(skill, index) {
+        this.isCharging = true;
+        this.chargeTimer = 70; 
+        this.pendingSkill = skill;
+        this.bossSkillCds[index] = skill.cd;
+        state.texts.push(new FloatingText("⚠ " + skill.name, this.x, this.y - 120, '#ff0000', 30, 0.2));
+    }
+
+    executeBossSkill(target) {
+        let s = this.pendingSkill;
+        state.shake = 10;
+        
+        if (s.type === 'projectile') {
+             state.projectiles.push({x:this.x, y:this.y-40, vx:this.dir*9, vy:0, life:80, color:s.color, owner:'enemy', dmg:s.dmg});
+        } else {
+            let targets = [state.player, ...state.allies];
+            targets.forEach(e => {
+                let dx = e.x - this.x, dy = Math.abs(e.y - this.y);
+                let hit = false;
+                if (s.type.includes('circle') || s.type === 'buff_inv' || s.type === 'stun_circle') { if (Math.sqrt(dx*dx + dy*dy) < s.range) hit = true; }
+                else if (s.type === 'beam') { if (dx * this.dir > 0 && Math.abs(dx) < s.range && dy < 30) hit = true; }
+                else { if (dx * this.dir > 0 && Math.abs(dx) < s.range && dy < 50) hit = true; }
+
+                if (hit) {
+                    e.takeDamage(s.dmg);
+                    if(s.type.includes('knock')) e.x += this.dir * 80;
+                    if(s.type.includes('stun')) e.hitTimer += 60;
+                }
+            });
+            createSkillEffect(this, {type: s.type.includes('circle')||s.type.includes('stun')?'circle':'beam', color:s.color, rangeX:s.range}, 0);
+        }
+    }
+
+    draw() {
+        ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(this.x, this.y, this.w/2, 8, 0, 0, Math.PI*2); ctx.fill();
+        
+        if (this.isBoss && this.isCharging && this.pendingSkill) {
+            let s = this.pendingSkill;
+            ctx.save();
+            ctx.translate(this.x, this.y);
+            ctx.fillStyle = `rgba(255, 0, 0, ${0.2 + Math.sin(Date.now()/50)*0.1})`; 
+            ctx.strokeStyle = 'red'; ctx.lineWidth = 2;
+            
+            if (s.type.includes('circle') || s.type === 'buff_inv' || s.type === 'stun_circle') {
+                ctx.beginPath(); ctx.arc(0, 0, s.range, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+            } else if (s.type === 'beam' || s.type.includes('slash')) {
+                ctx.fillRect(0, -30, this.dir * s.range, 60); ctx.strokeRect(0, -30, this.dir * s.range, 60);
+            } else if (s.type.includes('dash')) {
+                ctx.fillRect(0, -40, this.dir * s.range, 80); ctx.strokeRect(0, -40, this.dir * s.range, 80);
+            }
+            ctx.restore();
+        }
+
+        ctx.save(); ctx.translate(this.x, this.y);
+        if (this.hitTimer>0) ctx.globalAlpha = 0.5;
+        // 身體基底
+        ctx.fillStyle = this.color; ctx.fillRect(-this.w/2, -this.h, this.w, this.h);
+        
+        if (!this.isBoss && this.type !== 'ranged') {
+            // 雜兵臉
+            ctx.fillStyle = SKIN_COLOR; ctx.fillRect(-10, -this.h+10, 20, 20);
+            ctx.fillStyle = 'yellow'; ctx.fillRect(this.dir>0?2:-8, -this.h+15, 6, 4); 
+            ctx.fillStyle = 'red'; ctx.fillRect(this.dir>0?2:-8, -this.h+25, 6, 2);
+        }
+        
+        // 2. BOSS 視覺特徵繪製 (新)
+        if (this.isBoss) {
+            const v = this.bossData.visuals;
+            // 皮膚與臉部
+            ctx.fillStyle = v.skin; ctx.fillRect(-this.w/2+5, -this.h+5, this.w-10, 30);
+            // 眼睛
+            ctx.fillStyle = (this.bossData.name.includes('黑死牟')) ? 'red' : 'yellow';
+            ctx.fillRect(this.dir>0?8:-18, -this.h+15, 10, 6);
+            
+            // 頭髮
+            if (v.hair) {
+                ctx.fillStyle = v.hair;
+                ctx.beginPath(); ctx.moveTo(-this.w/2, -this.h+10); ctx.lineTo(this.w/2, -this.h+10);
+                ctx.lineTo(this.w/2+5, -this.h-15); ctx.lineTo(-this.w/2-5, -this.h-15); ctx.fill();
+                if(v.hairTip) { ctx.fillStyle = v.hairTip; ctx.fillRect(this.dir>0?this.w/2:-this.w/2-10, -this.h, 10, 20); }
+            }
+
+            // 特殊標記
+            if (v.marks === 'dots') { // 累
+                ctx.fillStyle = 'red'; ctx.fillRect(this.dir>0?12:-14, -this.h+25, 3, 3); ctx.fillRect(this.dir>0?16:-18, -this.h+22, 3, 3);
+            } else if (v.marks === 'dream') { // 魘夢
+                ctx.fillStyle = '#333'; ctx.fillRect(this.dir>0?8:-18, -this.h+25, 10, 2); ctx.fillRect(this.dir>0?12:-14, -this.h+28, 2, 6);
+            } else if (v.marks === 'sash') { // 墮姬
+                ctx.fillStyle = '#ffb6c1'; ctx.fillRect(-this.w/2, -this.h/2-10, this.w, 15);
+            } else if (v.marks === 'stripes') { // 猗窩座
+                ctx.fillStyle = '#1e90ff'; ctx.fillRect(-this.w/2+5, -this.h+10, this.w-10, 3); ctx.fillRect(0, -this.h, 3, this.h);
+            } else if (v.marks === 'eyes') { // 黑死牟
+                ctx.fillStyle = 'red'; ctx.fillRect(0, -this.h+10, 4, 4); ctx.fillRect(0, -this.h+20, 4, 4);
+            }
+            
+            // 外框
+            ctx.strokeStyle = '#fff'; ctx.lineWidth=3; ctx.strokeRect(-this.w/2+5, -this.h+5, this.w-10, this.h-10);
+
+        } else if (this.type==='ranged') {
+            ctx.fillStyle = '#0ff'; ctx.fillRect(0, -this.h/2, 10, 10);
+        }
+        
+        if (!this.isBoss && this.hp < this.maxHp) {
+            ctx.fillStyle = 'red'; ctx.fillRect(-20,-this.h-10,40,4);
+            ctx.fillStyle = '#0f0'; ctx.fillRect(-20,-this.h-10,40*(this.hp/this.maxHp),4);
+        }
+        ctx.restore();
+    }
+}
+
+// --- 系統 ---
+
+function loop() {
+    if (!state.run) return;
+    ctx.clearRect(0,0,W,H);
+    ctx.save();
+    if (state.shake > 0) { ctx.translate((Math.random()-0.5)*state.shake, (Math.random()-0.5)*state.shake); state.shake *= 0.9; if(state.shake<0.5) state.shake=0; }
+
+    state.player.update(); if (state.player.hp <= 0) return gameOver(false);
+
+    if (!state.bossSpawned) {
+        if (state.score > 0 && state.score % 20 === 0) spawnBoss();
+        else if (state.entities.length < 6 && Math.random() < 0.018) {
+            state.entities.push(new Enemy(W+60, Math.random()*(H-GROUND-20)+GROUND, Math.random()<0.25?'ranged':'melee'));
+        }
+    }
+
+    state.allies.forEach((a,i) => { a.update(); if(a.lifeTime<=0) state.allies.splice(i,1); });
+
+    let allEnemies = [...state.entities]; if(state.boss) allEnemies.push(state.boss);
+    allEnemies.forEach(e => {
+        if(e) {
+            e.update(state.player);
+            if(e.dead) {
+                if(e.isBoss) { state.boss = null; state.bossSpawned = false; document.getElementById('boss-ui').style.display='none'; }
+                else { state.entities = state.entities.filter(ent => ent !== e); }
+                if (Math.random() < 0.35) state.items.push(new Item(e.x, e.y, Math.random()<0.6?'potion':'summon'));
+                state.score++;
+            }
+        }
+    });
+
+    state.items.forEach((item, i) => { item.update(); if(item.life<=0) state.items.splice(i,1); });
+
+    state.projectiles.forEach((p, i) => {
+        p.x += p.vx; p.y += p.vy; p.life--;
+        if (p.owner === 'enemy') {
+            let targets = [state.player, ...state.allies];
+            targets.forEach(t => { if(p.life>0 && Math.abs(p.x-t.x)<25 && Math.abs(p.y-t.y+35)<35) { t.takeDamage(p.dmg||15); p.life=0; } });
+        } else if (p.owner === 'player') {
+             allEnemies.forEach(e => { if(p.life>0 && Math.abs(p.x-e.x)<30 && Math.abs(p.y-e.y+35)<40) { e.takeDamage(p.dmg); p.life=0; } });
+        }
+        if(p.life<=0) state.projectiles.splice(i,1);
+    });
+
+    state.particles.forEach((p, i) => { p.x+=p.vx; p.y+=p.vy; p.life--; if(p.life<=0) state.particles.splice(i,1); });
+    state.texts.forEach((t, i) => { t.update(); if(t.life<=0) state.texts.splice(i,1); });
+
+    ctx.strokeStyle = '#555'; ctx.beginPath(); ctx.moveTo(0, GROUND); ctx.lineTo(W, GROUND); ctx.stroke();
+
+    let renderList = [...state.entities, state.player, ...state.allies, ...state.items, ...state.particles, ...state.texts];
+    if(state.boss) renderList.push(state.boss);
+    renderList.sort((a,b) => (a.y||0) - (b.y||0));
+
+    renderList.forEach(e => { if(e.draw) e.draw(); else { ctx.fillStyle=e.color; ctx.beginPath(); ctx.arc(e.x,e.y,e.size||3,0,Math.PI*2); ctx.fill(); } });
+    state.projectiles.forEach(p => { ctx.fillStyle=p.color; ctx.beginPath(); ctx.arc(p.x,p.y,5,0,Math.PI*2); ctx.fill(); });
+
+    ctx.restore();
+    updateUI();
+    requestAnimationFrame(loop);
+}
+
+function updateUI() {
+    let p = state.player;
+    document.getElementById('hp-bar').style.width = (p.hp/p.maxHp*100) + '%';
+    document.getElementById('mp-bar').style.width = (p.mp/p.maxMp*100) + '%';
+    document.getElementById('score').innerText = state.score;
+    ['z','x','c','v'].forEach(k => { document.getElementById(`cd-${k}`).style.height = (p.cds[k]/p.data.skills[k].cd*100) + '%'; });
+    if (state.boss) document.getElementById('boss-hp').style.width = (state.boss.hp/state.boss.maxHp*100) + '%';
+}
+
+function spawnAlly() {
+    let keys = Object.keys(CHAR_DATA); let rk = keys[Math.floor(Math.random()*keys.length)];
+    while(rk===state.player.key) rk = keys[Math.floor(Math.random()*keys.length)];
+    state.allies.push(new Ally(rk));
+    document.getElementById('msg-area').innerText = `${CHAR_DATA[rk].name} 參戰!`;
+    setTimeout(()=>document.getElementById('msg-area').innerText = "", 2000);
+}
+
+function startGame(key) {
+    document.getElementById('menu-overlay').style.display = 'none';
+    document.getElementById('ui-layer').style.display = 'block';
+    state.player = new Player(key);
+    state.entities = []; state.allies = []; state.particles = []; state.texts = []; state.projectiles = []; state.items = [];
+    state.score = 0; state.bossSpawned = false; state.boss = null; state.run = true; state.bossIndex = 0;
+    let p = state.player;
+    document.getElementById('p-name').innerText = p.data.name; document.getElementById('p-name').style.color = p.data.color;
+    ['z','x','c','v'].forEach(k => document.getElementById(`n-${k}`).innerText = p.data.skills[k].name);
+    document.getElementById('boss-ui').style.display = 'none';
+    loop();
+}
+
+function spawnBoss() {
+    state.bossSpawned = true;
+    let w = document.getElementById('warning'); w.style.display = 'block';
+    setTimeout(() => { 
+        w.style.display = 'none'; 
+        let bossInfo = BOSS_DATA[state.bossIndex % BOSS_DATA.length];
+        state.boss = new Enemy(W-100, 400, 'boss', bossInfo); 
+        document.getElementById('boss-name').innerText = bossInfo.name;
+        document.getElementById('boss-ui').style.display = 'block'; 
+        state.bossIndex++;
+    }, 2500);
+}
+
+function gameOver(win) {
+    state.run = false;
+    let end = document.getElementById('end-overlay'); end.style.display = 'flex';
+    document.getElementById('end-title').innerText = win ? "惡鬼滅殺" : "力盡倒下";
+    document.getElementById('end-title').style.color = win ? "#f1c40f" : "#e74c3c";
+    document.getElementById('end-score').innerText = "擊殺數: " + state.score;
+}
+</script>
+</body>
+</html>
