@@ -2,48 +2,66 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>網頁版三國志 V - 戰略原型</title>
+    <title>網頁版三國志 V - 戰略原型 v2.0</title>
     <style>
         body { font-family: "PMingLiU", "Microsoft JhengHei", serif; background-color: #1a1a1a; color: #ddd; margin: 0; overflow: hidden; }
         #game-container { display: flex; width: 100vw; height: 100vh; }
         
         /* 左側地圖區 */
-        #map-area { flex: 3; position: relative; background-color: #2b3e50; border-right: 2px solid #8b5a2b; }
-        canvas { display: block; width: 100%; height: 100%; }
+        #map-area { flex: 3; position: relative; background-color: #2b3e50; border-right: 2px solid #8b5a2b; 
+            /* 背景地圖Placeholder，請替換成真實地圖URL */
+            background-image: url('https://i.imgur.com/0QJ9X6J.jpg'); 
+            background-size: cover; background-position: center;
+        }
+        canvas { display: block; width: 100%; height: 100%; cursor: crosshair; }
         
         /* 右側資訊區 */
-        #sidebar { flex: 1; background-color: #222; padding: 10px; display: flex; flex-direction: column; border-left: 1px solid #444; }
+        #sidebar { flex: 1; background-color: #222; padding: 10px; display: flex; flex-direction: column; border-left: 1px solid #444; overflow-y: auto; }
         .panel { background: #333; border: 1px solid #8b5a2b; padding: 10px; margin-bottom: 10px; border-radius: 4px; }
-        h2, h3 { margin: 0 0 10px 0; color: #ffcc00; border-bottom: 1px solid #555; padding-bottom: 5px; }
+        h2, h3 { margin: 0 0 10px 0; color: #ffcc00; border-bottom: 1px solid #555; padding-bottom: 5px; font-size: 16px; }
         
-        button { background: #8b5a2b; color: white; border: 1px solid #5e3c1b; padding: 8px; margin: 2px; cursor: pointer; width: 100%; font-family: inherit; }
+        button { background: #8b5a2b; color: white; border: 1px solid #5e3c1b; padding: 8px; margin: 2px; cursor: pointer; width: 100%; font-family: inherit; font-size: 14px; }
         button:hover { background: #a06b35; }
-        button:disabled { background: #555; cursor: not-allowed; }
+        button:disabled { background: #555; cursor: not-allowed; color: #aaa; }
         
         .stat-row { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 14px; }
+        .ap-display { color: #00e5ff; font-weight: bold; text-align: center; margin-bottom: 10px; font-size: 18px;}
         
         /* 戰鬥畫面 (Modal) */
         #battle-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 100; display: none; flex-direction: column; align-items: center; justify-content: center; }
-        #battle-ui { width: 80%; height: 80%; background: #1e1e1e; border: 2px solid #d43f3a; padding: 20px; display: flex; flex-direction: column; }
-        .battle-field { flex: 1; display: flex; justify-content: space-between; align-items: center; padding: 20px; background: url('https://via.placeholder.com/800x400/3a4a20/ffffff?text=Battlefield') center/cover; }
-        .army-group { width: 40%; }
-        .unit-card { background: rgba(0,0,0,0.7); border: 1px solid #aaa; margin: 5px; padding: 5px; color: white; font-size: 12px; }
+        #battle-ui { width: 90%; height: 90%; background: #1e1e1e; border: 2px solid #d43f3a; padding: 10px; display: flex; flex-direction: column; }
+        .battle-header { display: flex; justify-content: space-between; margin-bottom: 10px; }
+        .formation-select { background: #333; color: white; padding: 5px; }
+        .battle-field { flex: 1; display: flex; justify-content: space-between; align-items: flex-start; padding: 10px; background: url('https://via.placeholder.com/800x400/3a4a20/ffffff?text=Battlefield') center/cover; overflow-y: auto; }
+        .army-group { width: 45%; }
+        .unit-card { background: rgba(0,0,0,0.7); border: 1px solid #aaa; margin: 5px 0; padding: 5px; color: white; font-size: 12px; display: flex; flex-direction: column; }
+        .unit-info { display: flex; justify-content: space-between; }
         .hp-bar { height: 5px; background: red; width: 100%; margin-top: 2px; }
         .hp-fill { height: 100%; background: #0f0; transition: width 0.5s; }
         
         /* 選擇年代畫面 */
         #start-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #111; z-index: 200; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        .scenario-btn { width: 300px; margin: 10px; font-size: 18px; }
+        .scenario-btn { width: 300px; margin: 10px; font-size: 18px; padding: 15px; }
+        
+        /* 選擇君主畫面 (簡化放在年代選擇後) */
+        #lord-select-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #222; z-index: 190; display: none; flex-direction: column; align-items: center; justify-content: center; }
+        .lord-btn-container { display: flex; flex-wrap: wrap; justify-content: center; max-width: 800px; }
+        .lord-btn { width: 120px; margin: 10px; font-size: 16px; padding: 10px; border: 2px solid transparent; }
     </style>
 </head>
 <body>
 
 <div id="start-screen">
-    <h1 style="color:#ffcc00; font-size: 48px; text-shadow: 2px 2px #8b0000;">三國志 V - 網頁戰略版</h1>
+    <h1 style="color:#ffcc00; font-size: 48px; text-shadow: 2px 2px #8b0000;">三國志 V - 網頁戰略版 v2.0</h1>
     <p>請選擇遊玩劇本：</p>
-    <button class="scenario-btn" onclick="startGame(184)">184年 - 黃巾之亂</button>
-    <button class="scenario-btn" onclick="startGame(190)">190年 - 反董卓聯盟</button>
-    <button class="scenario-btn" onclick="startGame(208)">208年 - 赤壁之戰</button>
+    <button class="scenario-btn" onclick="showLordSelection(190)">190年 - 反董卓聯盟</button>
+    <button class="scenario-btn" onclick="showLordSelection(200)">200年 - 官渡之戰</button>
+    <button class="scenario-btn" onclick="showLordSelection(208)">208年 - 赤壁之戰</button>
+</div>
+
+<div id="lord-select-screen">
+    <h2 style="color:#ffcc00;">請選擇扮演的君主</h2>
+    <div class="lord-btn-container" id="lord-list"></div>
 </div>
 
 <div id="game-container">
@@ -52,276 +70,456 @@
     </div>
     <div id="sidebar">
         <div class="panel">
-            <h2>都市資訊</h2>
-            <div id="city-info">請點擊地圖上的城池</div>
+             <div class="ap-display">行動力: <span id="ap-current">5</span> / <span id="ap-max">5</span></div>
+             <button onclick="nextTurn()" style="background-color: #d9534f;">結束回合 (恢復AP)</button>
         </div>
         <div class="panel">
-            <h2>內政指令</h2>
+            <h2>都市資訊</h2>
+            <div id="city-info" style="font-size: 14px;">請點擊地圖上的方形城池</div>
+        </div>
+        <div class="panel" id="action-panel">
+            <h2>內政指令 (消耗 1 AP)</h2>
             <div class="stat-row"><span>金錢:</span> <span id="res-gold">0</span></div>
             <div class="stat-row"><span>糧草:</span> <span id="res-food">0</span></div>
             <hr>
-            <button onclick="actionDevelop()">商業開發 (金+)</button>
-            <button onclick="actionFarming()">農業耕作 (糧+)</button>
-            <button onclick="actionDraft()">徵兵訓練 (兵+)</button>
-            <button onclick="nextTurn()" style="background-color: #d9534f;">結束回合 (下個月)</button>
+            <button onclick="actionDevelop()">商業開發 (+金)</button>
+            <button onclick="actionFarming()">農業耕作 (+糧)</button>
+            <button onclick="actionDraft()">徵兵訓練 (+兵)</button>
+        </div>
+        <div class="panel" id="military-panel">
+            <h2>軍事指令 (消耗 2 AP)</h2>
+            <button onclick="prepBattle()" style="background-color: #d43f3a;">出征 (切換戰鬥)</button>
         </div>
         <div class="panel">
-            <h2>軍事指令</h2>
-            <button onclick="prepBattle()">出征 (切換戰鬥畫面)</button>
-        </div>
-        <div class="panel">
-            <div style="font-size: 12px; color: #aaa;" id="log-area">日誌: 遊戲開始...</div>
+            <div style="font-size: 12px; color: #aaa; height: 150px; overflow-y: auto;" id="log-area">
+                日誌: 遊戲準備就緒...
+            </div>
         </div>
     </div>
 </div>
 
 <div id="battle-screen">
     <div id="battle-ui">
-        <h2 style="text-align:center; color: red;">戰鬥模式</h2>
-        <div style="text-align: center; color: yellow;" id="battle-status">準備戰鬥計算...</div>
+        <div class="battle-header">
+            <div>
+                <span style="color:cyan;">我方陣形:</span>
+                <select id="player-formation" class="formation-select"></select>
+            </div>
+            <h2 style="margin:0; color: red;">戰鬥模式</h2>
+            <div>
+                <span style="color:red;">敵方陣形:</span>
+                <span id="enemy-formation-name" style="color:white;"></span>
+            </div>
+        </div>
+        
+        <div style="text-align: center; color: yellow; margin-bottom: 5px;" id="battle-status">準備戰鬥計算...</div>
         <div class="battle-field">
             <div class="army-group" id="player-army">
-                <h3>我方軍勢</h3>
-                </div>
-            <div style="color:white; font-weight:bold; font-size:24px;">VS</div>
+                <h3 style="color:cyan;">我方軍勢</h3>
+                <div id="p-units-container"></div>
+            </div>
+            <div style="color:white; font-weight:bold; font-size:24px; align-self: center;">VS</div>
             <div class="army-group" id="enemy-army">
-                <h3>敵方軍勢</h3>
-                </div>
+                <h3 style="color:red;">敵方軍勢</h3>
+                <div id="e-units-container"></div>
+            </div>
         </div>
-        <div style="padding: 10px; text-align: center;">
-             <button onclick="runBattleRound()" id="btn-fight">執行回合戰鬥</button>
-             <button onclick="endBattle()" id="btn-retreat" style="display:none; background:#555;">戰鬥結束 / 撤退</button>
+        <div style="padding: 10px; text-align: center; background: #111;">
+             <button onclick="runBattleRound()" id="btn-fight" style="width: 200px;">執行回合戰鬥</button>
+             <button onclick="endBattle()" id="btn-retreat" style="display:none; background:#555; width: 200px;">離開戰場</button>
         </div>
-        <div id="battle-log" style="height: 100px; overflow-y: scroll; background: #000; color: #0f0; font-family: monospace; padding: 5px;"></div>
+        <div id="battle-log" style="height: 120px; overflow-y: scroll; background: #000; color: #0f0; font-family: monospace; padding: 5px; font-size: 12px;"></div>
     </div>
 </div>
 
 <script>
-// --- 1. 數據定義 ---
-const ERA_DATA = {
-    184: { title: "黃巾之亂", lords: ["何進", "張角", "董卓", "孫堅", "曹操", "劉備", "公孫瓚", "劉焉", "丁原", "馬騰"] },
-    190: { title: "反董卓聯盟", lords: ["董卓", "曹操", "袁紹", "袁術", "孫堅", "劉備", "公孫瓚", "馬騰", "劉表", "劉璋"] },
-    208: { title: "赤壁之戰", lords: ["曹操", "孫權", "劉備", "馬騰", "劉璋", "張魯", "韓玄", "劉度", "趙範", "金旋"] }
+//=============================================================================
+// 1. 靜態資料庫定義 (Data Definitions)
+//=============================================================================
+
+// 陣形定義 (R3)
+const FORMATIONS = {
+    "錐形": { name: "錐形陣", atkMod: 1.3, defMod: 0.8, desc: "攻擊特化，防禦較弱" },
+    "方圓": { name: "方圓陣", atkMod: 0.8, defMod: 1.4, desc: "防禦特化，攻擊較弱" },
+    "魚鱗": { name: "魚鱗陣", atkMod: 1.1, defMod: 1.1, desc: "攻守平衡" }
 };
 
-// 簡化的50個城池座標 (虛擬分佈)
-const CITIES = [];
-const CITY_NAMES = ["洛陽", "長安", "許昌", "鄴", "南皮", "北平", "襄平", "晉陽", "陳留", "濮陽", "小沛", "下邳", "北海", "壽春", "建業", "吳", "會稽", "柴桑", "江夏", "襄陽", "江陵", "長沙", "零陵", "桂陽", "武陵", "漢中", "成都", "梓潼", "江州", "雲南", "天水", "西涼", "弘農", "宛", "新野", "汝南", "廬江", "廣陵", "平原", "上黨", "河內", "安定", "武威", "建寧", "永安", "涪水", "下辯", "武都", "長坂", "赤壁"];
+// 50個城池座標定義 (R2: 校正位置，大致模擬中國地圖分佈)
+// 假設畫布大小約 800x600。左上為(0,0)。
+const CITIES_DB = [
+    { id: 0, name: "襄平", x: 700, y: 50 }, { id: 1, name: "北平", x: 620, y: 80 }, { id: 2, name: "薊", x: 580, y: 100 }, { id: 3, name: "南皮", x: 550, y: 140 }, { id: 4, name: "平原", x: 520, y: 180 },
+    { id: 5, name: "鄴", x: 500, y: 210 }, { id: 6, name: "晉陽", x: 450, y: 160 }, { id: 7, name: "上黨", x: 430, y: 200 }, { id: 8, name: "北海", x: 600, y: 200 }, { id: 9, name: "濮陽", x: 480, y: 240 },
+    { id: 10, name: "陳留", x: 450, y: 260 }, { id: 11, name: "洛陽", x: 380, y: 260 }, { id: 12, name: "弘農", x: 340, y: 270 }, { id: 13, name: "長安", x: 280, y: 280 }, { id: 14, name: "安定", x: 220, y: 240 },
+    { id: 15, name: "天水", x: 180, y: 280 }, { id: 16, name: "西涼", x: 100, y: 200 }, { id: 17, name: "武威", x: 140, y: 220 }, { id: 18, name: "許昌", x: 420, y: 300 }, { id: 19, name: "譙", x: 480, y: 310 },
+    { id: 20, name: "汝南", x: 440, y: 340 }, { id: 21, name: "宛", x: 360, y: 330 }, { id: 22, name: "新野", x: 350, y: 370 }, { id: 23, name: "襄陽", x: 340, y: 400 }, { id: 24, name: "江夏", x: 400, y: 420 },
+    { id: 25, name: "江陵", x: 320, y: 440 }, { id: 26, name: "長沙", x: 350, y: 500 }, { id: 27, name: "零陵", x: 300, y: 540 }, { id: 28, name: "桂陽", x: 360, y: 560 }, { id: 29, name: "武陵", x: 280, y: 480 },
+    { id: 30, name: "漢中", x: 240, y: 330 }, { id: 31, name: "梓潼", x: 200, y: 380 }, { id: 32, name: "成都", x: 160, y: 420 }, { id: 33, name: "江州", x: 220, y: 450 }, { id: 34, name: "永安", x: 260, y: 420 },
+    { id: 35, name: "建寧", x: 140, y: 520 }, { id: 36, name: "雲南", x: 100, y: 560 }, { id: 37, name: "壽春", x: 520, y: 320 }, { id: 38, name: "廬江", x: 480, y: 380 }, { id: 39, name: "廣陵", x: 580, y: 300 },
+    { id: 40, name: "下邳", x: 550, y: 260 }, { id: 41, name: "小沛", x: 520, y: 240 }, { id: 42, name: "建業", x: 580, y: 360 }, { id: 43, name: "吳", x: 620, y: 380 }, { id: 44, name: "會稽", x: 640, y: 420 },
+    { id: 45, name: "柴桑", x: 420, y: 450 }, { id: 46, name: "武都", x: 180, y: 340 }, { id: 47, name: "陰平", x: 150, y: 360 }, { id: 48, name: "涪水", x: 180, y: 400 }, { id: 49, name: "越嶲", x: 120, y: 480 }
+];
 
-// 隨機生成地圖點
-for(let i=0; i<50; i++) {
-    CITIES.push({
-        id: i,
-        name: CITY_NAMES[i],
-        x: Math.floor(Math.random() * 800) + 50,
-        y: Math.floor(Math.random() * 600) + 50,
-        lord: null, // 歸屬君主
-        gold: 1000,
-        food: 5000,
-        troops: 2000,
-        generals: [] // 駐守武將
-    });
-}
+// 簡易武將資料庫 (部分範例，用於R5)
+const GENERALS_DB = {
+    "曹操": { war: 72, lead: 99, int: 95, pol: 94 }, "夏侯惇": { war: 90, lead: 87, int: 64, pol: 70 }, "夏侯淵": { war: 91, lead: 85, int: 53, pol: 45 }, "荀彧": { war: 30, lead: 60, int: 98, pol: 99 }, "郭嘉": { war: 25, lead: 55, int: 99, pol: 88 },
+    "劉備": { war: 75, lead: 80, int: 78, pol: 80 }, "關羽": { war: 98, lead: 96, int: 76, pol: 65 }, "張飛": { war: 99, lead: 88, int: 35, pol: 30 }, "諸葛亮": { war: 40, lead: 95, int: 100, pol: 98 }, "趙雲": { war: 97, lead: 92, int: 75, pol: 70 },
+    "孫堅": { war: 92, lead: 95, int: 79, pol: 73 }, "孫策": { war: 94, lead: 96, int: 77, pol: 70 }, "孫權": { war: 70, lead: 85, int: 88, pol: 90 }, "周瑜": { war: 71, lead: 97, int: 98, pol: 90 }, "呂蒙": { war: 85, lead: 93, int: 90, pol: 80 },
+    "董卓": { war: 88, lead: 85, int: 70, pol: 60 }, "呂布": { war: 100, lead: 90, int: 30, pol: 20 }, "張遼": { war: 92, lead: 94, int: 80, pol: 75 }, "袁紹": { war: 70, lead: 82, int: 75, pol: 80 }, "顏良": { war: 93, lead: 80, int: 45, pol: 35 },
+    "文醜": { war: 94, lead: 78, int: 40, pol: 30 }, "馬騰": { war: 85, lead: 88, int: 60, pol: 65 }, "馬超": { war: 98, lead: 90, int: 60, pol: 50 }, "劉表": { war: 50, lead: 65, int: 75, pol: 85 }, "黃忠": { war: 95, lead: 88, int: 65, pol: 60 }
+};
 
-// 武將類別
+// 劇本與君主資料 (R1, R5: 定義君主顏色、起始城池、專屬武將)
+const ERA_DATA = {
+    190: {
+        title: "反董卓聯盟",
+        lords: {
+            "董卓": { color: "#550000", cities: [11, 13, 12], generals: ["董卓", "呂布", "張遼", "李儒", "華雄"] }, // 洛陽, 長安, 弘農
+            "曹操": { color: "#0000cc", cities: [10], generals: ["曹操", "夏侯惇", "夏侯淵", "曹仁"] }, // 陳留
+            "袁紹": { color: "#cccc00", cities: [5, 3], generals: ["袁紹", "顏良", "文醜", "田豐"] }, // 鄴, 南皮
+            "劉備": { color: "#006600", cities: [4], generals: ["劉備", "關羽", "張飛"] }, // 平原
+            "孫堅": { color: "#cc0000", cities: [26], generals: ["孫堅", "黃蓋", "程普", "韓當"] }, // 長沙 (簡化)
+            "馬騰": { color: "#8b4513", cities: [16], generals: ["馬騰", "馬超", "龐德"] }, // 西涼
+            "劉表": { color: "#663399", cities: [23, 25], generals: ["劉表", "黃忠", "蔡瑁"] }, // 襄陽, 江陵
+            "袁術": { color: "#ff69b4", cities: [20, 37], generals: ["袁術", "紀靈"] }, // 汝南, 壽春
+            "公孫瓚":{ color: "#add8e6", cities: [1], generals: ["公孫瓚", "嚴綱"] }, // 北平
+            "陶謙": { color: "#d2b48c", cities: [40], generals: ["陶謙", "陳登"] }, // 下邳
+            "孔融": { color: "#f0e68c", cities: [8], generals: ["孔融", "武安國"] }, // 北海
+            "張魯": { color: "#a9a9a9", cities: [30], generals: ["張魯", "閻圃"] } // 漢中
+        }
+    },
+    200: { title: "官渡之戰", lords: { /* ...省略以節省空間，結構同上... */ "曹操":{color:"#0000cc", cities:[10,11,18,5], generals:["曹操","郭嘉"]}, "袁紹":{color:"#cccc00", cities:[3,1,6,4], generals:["袁紹","顏良"]} } },
+    208: { title: "赤壁之戰", lords: { /* ...省略... */ "曹操":{color:"#0000cc", cities:[5,11,23,25], generals:["曹操"]}, "孫權":{color:"#cc0000", cities:[42,43,45], generals:["孫權","周瑜"]}, "劉備":{color:"#006600", cities:[24], generals:["劉備","諸葛亮"]} } }
+};
+
+// 遊戲運行時資料
+let gameState = {
+    year: 190,
+    month: 1,
+    playerLord: "",
+    selectedCityId: -1,
+    currentAP: 5, // R4: 當前行動點
+    maxAP: 5,    // R4: 最大行動點
+    log: []
+};
+let mapCities = []; // 存放實體化後的城池物件
+let canvas, ctx;
+
+// 武將類別 (增加基於資料庫的建構)
 class General {
-    constructor(name, war, lead, int, pol) {
+    constructor(name, isTemplate = false) {
         this.name = name;
-        this.war = war; // 武力
-        this.lead = lead; // 統率
-        this.int = int; // 智力
-        this.pol = pol; // 政治
+        const data = GENERALS_DB[name];
+        if (data && !isTemplate) {
+            this.war = data.war; this.lead = data.lead; this.int = data.int; this.pol = data.pol;
+        } else {
+            // 如果資料庫沒有或強制隨機，則產生大眾臉
+            this.war = 50 + Math.floor(Math.random()*40);
+            this.lead = 50 + Math.floor(Math.random()*40);
+            this.int = 40 + Math.floor(Math.random()*50);
+            this.pol = 40 + Math.floor(Math.random()*50);
+        }
         this.troops = 0;
         this.maxTroops = 10000;
     }
 }
 
-// 簡易武將庫生成器
-function createRandomGeneral(lordName) {
-    const names = ["張", "王", "李", "趙", "陳", "關", "馬", "黃", "夏侯", "諸葛"];
-    const suffix = ["飛", "雲", "布", "操", "備", "權", "亮", "瑜", "敦", "淵"];
-    let n = names[Math.floor(Math.random()*names.length)] + suffix[Math.floor(Math.random()*suffix.length)];
-    return new General(n, 50+Math.floor(Math.random()*50), 50+Math.floor(Math.random()*50), 30+Math.floor(Math.random()*70), 30+Math.floor(Math.random()*60));
+//=============================================================================
+// 2. 初始化流程 (Initialization)
+//=============================================================================
+
+function showLordSelection(year) {
+    document.getElementById('start-screen').style.display = 'none';
+    document.getElementById('lord-select-screen').style.display = 'flex';
+    gameState.year = year;
+    
+    const container = document.getElementById('lord-list');
+    container.innerHTML = "";
+    const lordsData = ERA_DATA[year].lords;
+    
+    for (let lordName in lordsData) {
+        let btn = document.createElement('button');
+        btn.className = "lord-btn";
+        btn.innerText = lordName;
+        btn.style.borderColor = lordsData[lordName].color;
+        btn.style.backgroundColor = '#333';
+        btn.onclick = () => startGame(lordName);
+        container.appendChild(btn);
+    }
 }
 
-// --- 2. 遊戲狀態 ---
-let gameState = {
-    year: 184,
-    month: 1,
-    playerLord: "曹操",
-    selectedCityIndex: -1,
-    turn: 1,
-    log: []
-};
-
-let canvas, ctx;
-
-// --- 3. 初始化與主迴圈 ---
-function startGame(year) {
-    document.getElementById('start-screen').style.display = 'none';
-    gameState.year = year;
-    gameState.playerLord = ERA_DATA[year].lords[0]; // 預設選第一個
+function startGame(lordName) {
+    document.getElementById('lord-select-screen').style.display = 'none';
+    gameState.playerLord = lordName;
+    gameState.currentAP = gameState.maxAP;
     
-    initMapData(year);
+    initMapData(gameState.year);
     initCanvas();
+    initBattleUI(); // 初始化戰鬥UI的陣形選單
     drawMap();
-    log(`劇本 ${ERA_DATA[year].title} 開始。您扮演 ${gameState.playerLord}。`);
+    updateAPDisplay();
+    log(`劇本 ${ERA_DATA[gameState.year].title} 開始。您扮演 ${gameState.playerLord}。`);
 }
 
 function initMapData(year) {
-    // 分配勢力
-    const lords = ERA_DATA[year].lords;
-    CITIES.forEach((city, idx) => {
-        // 前10個城分配給君主，剩下隨機或空
-        if(idx < lords.length) {
-            city.lord = lords[idx];
-            // 給予初始武將
-            for(let k=0; k<5; k++) city.generals.push(createRandomGeneral(city.lord));
-        } else {
-            city.lord = (Math.random() > 0.7) ? lords[Math.floor(Math.random()*lords.length)] : "空白";
-            if(city.lord !== "空白") {
-                for(let k=0; k<2; k++) city.generals.push(createRandomGeneral(city.lord));
+    const scenarioLords = ERA_DATA[year].lords;
+    mapCities = []; // 清空並重新建立
+
+    // 1. 建立基礎城池物件
+    CITIES_DB.forEach(dbCity => {
+        mapCities.push({
+            id: dbCity.id,
+            name: dbCity.name,
+            x: dbCity.x,
+            y: dbCity.y,
+            lord: "空白",
+            color: "#777", // 空白城市顏色
+            gold: 500,
+            food: 2000,
+            troops: 0,
+            generals: []
+        });
+    });
+
+    // 2. 根據劇本分配勢力與武將 (R1, R5)
+    for (let lordName in scenarioLords) {
+        const lordData = scenarioLords[lordName];
+        
+        // 分配城池
+        lordData.cities.forEach(cityId => {
+            let city = mapCities.find(c => c.id === cityId);
+            if (city) {
+                city.lord = lordName;
+                city.color = lordData.color;
+                city.gold = 1500; city.food = 5000; // 初始資源增加
             }
+        });
+
+        // 分配武將到該君主的第一個城池 (簡化處理)
+        if (lordData.cities.length > 0) {
+            let capital = mapCities.find(c => c.id === lordData.cities[0]);
+            lordData.generals.forEach(genName => {
+                let g = new General(genName);
+                g.troops = 3000; // 初始兵力
+                capital.generals.push(g);
+            });
         }
-        // 分配初始兵力給武將
-        city.generals.forEach(g => g.troops = 3000);
+    }
+    
+    // 3. 為空白城池隨機添加一些大眾臉武將
+    mapCities.forEach(city => {
+        if(city.lord === "空白" && Math.random() > 0.8) {
+             city.generals.push(new General("在野武將" + city.id, true));
+        }
     });
 }
 
 function initCanvas() {
     canvas = document.getElementById('mapCanvas');
     ctx = canvas.getContext('2d');
-    // RWD 調整
-    canvas.width = document.getElementById('map-area').offsetWidth;
-    canvas.height = document.getElementById('map-area').offsetHeight;
-    
+    // 固定畫布大小以配合座標系統 (800x600)
+    canvas.width = 800;
+    canvas.height = 600;
     canvas.addEventListener('mousedown', handleMapClick);
 }
 
-function drawMap() {
-    ctx.fillStyle = "#2b3e50";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    
-    // 畫連結線 (簡單模擬)
-    ctx.strokeStyle = "#555";
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    for(let i=0; i<CITIES.length-1; i++) {
-        ctx.moveTo(CITIES[i].x, CITIES[i].y);
-        ctx.lineTo(CITIES[i+1].x, CITIES[i+1].y);
+function initBattleUI() {
+    // R3: 填充陣形下拉選單
+    const select = document.getElementById('player-formation');
+    select.innerHTML = "";
+    for(let key in FORMATIONS) {
+        let opt = document.createElement('option');
+        opt.value = key;
+        opt.innerText = FORMATIONS[key].name;
+        select.appendChild(opt);
     }
-    ctx.stroke();
+}
 
-    // 畫城池
-    CITIES.forEach((city, index) => {
-        const isPlayer = city.lord === gameState.playerLord;
-        const isSelected = index === gameState.selectedCityIndex;
+//=============================================================================
+// 3. 地圖繪製與互動 (Map Rendering & Interaction)
+//=============================================================================
+
+function drawMap() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // 注意：背景現在由 CSS 設定，canvas 是透明的
+
+    // R2: 畫方形城池
+    mapCities.forEach((city) => {
+        const isSelected = city.id === gameState.selectedCityId;
+        const size = 16;
         
-        // 顏色區分
-        ctx.fillStyle = isPlayer ? "#4caf50" : (city.lord === "空白" ? "#999" : "#d9534f");
-        if(isSelected) ctx.fillStyle = "#ffcc00";
+        // 外框 (選中時高亮)
+        if (isSelected) {
+            ctx.strokeStyle = "#ffff00";
+            ctx.lineWidth = 3;
+            ctx.strokeRect(city.x - size/2 - 2, city.y - size/2 - 2, size + 4, size + 4);
+        }
         
-        // 畫點
-        ctx.beginPath();
-        ctx.arc(city.x, city.y, 10, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
+        // 城池本體
+        ctx.fillStyle = city.color;
+        ctx.fillRect(city.x - size/2, city.y - size/2, size, size);
+        ctx.strokeStyle = "#111";
+        ctx.lineWidth = 1;
+        ctx.strokeRect(city.x - size/2, city.y - size/2, size, size);
         
+        // 名字背景
+        ctx.fillStyle = "rgba(0,0,0,0.6)";
+        const nameWidth = ctx.measureText(city.name).width;
+        ctx.fillRect(city.x - nameWidth/2 - 2, city.y + 8, nameWidth + 4, 14);
+
         // 名字
         ctx.fillStyle = "#fff";
-        ctx.font = "12px Arial";
-        ctx.fillText(city.name, city.x - 15, city.y - 15);
-        
-        // 君主旗號
-        if(city.lord !== "空白"){
-            ctx.fillStyle = "#aaa";
-            ctx.font = "10px Arial";
-            ctx.fillText(city.lord, city.x - 10, city.y + 25);
-        }
+        ctx.font = "12px Microsoft JhengHei";
+        ctx.textAlign = "center";
+        ctx.fillText(city.name, city.x, city.y + 20);
     });
 }
 
 function handleMapClick(e) {
+    // 計算滑鼠在 Canvas 上的相對座標 (因為 canvas 大小固定 800x600，需要考慮縮放)
     const rect = canvas.getBoundingClientRect();
-    const mx = e.clientX - rect.left;
-    const my = e.clientY - rect.top;
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const mx = (e.clientX - rect.left) * scaleX;
+    const my = (e.clientY - rect.top) * scaleY;
     
-    let clickedIndex = -1;
-    CITIES.forEach((city, index) => {
-        const dist = Math.sqrt((mx - city.x)**2 + (my - city.y)**2);
-        if(dist < 15) clickedIndex = index;
+    let clickedId = -1;
+    // 簡單的點擊偵測
+    mapCities.forEach((city) => {
+        if(mx >= city.x - 12 && mx <= city.x + 12 &&
+           my >= my - 12 && my <= city.y + 12) {
+            clickedId = city.id;
+        }
     });
     
-    if(clickedIndex !== -1) {
-        gameState.selectedCityIndex = clickedIndex;
-        updateUI();
-        drawMap();
-    }
+    gameState.selectedCityId = clickedId; // 點空白處取消選擇
+    updateUI();
+    drawMap();
 }
 
-// --- 4. 內政系統 ---
+//=============================================================================
+// 4. 內政與行動點數系統 (Domestic & AP System)
+//=============================================================================
+
 function updateUI() {
-    if(gameState.selectedCityIndex === -1) return;
-    const city = CITIES[gameState.selectedCityIndex];
+    const cityInfoPanel = document.getElementById('city-info');
+    const actionPanelBtn = document.querySelector('#action-panel button');
+    const militaryPanelBtn = document.querySelector('#military-panel button');
+
+    if(gameState.selectedCityId === -1) {
+        cityInfoPanel.innerHTML = "請點擊地圖上的方形城池";
+        setButtonsDisabled(true);
+        return;
+    }
     
-    let html = `<h3>${city.name}</h3>`;
-    html += `<p>君主: <strong style="color:${city.lord === gameState.playerLord ? 'lightgreen':'red'}">${city.lord}</strong></p>`;
-    html += `<p>駐軍: ${city.generals.reduce((a,b)=>a+b.troops, 0)}</p>`;
+    const city = mapCities.find(c => c.id === gameState.selectedCityId);
+    const totalTroops = city.generals.reduce((a,b)=>a+b.troops, 0);
+
+    let html = `<h3>${city.name} [ID:${city.id}]</h3>`;
+    html += `<p>君主: <strong style="color:${city.color}">${city.lord}</strong></p>`;
+    html += `<p>總兵力: ${totalTroops}</p>`;
     html += `<p>武將數: ${city.generals.length}</p>`;
+    html += `<div style="max-height:100px; overflow-y:auto; font-size:12px;">`;
+    city.generals.forEach(g => {
+        html += `<div>- ${g.name} (統${g.lead}/武${g.war}) 兵:${g.troops}</div>`;
+    });
+    html += `</div>`;
     
-    document.getElementById('city-info').innerHTML = html;
+    cityInfoPanel.innerHTML = html;
     
     if(city.lord === gameState.playerLord) {
         document.getElementById('res-gold').innerText = city.gold;
         document.getElementById('res-food').innerText = city.food;
+        setButtonsDisabled(false); // 啟用按鈕
     } else {
         document.getElementById('res-gold').innerText = "??";
         document.getElementById('res-food').innerText = "??";
+        setButtonsDisabled(true); // 禁用按鈕
+        // 例外：如果選的是敵人，可以出征
+        if(city.lord !== "空白") {
+             document.querySelector('#military-panel button').disabled = false;
+        }
     }
+}
+
+function setButtonsDisabled(disabled) {
+    const btns = document.querySelectorAll('#action-panel button, #military-panel button');
+    btns.forEach(b => b.disabled = disabled);
+}
+
+// R4: AP 檢查與消耗輔助函數
+function checkAP(cost) {
+    if (gameState.currentAP >= cost) {
+        return true;
+    } else {
+        log(`行動力不足！需要 ${cost} 點。`);
+        return false;
+    }
+}
+
+function consumeAP(cost) {
+    gameState.currentAP -= cost;
+    updateAPDisplay();
+}
+
+function updateAPDisplay() {
+    document.getElementById('ap-current').innerText = gameState.currentAP;
+    document.getElementById('ap-max').innerText = gameState.maxAP;
+    // AP 用完變紅
+    document.querySelector('.ap-display').style.color = gameState.currentAP === 0 ? '#d9534f' : '#00e5ff';
 }
 
 function actionDevelop() {
-    if(checkPlayerCity()) {
-        CITIES[gameState.selectedCityIndex].gold += 500;
-        log("商業開發完成，金錢增加。");
-        updateUI();
-    }
+    if(!checkPlayerCity() || !checkAP(1)) return;
+    const city = mapCities.find(c => c.id === gameState.selectedCityId);
+    city.gold += 800;
+    consumeAP(1);
+    log(`${city.name} 商業開發完成，金錢增加。`);
+    updateUI();
 }
 
 function actionFarming() {
-    if(checkPlayerCity()) {
-        CITIES[gameState.selectedCityIndex].food += 1000;
-        log("農業耕作完成，糧草增加。");
-        updateUI();
-    }
+    if(!checkPlayerCity() || !checkAP(1)) return;
+    const city = mapCities.find(c => c.id === gameState.selectedCityId);
+    city.food += 1500;
+    consumeAP(1);
+    log(`${city.name} 農業耕作完成，糧草增加。`);
+    updateUI();
 }
 
 function actionDraft() {
-    if(checkPlayerCity()) {
-        const city = CITIES[gameState.selectedCityIndex];
-        if(city.gold < 200) { log("金錢不足！"); return; }
-        city.gold -= 200;
-        city.generals.forEach(g => {
-            if(g.troops < g.maxTroops) g.troops += 500;
-        });
-        log("徵兵完成，全體武將兵力增加。");
+    if(!checkPlayerCity() || !checkAP(1)) return;
+    const city = mapCities.find(c => c.id === gameState.selectedCityId);
+    if(city.gold < 300) { log("金錢不足 (需要300)！"); return; }
+    
+    let draftedCount = 0;
+    city.generals.forEach(g => {
+        if(g.troops < g.maxTroops) {
+            let amount = Math.min(1000, g.maxTroops - g.troops);
+            g.troops += amount;
+            draftedCount += amount;
+        }
+    });
+    
+    if(draftedCount > 0) {
+        city.gold -= 300;
+        consumeAP(1);
+        log(`${city.name} 徵兵完成，共招募 ${draftedCount} 人。`);
         updateUI();
+    } else {
+        log("城內武將兵力已滿，無法徵兵。");
     }
 }
 
 function checkPlayerCity() {
-    if(gameState.selectedCityIndex === -1) return false;
-    const city = CITIES[gameState.selectedCityIndex];
-    if(city.lord !== gameState.playerLord) {
-        log("無法對非我方城池下令！");
-        return false;
-    }
-    return true;
+    if(gameState.selectedCityId === -1) return false;
+    const city = mapCities.find(c => c.id === gameState.selectedCityId);
+    return city.lord === gameState.playerLord;
 }
 
 function log(msg) {
     const el = document.getElementById('log-area');
-    el.innerText = `[${gameState.year}年${gameState.month}月] ${msg}`;
+    const dateStr = `[${gameState.year}年${gameState.month}月]`;
+    el.innerHTML = `<div>${dateStr} ${msg}</div>` + el.innerHTML;
 }
 
 function nextTurn() {
@@ -330,112 +528,187 @@ function nextTurn() {
         gameState.year++;
         gameState.month = 1;
     }
-    // 簡單AI模擬：其他城市增加資源
-    CITIES.forEach(c => {
-        if(c.lord !== "空白") {
-            c.gold += 200;
-            c.food += 500;
+    
+    // R4: 重置行動力
+    gameState.currentAP = gameState.maxAP;
+    updateAPDisplay();
+
+    // 簡易AI模擬 (增加資源和少量徵兵)
+    mapCities.forEach(c => {
+        if(c.lord !== "空白" && c.lord !== gameState.playerLord) {
+            c.gold += 300;
+            c.food += 600;
+             c.generals.forEach(g => { if(g.troops < g.maxTroops) g.troops += 200; });
         }
     });
-    log("進入下個月。");
+    log("--- 進入下個月，行動力恢復 ---");
+    drawMap();
+    updateUI();
 }
 
-// --- 5. 戰鬥系統 (獨立畫面) ---
+//=============================================================================
+// 5. 戰鬥系統 (含陣形 R3) (Battle System)
+//=============================================================================
 let battleData = {
+    targetCityId: null,
     playerUnits: [],
     enemyUnits: [],
+    playerFormation: null,
+    enemyFormation: null,
     round: 0
 };
 
 function prepBattle() {
-    if(gameState.selectedCityIndex === -1) { log("請先選擇目標城池"); return; }
-    const targetCity = CITIES[gameState.selectedCityIndex];
+    if(gameState.selectedCityId === -1) return;
+    const targetCity = mapCities.find(c => c.id === gameState.selectedCityId);
+    if(targetCity.lord === gameState.playerLord || targetCity.lord === "空白") { log("只能攻擊其他勢力城池"); return; }
     
-    if(targetCity.lord === gameState.playerLord) { log("無法攻擊己方城池"); return; }
+    // R4: 檢查 AP (戰鬥消耗2)
+    if(!checkAP(2)) return;
+
+    // 1. 尋找我方出兵來源 (簡化：找最近的己方城池)
+    let sourceCity = findNearestPlayerCity(targetCity);
+    if(!sourceCity) { log("附近沒有可出兵的己方城池！"); return; }
     
-    // 尋找附近的己方城池調兵 (簡化：直接生成我方預設部隊)
-    // 實際遊戲應檢查路徑距離
+    // 2. 調派部隊 (簡化：選前5名有兵的武將)
+    const pUnits = sourceCity.generals.filter(g => g.troops > 0).slice(0, 5).map(g => ({...g, maxHp: g.troops})); // 淺拷貝並紀錄初始最大兵力用於血條
+    if(pUnits.length === 0) { log(`${sourceCity.name} 沒有可用兵力！`); return; }
+
+    const eUnits = targetCity.generals.filter(g => g.troops > 0).slice(0, 5).map(g => ({...g, maxHp: g.troops}));
+    // 即使敵方沒武將，也可能有城防兵(簡化省略)，若無人則直接獲勝的邏輯稍後處理
+
+    // 3. 初始化戰鬥資料
+    battleData = {
+        targetCityId: targetCity.id,
+        sourceCityId: sourceCity.id,
+        playerUnits: pUnits,
+        enemyUnits: eUnits,
+        playerFormation: "魚鱗", // 預設
+        enemyFormation: getRandomFormation(), // 敵方隨機陣形
+        round: 0
+    };
     
-    // 初始化戰鬥數據
-    battleData.round = 0;
-    battleData.enemyUnits = targetCity.generals.slice(0, 5).map(g => ({...g})); // 複製對象
+    consumeAP(2); // 扣除 AP
+    log(`從 ${sourceCity.name} 向 ${targetCity.name} 發起進攻！`);
     
-    // 生成我方出戰部隊 (假設從首都出發)
-    battleData.playerUnits = [];
-    for(let i=0; i<5; i++) {
-        let g = createRandomGeneral(gameState.playerLord);
-        g.troops = 5000;
-        battleData.playerUnits.push(g);
-    }
-    
+    // 4. 顯示戰鬥介面
+    document.getElementById('battle-log').innerHTML = "";
+    document.getElementById('enemy-formation-name').innerText = FORMATIONS[battleData.enemyFormation].name;
     renderBattleScreen();
     document.getElementById('battle-screen').style.display = 'flex';
     document.getElementById('btn-fight').style.display = 'inline-block';
     document.getElementById('btn-retreat').style.display = 'none';
-    addBattleLog(`軍隊抵達 ${targetCity.name}，戰鬥開始！`);
+    
+    if(eUnits.length === 0) {
+         addBattleLog("敵方城池無人防守！");
+         endBattle(true); // 直接勝利
+    } else {
+         addBattleLog(`兩軍遭遇！請選擇陣形開始戰鬥。`);
+    }
+}
+
+// 輔助：找最近己方城市 (計算直線距離)
+function findNearestPlayerCity(targetCity) {
+    let nearest = null;
+    let minDistance = 999999;
+    mapCities.forEach(c => {
+        if(c.lord === gameState.playerLord) {
+            const dist = Math.sqrt((c.x - targetCity.x)**2 + (c.y - targetCity.y)**2);
+            // 這裡可以加入距離限制，例如 dist < 200 才能出兵
+            if(dist < minDistance) {
+                minDistance = dist;
+                nearest = c;
+            }
+        }
+    });
+    return nearest;
+}
+
+function getRandomFormation() {
+    const keys = Object.keys(FORMATIONS);
+    return keys[Math.floor(Math.random() * keys.length)];
 }
 
 function renderBattleScreen() {
-    const pContainer = document.getElementById('player-army');
-    const eContainer = document.getElementById('enemy-army');
-    
-    pContainer.innerHTML = '<h3>我方軍勢</h3>' + battleData.playerUnits.map(u => createUnitHTML(u, 'blue')).join('');
-    eContainer.innerHTML = '<h3>敵方軍勢</h3>' + battleData.enemyUnits.map(u => createUnitHTML(u, 'red')).join('');
+    const pContainer = document.getElementById('p-units-container');
+    const eContainer = document.getElementById('e-units-container');
+    pContainer.innerHTML = battleData.playerUnits.map(u => createUnitHTML(u, 'cyan')).join('');
+    eContainer.innerHTML = battleData.enemyUnits.map(u => createUnitHTML(u, 'red')).join('');
 }
 
 function createUnitHTML(unit, color) {
-    if(unit.troops <= 0) return `<div class="unit-card" style="opacity:0.5"><s>${unit.name}</s> (敗退)</div>`;
-    const pct = (unit.troops / unit.maxTroops) * 100;
+    const isDead = unit.troops <= 0;
+    const pct = Math.max(0, (unit.troops / unit.maxHp) * 100);
     return `
-        <div class="unit-card" style="border-color:${color}">
-            <div><strong>${unit.name}</strong> (統:${unit.lead} 武:${unit.war})</div>
-            <div>兵力: ${unit.troops}</div>
-            <div class="hp-bar"><div class="hp-fill" style="width:${pct}%"></div></div>
+        <div class="unit-card" style="border-color:${color}; opacity:${isDead ? 0.5 : 1}">
+            <div class="unit-info">
+                <strong style="${isDead ? 'text-decoration:line-through':''}">${unit.name}</strong>
+                <span>統:${unit.lead} 武:${unit.war}</span>
+            </div>
+            <div style="font-size:10px;">兵力: ${unit.troops}</div>
+            <div class="hp-bar"><div class="hp-fill" style="width:${pct}%; background-color:${color}"></div></div>
         </div>
     `;
 }
 
 function runBattleRound() {
     battleData.round++;
-    addBattleLog(`--- 第 ${battleData.round} 回合 ---`);
+    // R3: 讀取玩家選擇的陣形
+    battleData.playerFormation = document.getElementById('player-formation').value;
+    
+    const pForm = FORMATIONS[battleData.playerFormation];
+    const eForm = FORMATIONS[battleData.enemyFormation];
+
+    addBattleLog(`--- 第 ${battleData.round} 回合 (我方:${pForm.name} vs 敵方:${eForm.name}) ---`);
     
     let pAlive = battleData.playerUnits.filter(u => u.troops > 0);
     let eAlive = battleData.enemyUnits.filter(u => u.troops > 0);
     
-    if(pAlive.length === 0) { endBattle(false); return; }
-    if(eAlive.length === 0) { endBattle(true); return; }
+    if(pAlive.length === 0 || eAlive.length === 0) { endBattle(pAlive.length > 0); return; }
     
-    // 簡單戰鬥邏輯：隨機互毆
-    // 每個活著的單位攻擊一個敵方隨機單位
+    // 戰鬥計算邏輯 (加入陣形修正 R3)
+    // 簡化公式：傷害 = (攻擊方統武平均 * 兵力因子 * 陣形攻修) / (防禦方統武平均 * 陣形防修 * 常數)
+    
+    // 我方攻擊
     pAlive.forEach(p => {
         if(eAlive.length === 0) return;
         let target = eAlive[Math.floor(Math.random() * eAlive.length)];
-        let dmg = Math.floor((p.lead + p.war) * (p.troops / 1000) * 0.5);
+        
+        // 計算傷害 (R3: 應用陣形加成)
+        let atkPower = (p.lead + p.war) / 2 * (p.troops / 1000) * pForm.atkMod;
+        let defPower = (target.lead + target.war) / 2 * (target.troops / 1000) * eForm.defMod;
+        // 確保有最低傷害
+        let dmg = Math.floor(Math.max(50, atkPower - defPower * 0.5) * (0.8 + Math.random()*0.4));
+
         target.troops -= dmg;
-        addBattleLog(`${p.name} 攻擊 ${target.name}，造成 ${dmg} 傷害！`);
+        addBattleLog(`${p.name} 攻擊 ${target.name}，造成 ${dmg} 損傷！`);
         if(target.troops <= 0) {
             target.troops = 0;
-            addBattleLog(`${target.name} 潰敗了！`);
-            eAlive = battleData.enemyUnits.filter(u => u.troops > 0); // 更新存活列表
+            addBattleLog(`[潰敗] ${target.name} 的部隊潰散了！`, "yellow");
+            eAlive = battleData.enemyUnits.filter(u => u.troops > 0);
         }
     });
     
-    // 敵方反擊
+    // 敵方反擊 (邏輯相同)
     eAlive.forEach(e => {
         if(pAlive.length === 0) return;
         let target = pAlive[Math.floor(Math.random() * pAlive.length)];
-        let dmg = Math.floor((e.lead + e.war) * (e.troops / 1000) * 0.5);
+        
+        let atkPower = (e.lead + e.war) / 2 * (e.troops / 1000) * eForm.atkMod;
+        let defPower = (target.lead + target.war) / 2 * (target.troops / 1000) * pForm.defMod;
+        let dmg = Math.floor(Math.max(50, atkPower - defPower * 0.5) * (0.8 + Math.random()*0.4));
+
         target.troops -= dmg;
-        addBattleLog(`${e.name} 反擊 ${target.name}，造成 ${dmg} 傷害！`);
+        addBattleLog(`${e.name} 反擊 ${target.name}，造成 ${dmg} 損傷！`, "#ff9999");
         if(target.troops <= 0) {
             target.troops = 0;
-            addBattleLog(`${target.name} 潰敗了！`);
+            addBattleLog(`[潰敗] ${target.name} 的部隊潰散了！`, "yellow");
         }
     });
     
     renderBattleScreen();
     
-    // 檢查結束
+    // 檢查結束條件
     pAlive = battleData.playerUnits.filter(u => u.troops > 0);
     eAlive = battleData.enemyUnits.filter(u => u.troops > 0);
     
@@ -443,31 +716,55 @@ function runBattleRound() {
     else if(eAlive.length === 0) endBattle(true);
 }
 
-function addBattleLog(msg) {
+function addBattleLog(msg, color="#0f0") {
     const logDiv = document.getElementById('battle-log');
-    logDiv.innerHTML += `<div>> ${msg}</div>`;
+    logDiv.innerHTML += `<div style="color:${color}">> ${msg}</div>`;
     logDiv.scrollTop = logDiv.scrollHeight;
 }
 
 function endBattle(isVictory) {
     document.getElementById('btn-fight').style.display = 'none';
     document.getElementById('btn-retreat').style.display = 'inline-block';
-    document.getElementById('battle-status').innerText = isVictory ? "戰鬥勝利！攻下城池！" : "戰鬥失敗！全軍覆沒！";
     
+    const targetCity = mapCities.find(c => c.id === battleData.targetCityId);
+    const sourceCity = mapCities.find(c => c.id === battleData.sourceCityId);
+
     if(isVictory) {
-        // 簡易佔領邏輯
-        const city = CITIES[gameState.selectedCityIndex];
-        city.lord = gameState.playerLord;
-        drawMap(); // 更新地圖顏色
+        document.getElementById('battle-status').innerText = "戰鬥勝利！成功攻佔城池！";
+        addBattleLog("我軍大獲全勝！", "cyan");
+        // 處理戰後：佔領城市，俘虜武將(簡化：直接加入)
+        targetCity.lord = gameState.playerLord;
+        targetCity.color = sourceCity.color;
+        // 將敵方殘存武將加入我方 (簡化)
+        battleData.enemyUnits.forEach(u => {
+            let originalGen = targetCity.generals.find(g => g.name === u.name);
+            if(originalGen) originalGen.troops = Math.max(500, u.troops); // 回復少量兵力
+        });
+
+    } else {
+        document.getElementById('battle-status').innerText = "戰鬥失敗！進攻部隊潰散！";
+        addBattleLog("我軍敗退...", "red");
+        // 處理戰後：進攻武將回到原城池，兵力歸零
     }
+
+    // 更新原武將資料的兵力 (將戰鬥中的兵力同步回大地圖)
+    battleData.playerUnits.forEach(u => {
+        let originalGen = sourceCity.generals.find(g => g.name === u.name);
+        if(originalGen) originalGen.troops = u.troops;
+    });
+    battleData.enemyUnits.forEach(u => {
+        let originalGen = targetCity.generals.find(g => g.name === u.name);
+        if(originalGen) originalGen.troops = u.troops;
+    });
+
+    drawMap(); // 更新地圖顏色
 }
 
 function retreat() {
     document.getElementById('battle-screen').style.display = 'none';
+    updateUI();
     log("戰鬥結束，返回戰略畫面。");
 }
-
-// 修改按鈕事件
 document.getElementById('btn-retreat').onclick = retreat;
 
 </script>
