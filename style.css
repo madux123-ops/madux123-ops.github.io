@@ -1,0 +1,296 @@
+/* --- I. 基礎設定 --- */
+body {
+    font-family: 'Segoe UI', 'Microsoft JhengHei', sans-serif;
+    background-color: #2c3e50;
+    color: #333;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    margin: 0;
+}
+
+/* --- II. 設置畫面 (Setup Screen) --- */
+#setup-screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.85);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+}
+
+.setup-box {
+    background: white;
+    padding: 40px;
+    border-radius: 15px;
+    width: 400px;
+    text-align: center;
+    box-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+    border: 4px solid #2c3e50;
+}
+
+.setup-box h1 {
+    color: #c0392b;
+    margin-bottom: 10px;
+}
+
+.form-group {
+    margin: 20px 0;
+    text-align: left;
+}
+
+.form-group label {
+    display: block;
+    font-weight: bold;
+    margin-bottom: 8px;
+    font-size: 1.1em;
+}
+
+.radio-group label {
+    display: block;
+    font-weight: normal;
+    margin: 5px 0;
+    cursor: pointer;
+}
+
+select {
+    width: 100%;
+    padding: 10px;
+    font-size: 16px;
+    border-radius: 5px;
+}
+
+.btn-large {
+    background-color: #27ae60;
+    color: white;
+    padding: 15px 30px;
+    font-size: 1.2em;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    width: 100%;
+    margin-top: 20px;
+    font-weight: bold;
+    transition: background 0.3s;
+}
+.btn-large:hover {
+    background-color: #2ecc71;
+}
+
+/* --- III. 遊戲容器 (初始隱藏) --- */
+#game-container {
+    display: flex;
+    background: #ecf0f1;
+    border-radius: 15px;
+    box-shadow: 0 0 30px rgba(0,0,0,0.5);
+    overflow: hidden;
+    max-height: 95vh;
+}
+/* 如果有 hidden class 則隱藏 (用於切換畫面) */
+#game-container.hidden {
+    display: none;
+}
+
+/* --- IV. 地圖區 --- */
+#map-container {
+    padding: 10px;
+    background: #34495e;
+    overflow: auto;
+}
+
+#map-tiles {
+    display: grid;
+    grid-template-columns: repeat(8, 110px);
+    grid-template-rows: repeat(8, 110px);
+    gap: 4px;
+}
+
+/* 地塊樣式 */
+.tile {
+    background: white;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px;
+    padding: 2px;
+    box-sizing: border-box;
+    border: 2px solid #bdc3c7;
+    border-radius: 4px;
+}
+
+/* 區域群組顏色 */
+.tile.group-1 { border-color: #795548; background: #efebe9; }
+.tile.group-2 { border-color: #03a9f4; background: #e1f5fe; }
+.tile.group-3 { border-color: #e91e63; background: #fce4ec; }
+.tile.group-4 { border-color: #ff9800; background: #fff3e0; }
+.tile.group-5 { border-color: #9c27b0; background: #f3e5f5; }
+.tile.group-6 { border-color: #4caf50; background: #e8f5e9; }
+.tile.group-7 { border-color: #607d8b; background: #eceff1; }
+.tile.group-8 { border-color: #f44336; background: #ffebee; }
+.tile.group-9 { border: 3px solid #ffd700; background: #fffde7; }
+
+.tile.start-tile { background: #27ae60; color: white; border-color: #2ecc71; }
+.tile.chance-tile { background: #ffeb3b; border-style: dashed; border-color: #fbc02d; }
+.tile.tax-tile { background: #ffccbc; border-color: #d84315; }
+.tile.rest-tile { background: #b2dfdb; border-color: #009688; }
+
+.tile-name {
+    font-weight: bold;
+    text-align: center;
+    margin-top: 12px;
+    line-height: 1.2;
+}
+.tile-price { color: #c0392b; font-weight: bold; }
+.tile-index { position: absolute; top: 2px; left: 2px; font-size: 10px; color: #999; }
+
+/* 擁有者條 */
+.owner-strip {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 12px;
+    color: white;
+    font-size: 10px;
+    text-align: right;
+    padding-right: 2px;
+    font-weight: bold;
+    background: transparent;
+}
+
+/* 棋子 */
+.player-token-slot {
+    position: absolute;
+    bottom: 2px;
+    width: 100%;
+    height: 50px;
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+    pointer-events: none;
+}
+.player-token {
+    width: 45px;
+    height: 45px;
+    background-size: cover;
+    border-radius: 50%;
+    border: 2px solid white;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+    transition: transform 0.2s;
+}
+
+/* --- V. 右側控制欄 --- */
+#sidebar {
+    width: 350px;
+    display: flex;
+    flex-direction: column;
+    border-left: 2px solid #bdc3c7;
+}
+
+#control-panel {
+    padding: 20px;
+    background: #fff;
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    border-bottom: 1px solid #ddd;
+}
+
+#current-player-display {
+    font-size: 18px;
+    font-weight: bold;
+    margin-bottom: 10px;
+    color: #2c3e50;
+}
+
+#dice-result {
+    font-size: 40px;
+    font-weight: bold;
+    margin: 15px 0;
+    color: #2980b9;
+}
+
+/* 按鈕群 */
+.btn {
+    padding: 15px 30px;
+    font-size: 18px;
+    margin: 5px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: transform 0.1s;
+}
+.btn:active { transform: scale(0.95); }
+
+#roll-dice-btn { background: #e67e22; color: white; width: 100%; font-size: 24px; }
+#roll-dice-btn:disabled { background: #95a5a6; cursor: not-allowed; }
+#buy-btn { background: #27ae60; color: white; }
+#upgrade-btn { background: #2980b9; color: white; }
+#end-turn-btn { background: #c0392b; color: white; }
+#continue-btn { background: #8e44ad; color: white; }
+
+.hidden { display: none !important; }
+
+/* 訊息紀錄 */
+#message-log {
+    flex: 1;
+    padding: 15px;
+    overflow-y: auto;
+    background: #fdfefe;
+    border-bottom: 1px solid #ddd;
+}
+#message-log p {
+    margin: 5px 0;
+    font-size: 16px;
+    line-height: 1.4;
+    border-bottom: 1px dashed #eee;
+    padding-bottom: 3px;
+}
+.log-system { color: #7f8c8d; font-style: italic; }
+.log-info { color: #2c3e50; }
+.log-dialogue { color: #8e44ad; font-weight: bold; }
+.log-money { color: #d35400; font-weight: bold; }
+.log-success { color: #27ae60; }
+.log-alert { color: #c0392b; font-weight: bold; }
+.log-chance { color: #f39c12; }
+
+/* 玩家列表 */
+#player-info {
+    flex: 0 0 200px;
+    padding: 10px;
+    background: #ecf0f1;
+    overflow-y: auto;
+}
+.player-card {
+    background: white;
+    padding: 10px;
+    margin-bottom: 8px;
+    border-radius: 5px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    position: relative;
+}
+.player-card.active {
+    background: #fff9c4;
+    border: 2px solid #f1c40f;
+}
+.player-card h3 { margin: 0 0 5px 0; font-size: 16px; }
+.player-card p { margin: 2px 0; font-size: 14px; color: #555; }
+.tag-ai {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: #95a5a6;
+    color: white;
+    font-size: 10px;
+    padding: 2px 5px;
+    border-radius: 4px;
+}

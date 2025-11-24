@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>鬼滅之刃大富翁</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div id="setup-screen">
+        <div class="setup-box">
+            <h1>鬼滅之刃大富翁</h1>
+            <p>全集中・常中！準備好開始任務了嗎？</p>
+            
+            <div class="form-group">
+                <label>選擇難易度 (影響初始資金與對手強度):</label>
+                <div class="radio-group">
+                    <label><input type="radio" name="difficulty" value="easy"> 簡單 (資金多/對手弱)</label>
+                    <label><input type="radio" name="difficulty" value="normal" checked> 普通 (標準)</label>
+                    <label><input type="radio" name="difficulty" value="hard"> 困難 (資金少/對手強)</label>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>人類玩家人數 (剩餘由電腦補位):</label>
+                <select id="human-count">
+                    <option value="1" selected>1 人 (單人挑戰)</option>
+                    <option value="2">2 人</option>
+                    <option value="3">3 人</option>
+                    <option value="4">4 人</option>
+                </select>
+            </div>
+
+            <button id="start-game-btn" class="btn-large">開始遊戲</button>
+        </div>
+    </div>
+
+    <div id="game-container" class="hidden">
+        <div id="map-container">
+            <div id="map-tiles"></div>
+        </div>
+
+        <div id="sidebar">
+            <div id="control-panel">
+                <div id="current-player-display">準備中...</div>
+                <button id="roll-dice-btn" class="btn">擲骰子 (全集中)</button>
+                <div id="dice-result"></div>
+
+                <button id="buy-btn" class="btn hidden">購買</button>
+                <button id="upgrade-btn" class="btn hidden">升級</button>
+                <button id="continue-btn" class="btn hidden">繼續</button>
+                <button id="end-turn-btn" class="btn hidden">結束回合</button>
+            </div>
+
+            <div id="message-log">
+                <p class="log-system">歡迎來到鬼滅之刃大富翁！</p>
+            </div>
+
+            <div id="player-info"></div>
+        </div>
+    </div>
+
+    <script src="game.js"></script>
+</body>
+</html>
