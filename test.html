@@ -3,809 +3,543 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>信長之野望：天下創世 (戰鬥系統實裝版)</title>
+    <title>寶可夢 x 遊戲王 對戰</title>
     <style>
         :root {
-            --bg-color: #2c3e50;
-            --map-bg: #27ae60;
-            --city-own: #2980b9;
-            --city-enemy: #c0392b;
-            --panel-bg: rgba(0, 0, 0, 0.8);
-            --text-color: #ecf0f1;
-            --accent: #f1c40f;
+            --bg-color: #1a1a1a;
+            --field-color: #2d4a3e; /* 類似遊戲王決鬥場地綠 */
+            --card-bg: #e0e0e0;
+            --p1-color: #3b82f6;
+            --p2-color: #ef4444;
+            --text-color: #fff;
         }
 
         body {
-            font-family: 'Microsoft JhengHei', sans-serif;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: var(--bg-color);
             color: var(--text-color);
             margin: 0;
-            overflow: hidden;
-            display: flex;
-            height: 100vh;
-        }
-
-        /* 左側資訊欄 */
-        #sidebar {
-            width: 250px;
-            background: #34495e;
-            padding: 20px;
             display: flex;
             flex-direction: column;
-            border-right: 2px solid #7f8c8d;
-        }
-
-        .stat-box {
-            margin-bottom: 15px;
-            padding: 10px;
-            background: rgba(255,255,255,0.1);
-            border-radius: 5px;
-        }
-
-        h2, h3 { margin: 0 0 10px 0; color: var(--accent); }
-        button {
-            background: var(--accent);
-            border: none;
-            padding: 8px 15px;
-            cursor: pointer;
-            color: #000;
-            font-weight: bold;
-            margin-top: 5px;
-            width: 100%;
-        }
-        button:hover { background: #f39c12; }
-        button:disabled { background: #95a5a6; cursor: not-allowed; }
-
-        /* 右側地圖區 */
-        #map-container {
-            flex: 1;
-            position: relative;
-            background: #1a1a1a;
-            overflow: auto;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-
-        #game-map {
-            display: grid;
-            grid-template-columns: repeat(8, 60px);
-            grid-template-rows: repeat(8, 60px);
-            gap: 2px;
-            background: #7f8c8d;
-            border: 5px solid #34495e;
-        }
-
-        .tile {
-            width: 60px;
-            height: 60px;
-            background: var(--map-bg);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-size: 12px;
-            position: relative;
-            cursor: pointer;
+            height: 100vh;
+            overflow: hidden;
             user-select: none;
         }
 
-        .tile:hover { filter: brightness(1.2); }
-        
-        .city {
-            width: 50px;
-            height: 50px;
-            border-radius: 5px;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            font-size: 10px;
-            border: 2px solid #fff;
-            z-index: 2;
-        }
-        
-        .city.player { background-color: var(--city-own); }
-        .city.enemy { background-color: var(--city-enemy); }
-        
-        /* 範圍指示器 */
-        .tile.in-range {
-            background-color: rgba(241, 196, 15, 0.3); /* 黃色半透明 */
-            box-shadow: inset 0 0 10px var(--accent);
-        }
-
-        /* =========================================
-           戰鬥系統 UI (Battle System Overlay)
-           ========================================= */
-        #battle-overlay {
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.9);
-            z-index: 100;
-            display: none; /* 預設隱藏 */
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .battle-window {
-            width: 800px;
-            height: 600px;
-            background: #2c3e50;
-            border: 2px solid var(--accent);
-            display: flex;
-            flex-direction: column;
-            padding: 20px;
-            box-shadow: 0 0 20px #000;
-        }
-
-        .battle-header {
-            text-align: center;
-            border-bottom: 1px solid #7f8c8d;
-            padding-bottom: 10px;
-            margin-bottom: 10px;
-        }
-
-        /* 準備階段 */
-        #prep-screen { display: flex; flex: 1; gap: 20px; }
-        
-        .prep-col { flex: 1; background: rgba(0,0,0,0.2); padding: 10px; overflow-y: auto; }
-
-        .general-select-item {
-            display: flex;
-            justify-content: space-between;
-            background: #34495e;
-            margin-bottom: 5px;
-            padding: 5px;
-            cursor: pointer;
-        }
-        .general-select-item.selected { border-left: 4px solid var(--accent); background: #465f75; }
-        .gen-stats { font-size: 0.8em; color: #bdc3c7; }
-
-        /* 戰鬥階段 */
-        #combat-screen { display: none; flex: 1; flex-direction: column; }
-        
-        #turn-order-bar {
-            height: 50px;
-            background: #000;
-            display: flex;
-            align-items: center;
-            padding: 0 10px;
-            overflow-x: auto;
-            border-bottom: 1px solid #555;
-        }
-        .order-unit {
-            background: #2980b9;
-            padding: 5px 10px;
-            margin-right: 5px;
-            border-radius: 3px;
-            font-size: 12px;
-            white-space: nowrap;
-        }
-        .order-unit.enemy { background: #c0392b; }
-
-        #battle-visuals {
+        /* --- 佈局 --- */
+        .game-board {
             flex: 1;
             display: flex;
-            justify-content: space-between;
-            padding: 20px;
-            background: linear-gradient(to bottom, #2c3e50, #1a1a1a);
-        }
-        
-        .army-box { width: 45%; text-align: center; }
-        .hp-bar-container { background: #555; height: 15px; border-radius: 10px; margin: 5px 0; overflow: hidden;}
-        .hp-bar { height: 100%; transition: width 0.5s; }
-        
-        #battle-log {
-            height: 150px;
-            background: #000;
-            color: #0f0;
-            font-family: 'Courier New', monospace;
-            padding: 10px;
-            overflow-y: auto;
-            border-top: 1px solid #555;
-            font-size: 14px;
+            flex-direction: column;
+            position: relative;
         }
 
-        .log-entry { margin-bottom: 4px; border-bottom: 1px solid #333; }
-        .log-dmg { color: #e74c3c; font-weight: bold; }
-        .log-kill { color: var(--accent); }
+        .player-zone {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 10px;
+            position: relative;
+            transition: background 0.3s;
+        }
+
+        .p2-zone { border-bottom: 2px solid #444; background: rgba(239, 68, 68, 0.05); }
+        .p1-zone { background: rgba(59, 130, 246, 0.05); }
+
+        .active-turn { background: rgba(255, 255, 255, 0.1) !important; }
+
+        /* --- 區域 --- */
+        .field-row {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            height: 140px;
+            align-items: center;
+            background-color: var(--field-color);
+            border-radius: 8px;
+            margin: 5px 0;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+        }
+
+        .hand-row {
+            display: flex;
+            justify-content: center;
+            gap: 5px;
+            height: 100px;
+            align-items: center;
+            overflow-x: auto;
+        }
+
+        /* --- 卡片樣式 --- */
+        .card {
+            width: 90px;
+            height: 130px;
+            background: var(--card-bg);
+            border-radius: 6px;
+            border: 3px solid #888;
+            color: #000;
+            display: flex;
+            flex-direction: column;
+            font-size: 10px;
+            position: relative;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .hand-row .card {
+            width: 70px;
+            height: 100px;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 15px rgba(255,255,255,0.3);
+            z-index: 10;
+        }
+
+        .card.selected {
+            border-color: #ffd700;
+            box-shadow: 0 0 15px #ffd700;
+            transform: scale(1.05);
+        }
+
+        .card-header {
+            background: #d4af37; /* 怪獸卡黃色 */
+            padding: 2px;
+            font-weight: bold;
+            text-align: center;
+            border-bottom: 1px solid #000;
+        }
+
+        .card-img {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            background: #fff;
+        }
+
+        .card-stats {
+            background: #f0f0f0;
+            padding: 2px;
+            display: flex;
+            justify-content: space-between;
+            border-top: 1px solid #000;
+            font-weight: bold;
+        }
+
+        .card.attack-mode { transform: rotate(0deg); }
+        .card.def-mode { transform: rotate(90deg); opacity: 0.8; }
+        .card.attacked { filter: grayscale(1); cursor: not-allowed; }
+
+        /* 屬性顏色 */
+        .type-fire { border-color: #ff4500; }
+        .type-water { border-color: #1e90ff; }
+        .type-grass { border-color: #32cd32; }
+        .type-electric { border-color: #ffd700; }
+
+        /* --- 資訊面板 --- */
+        .info-panel {
+            position: absolute;
+            top: 50%;
+            left: 10px;
+            transform: translateY(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            padding: 10px;
+            border-radius: 8px;
+            z-index: 100;
+            width: 150px;
+        }
+        
+        .lp-box { margin-bottom: 10px; font-size: 18px; font-weight: bold; }
+        .p1-lp { color: var(--p1-color); }
+        .p2-lp { color: var(--p2-color); }
+        
+        .phase-indicator {
+            text-align: center;
+            margin-top: 10px;
+            font-weight: bold;
+            color: #ffd700;
+            border: 1px solid #ffd700;
+            padding: 5px;
+        }
+
+        /* --- 控制區 --- */
+        .controls {
+            position: absolute;
+            top: 50%;
+            right: 10px;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 100;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background: #444;
+            color: white;
+            border: 1px solid #888;
+            border-radius: 5px;
+        }
+
+        button:hover { background: #666; }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-end { background: #8b0000; border-color: #ff0000; }
+
+        /* --- Log --- */
+        .log-box {
+            height: 100px;
+            background: #000;
+            border-top: 1px solid #555;
+            padding: 5px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .log-entry { margin: 2px 0; border-bottom: 1px solid #333; }
+
+        /* --- 勝利畫面 --- */
+        #winner-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 999;
+        }
+        #winner-text { font-size: 40px; color: #ffd700; margin-bottom: 20px; }
     </style>
 </head>
 <body>
 
-    <div id="sidebar">
-        <h2>天下創世</h2>
-        <div class="stat-box">
-            <h3>本家情報</h3>
-            <p>大名：<span id="daimyo-name">織田信長</span></p>
-            <p>金錢：<span id="res-gold">1000</span></p>
-            <p>兵糧：<span id="res-rice">2000</span></p>
-            <p>當前季節：<span id="game-season">春</span></p>
-        </div>
-        <div id="city-info" class="stat-box" style="display:none;">
-            <h3>據點情報</h3>
-            <p id="sel-city-name">--</p>
-            <p>兵力：<span id="sel-city-troops">0</span></p>
-            <p>城防：<span id="sel-city-def">0</span></p>
-            <div id="city-actions"></div>
-        </div>
-        <button onclick="nextTurn()">進行下一回合</button>
+    <div class="info-panel">
+        <div class="lp-box p2-lp">P2 LP: <span id="p2-lp">4000</span></div>
+        <div class="lp-box p1-lp">P1 LP: <span id="p1-lp">4000</span></div>
+        <div class="phase-indicator" id="current-phase">抽牌階段</div>
+        <div style="font-size: 12px; text-align: center; margin-top:5px;">當前: <span id="current-player">P1</span></div>
     </div>
 
-    <div id="map-container">
-        <div id="game-map"></div>
+    <div class="controls">
+        <button id="btn-battle" onclick="game.enterBattlePhase()">進入戰鬥</button>
+        <button id="btn-end" class="btn-end" onclick="game.endTurn()">結束回合</button>
     </div>
 
-    <div id="battle-overlay">
-        <div class="battle-window">
-            <div class="battle-header">
-                <h2 id="battle-title">攻城戰準備</h2>
-            </div>
-
-            <div id="prep-screen">
-                <div class="prep-col">
-                    <h3>1. 選擇出陣武將 (最多8名)</h3>
-                    <div id="prep-general-list">
-                        </div>
-                </div>
-                <div class="prep-col">
-                    <h3>2. 兵力徵調 (範圍4格內)</h3>
-                    <p>附近可用兵力池: <span id="pool-troops" style="color:var(--accent); font-size:1.2em;">0</span></p>
-                    <p>預計分配: 每人 <span id="troops-per-gen">0</span> (上限5000)</p>
-                    <hr>
-                    <p>總出陣兵力: <span id="total-deploy-troops">0</span> / 40000</p>
-                    <div style="margin-top: 20px;">
-                        <button onclick="startCombat()" id="btn-start-combat">確認出陣</button>
-                        <button onclick="closeBattle()" style="background:#7f8c8d;">取消</button>
-                    </div>
-                </div>
-            </div>
-
-            <div id="combat-screen">
-                <div id="turn-order-bar"></div>
-
-                <div id="battle-visuals">
-                    <div class="army-box">
-                        <h3 style="color:var(--city-own)">我軍 (織田)</h3>
-                        <div id="attacker-status"></div>
-                    </div>
-                    <div class="army-box">
-                        <h3 style="color:var(--city-enemy)" id="defender-name">敵軍</h3>
-                        <div class="hp-bar-container">
-                            <div id="def-wall-bar" class="hp-bar" style="width: 100%; background: #95a5a6;"></div>
-                        </div>
-                        <small>城防: <span id="def-wall-val">100</span></small>
-                        <div class="hp-bar-container">
-                            <div id="def-troops-bar" class="hp-bar" style="width: 100%; background: #c0392b;"></div>
-                        </div>
-                        <small>守軍: <span id="def-troops-val">1000</span></small>
-                    </div>
-                </div>
-
-                <div id="battle-log"></div>
-                
-                <div style="text-align: right; padding: 10px;">
-                    <button onclick="processBattleRound()" id="btn-next-round">執行回合</button>
-                </div>
-            </div>
-
-            <div id="result-screen" style="display:none; text-align: center; padding-top: 50px;">
-                <h1 id="result-title"></h1>
-                <p id="result-desc"></p>
-                <button onclick="closeBattle()">返回大地圖</button>
-            </div>
-
+    <div class="game-board">
+        <div class="player-zone p2-zone" id="p2-zone">
+            <div class="hand-row" id="p2-hand"></div>
+            <div class="field-row" id="p2-field"></div>
         </div>
+
+        <div class="player-zone p1-zone" id="p1-zone">
+            <div class="field-row" id="p1-field"></div>
+            <div class="hand-row" id="p1-hand"></div>
+        </div>
+    </div>
+
+    <div class="log-box" id="game-log">
+        <div class="log-entry">遊戲開始！請 P1 抽牌。</div>
+    </div>
+
+    <div id="winner-overlay">
+        <div id="winner-text">P1 獲勝!</div>
+        <button onclick="location.reload()">重新開始</button>
     </div>
 
     <script>
-        // ==========================================
-        // 1. 遊戲基礎資料結構 (Base Data)
-        // ==========================================
-        
-        const MAP_SIZE = 8;
-        const PLAYER_ID = 'oda';
-        
-        // 模擬武將資料
-        const generals = [
-            { id: 1, name: '織田信長', lead: 99, pol: 95, war: 85, int: 90, owner: 'oda', location: 'city_0_0', status: 'free' },
-            { id: 2, name: '柴田勝家', lead: 88, pol: 50, war: 94, int: 40, owner: 'oda', location: 'city_0_0', status: 'delegated' }, // 測試自動解除委任
-            { id: 3, name: '羽柴秀吉', lead: 85, pol: 92, war: 75, int: 95, owner: 'oda', location: 'city_0_0', status: 'free' },
-            { id: 4, name: '明智光秀', lead: 90, pol: 91, war: 80, int: 93, owner: 'oda', location: 'city_0_0', status: 'free' },
-            { id: 5, name: '丹羽長秀', lead: 78, pol: 82, war: 70, int: 75, owner: 'oda', location: 'city_0_0', status: 'free' },
-            { id: 6, name: '前田利家', lead: 75, pol: 60, war: 85, int: 50, owner: 'oda', location: 'city_0_0', status: 'free' },
-            { id: 7, name: '瀧川一益', lead: 82, pol: 65, war: 80, int: 70, owner: 'oda', location: 'city_0_0', status: 'free' },
-            { id: 8, name: '佐佐成政', lead: 72, pol: 55, war: 78, int: 45, owner: 'oda', location: 'city_0_0', status: 'free' },
-            { id: 9, name: '森蘭丸',   lead: 60, pol: 60, war: 70, int: 60, owner: 'oda', location: 'city_0_0', status: 'free' },
+        // --- 資料庫: 寶可夢卡片 ---
+        const CARD_DB = [
+            { id: 1, name: "小火龍", type: "fire", atk: 1200, def: 800, img: "🔥" },
+            { id: 2, name: "傑尼龜", type: "water", atk: 1000, def: 1500, img: "💧" },
+            { id: 3, name: "妙蛙種子", type: "grass", atk: 1100, def: 1100, img: "🌿" },
+            { id: 4, name: "皮卡丘", type: "electric", atk: 1400, def: 600, img: "⚡" },
+            { id: 5, name: "小拉達", type: "normal", atk: 800, def: 600, img: "🐀" },
+            { id: 6, name: "卡比獸", type: "normal", atk: 1800, def: 2000, img: "💤" }, // 稍微強一點
+            { id: 7, name: "鬼斯", type: "ghost", atk: 1300, def: 200, img: "👻" },
+            { id: 8, name: "伊布", type: "normal", atk: 1100, def: 900, img: "🐕" },
         ];
 
-        // 模擬城市資料
-        const cities = [
-            { id: 'city_0_0', name: '清洲城', x: 0, y: 0, owner: 'oda', troops: 8000, defense: 200 }, // 大本營
-            { id: 'city_1_0', name: '那古野', x: 1, y: 0, owner: 'oda', troops: 3000, defense: 100 }, // 支援城1
-            { id: 'city_0_1', name: '犬山城', x: 0, y: 1, owner: 'oda', troops: 3000, defense: 100 }, // 支援城2
-            { id: 'city_3_3', name: '稻葉山', x: 3, y: 3, owner: 'saito', troops: 6000, defense: 300 }, // 敵人
-            { id: 'city_7_7', name: '躑躅崎', x: 7, y: 7, owner: 'takeda', troops: 10000, defense: 500 } // 遠方敵人
-        ];
-
-        let gameState = {
-            turn: 1,
-            gold: 5000,
-            rice: 5000,
-            selectedCity: null
-        };
-
-        // ==========================================
-        // 2. 核心遊戲邏輯 (Core Logic)
-        // ==========================================
-
-        function initGame() {
-            renderMap();
-            updateUI();
-        }
-
-        function renderMap() {
-            const mapEl = document.getElementById('game-map');
-            mapEl.innerHTML = '';
-
-            for (let y = 0; y < MAP_SIZE; y++) {
-                for (let x = 0; x < MAP_SIZE; x++) {
-                    const tile = document.createElement('div');
-                    tile.className = 'tile';
-                    tile.dataset.x = x;
-                    tile.dataset.y = y;
-                    
-                    // 檢查是否有城市
-                    const city = cities.find(c => c.x === x && c.y === y);
-                    if (city) {
-                        const cityDiv = document.createElement('div');
-                        cityDiv.className = `city ${city.owner === PLAYER_ID ? 'player' : 'enemy'}`;
-                        cityDiv.innerHTML = `<span>${city.name}</span><span>${city.troops}</span>`;
-                        cityDiv.onclick = (e) => {
-                            e.stopPropagation(); // 避免點到格子
-                            selectCity(city);
-                        };
-                        tile.appendChild(cityDiv);
-                    }
-
-                    mapEl.appendChild(tile);
-                }
-            }
-        }
-
-        function selectCity(city) {
-            gameState.selectedCity = city;
-            const infoPanel = document.getElementById('city-info');
-            infoPanel.style.display = 'block';
-            
-            document.getElementById('sel-city-name').innerText = city.name;
-            document.getElementById('sel-city-troops').innerText = city.troops;
-            document.getElementById('sel-city-def').innerText = city.defense;
-            
-            const actionDiv = document.getElementById('city-actions');
-            actionDiv.innerHTML = '';
-
-            if (city.owner === PLAYER_ID) {
-                // 己方城市功能 (簡化)
-                actionDiv.innerHTML = '<small>己方據點</small>';
-            } else {
-                // 敵方城市功能 -> 觸發戰鬥
-                const atkBtn = document.createElement('button');
-                atkBtn.innerText = '宣戰攻擊';
-                atkBtn.onclick = () => openBattlePrep(city);
-                actionDiv.appendChild(atkBtn);
-            }
-        }
-
-        // ==========================================
-        // 3. 戰鬥系統模組 (Battle System Module)
-        // ==========================================
-        
-        let battleData = {
-            targetCity: null,
-            originCity: null, // 假設攻擊發起點為最近的己方城
-            selectedGenerals: [],
-            mobilizedTroops: 0,
-            turnOrder: [],
-            round: 0,
-            active: false
-        };
-
-        // --- 3.1 準備階段 (Preparation) ---
-
-        function openBattlePrep(targetCity) {
-            battleData.targetCity = targetCity;
-            battleData.originCity = findNearestPlayerCity(targetCity); // 尋找最近的己方城市作為前線基地
-            
-            if (!battleData.originCity) {
-                alert("附近沒有己方據點，無法發動攻擊！");
-                return;
+        class Card {
+            constructor(data, owner) {
+                this.uid = Math.random().toString(36).substr(2, 9);
+                this.name = data.name;
+                this.type = data.type;
+                this.atk = data.atk;
+                this.def = data.def;
+                this.img = data.img;
+                this.owner = owner; // 'p1' or 'p2'
+                this.hasAttacked = false;
+                this.position = 'attack'; // or 'def'
             }
 
-            // 顯示 Overlay
-            document.getElementById('battle-overlay').style.display = 'flex';
-            document.getElementById('battle-title').innerText = `攻略目標：${targetCity.name}`;
-            
-            // 切換到準備畫面
-            document.getElementById('prep-screen').style.display = 'flex';
-            document.getElementById('combat-screen').style.display = 'none';
-            document.getElementById('result-screen').style.display = 'none';
-
-            renderGeneralList();
-            highlightMobilizationRange(battleData.originCity);
-            calculateMobilizableTroops();
-        }
-
-        function findNearestPlayerCity(target) {
-            let nearest = null;
-            let minDist = 999;
-            cities.forEach(c => {
-                if (c.owner === PLAYER_ID) {
-                    let d = Math.abs(c.x - target.x) + Math.abs(c.y - target.y);
-                    if (d < minDist) {
-                        minDist = d;
-                        nearest = c;
-                    }
-                }
-            });
-            return nearest;
-        }
-
-        // 渲染武將選擇列表
-        function renderGeneralList() {
-            const list = document.getElementById('prep-general-list');
-            list.innerHTML = '';
-            battleData.selectedGenerals = []; // 重置
-
-            // 篩選出屬於玩家的武將 (這裡簡化為全部玩家武將，實際應篩選位置)
-            const playerGenerals = generals.filter(g => g.owner === PLAYER_ID);
-
-            playerGenerals.forEach(gen => {
-                const div = document.createElement('div');
-                div.className = 'general-select-item';
-                
-                // 若委任中，顯示標記
-                let statusText = gen.status === 'delegated' ? '(委任中)' : '';
-                
-                div.innerHTML = `
-                    <div>
-                        <strong>${gen.name}</strong> <span style="color:#f39c12">${statusText}</span><br>
-                        <span class="gen-stats">統:${gen.lead} 政:${gen.pol} 武:${gen.war}</span>
+            render(location) {
+                const el = document.createElement('div');
+                el.className = `card type-${this.type}`;
+                if (this.hasAttacked) el.classList.add('attacked');
+                el.innerHTML = `
+                    <div class="card-header">${this.name}</div>
+                    <div class="card-img">${this.img}</div>
+                    <div class="card-stats">
+                        <span>⚔️${this.atk}</span>
+                        <span>🛡️${this.def}</span>
                     </div>
-                    <div class="checkbox-area">Wait</div>
                 `;
-
-                div.onclick = () => toggleGeneralSelection(gen, div);
-                list.appendChild(div);
-            });
+                el.dataset.uid = this.uid;
+                
+                if (location === 'hand') {
+                    el.onclick = () => game.handleHandClick(this);
+                } else if (location === 'field') {
+                    el.onclick = () => game.handleFieldClick(this);
+                }
+                return el;
+            }
         }
 
-        function toggleGeneralSelection(gen, divElement) {
-            const idx = battleData.selectedGenerals.indexOf(gen);
-            if (idx > -1) {
-                // 取消選擇
-                battleData.selectedGenerals.splice(idx, 1);
-                divElement.classList.remove('selected');
-            } else {
-                // 選擇 (上限8人)
-                if (battleData.selectedGenerals.length >= 8) {
-                    alert("最多只能派遣8名武將！");
+        class Game {
+            constructor() {
+                this.turn = 'p1';
+                this.phase = 'draw'; // draw, main, battle
+                this.players = {
+                    p1: { lp: 4000, hand: [], field: [], deck: [] },
+                    p2: { lp: 4000, hand: [], field: [], deck: [] }
+                };
+                this.selectedCard = null;
+                this.hasSummoned = false;
+                
+                this.initDeck('p1');
+                this.initDeck('p2');
+                
+                // 初始手牌 3 張
+                for(let i=0; i<3; i++) { this.drawCard('p1'); this.drawCard('p2'); }
+                
+                this.startTurn();
+            }
+
+            log(msg) {
+                const box = document.getElementById('game-log');
+                const div = document.createElement('div');
+                div.className = 'log-entry';
+                div.innerText = `[${this.turn.toUpperCase()}] ${msg}`;
+                box.insertBefore(div, box.firstChild);
+            }
+
+            initDeck(player) {
+                // 隨機生成 20 張卡
+                for(let i=0; i<20; i++) {
+                    const randomCard = CARD_DB[Math.floor(Math.random() * CARD_DB.length)];
+                    this.players[player].deck.push(randomCard);
+                }
+            }
+
+            drawCard(player) {
+                if (this.players[player].deck.length === 0) return;
+                const data = this.players[player].deck.pop();
+                const card = new Card(data, player);
+                this.players[player].hand.push(card);
+                this.updateUI();
+            }
+
+            startTurn() {
+                this.phase = 'draw';
+                this.hasSummoned = false;
+                this.selectedCard = null;
+                
+                // 重置攻擊狀態
+                this.players[this.turn].field.forEach(c => c.hasAttacked = false);
+                
+                this.updateUI();
+                this.log("回合開始，抽牌！");
+                
+                setTimeout(() => {
+                    this.drawCard(this.turn);
+                    this.phase = 'main';
+                    this.updateUI();
+                }, 1000);
+            }
+
+            handleHandClick(card) {
+                if (card.owner !== this.turn) return;
+                if (this.phase !== 'main') {
+                    this.log("只能在主要階段召喚！");
                     return;
                 }
-                battleData.selectedGenerals.push(gen);
-                divElement.classList.add('selected');
-            }
-            distributeTroopsUI();
-        }
-
-        // 計算範圍兵力 (邏輯核心)
-        function calculateMobilizableTroops() {
-            let totalPool = 0;
-            const origin = battleData.originCity;
-            const range = 4;
-
-            cities.forEach(c => {
-                if (c.owner === PLAYER_ID) {
-                    const dist = Math.abs(c.x - origin.x) + Math.abs(c.y - origin.y);
-                    if (dist <= range) {
-                        totalPool += c.troops;
-                    }
+                if (this.hasSummoned) {
+                    this.log("本回合已經召喚過了！");
+                    return;
                 }
-            });
-
-            battleData.mobilizedTroops = totalPool;
-            document.getElementById('pool-troops').innerText = totalPool;
-            distributeTroopsUI();
-        }
-
-        // 在地圖上高亮範圍 (UI優化)
-        function highlightMobilizationRange(origin) {
-            const tiles = document.querySelectorAll('.tile');
-            tiles.forEach(t => {
-                t.classList.remove('in-range');
-                const tx = parseInt(t.dataset.x);
-                const ty = parseInt(t.dataset.y);
-                const dist = Math.abs(tx - origin.x) + Math.abs(ty - origin.y);
-                if (dist <= 4) {
-                    t.classList.add('in-range');
+                if (this.players[this.turn].field.length >= 5) {
+                    this.log("場地已滿！");
+                    return;
                 }
-            });
-        }
 
-        function distributeTroopsUI() {
-            const count = battleData.selectedGenerals.length;
-            const pool = battleData.mobilizedTroops;
-            if (count === 0) {
-                document.getElementById('troops-per-gen').innerText = 0;
-                document.getElementById('total-deploy-troops').innerText = 0;
-                document.getElementById('btn-start-combat').disabled = true;
-                return;
+                // 召喚邏輯
+                const p = this.players[this.turn];
+                p.hand = p.hand.filter(c => c.uid !== card.uid);
+                p.field.push(card);
+                this.hasSummoned = true;
+                this.log(`召喚了 ${card.name} (ATK:${card.atk})`);
+                this.updateUI();
             }
 
-            // 簡單分配：平均分配，但不超過5000
-            let perGen = Math.floor(pool / count);
-            if (perGen > 5000) perGen = 5000;
-
-            document.getElementById('troops-per-gen').innerText = perGen;
-            document.getElementById('total-deploy-troops').innerText = perGen * count;
-            document.getElementById('btn-start-combat').disabled = false;
-        }
-
-        // --- 3.2 戰鬥開始 (Initialization) ---
-
-        function startCombat() {
-            // 1. 設置數據
-            const count = battleData.selectedGenerals.length;
-            let pool = battleData.mobilizedTroops;
-            let perGen = Math.floor(pool / count);
-            if (perGen > 5000) perGen = 5000;
-
-            // 初始化參戰武將狀態
-            battleData.combatUnits = battleData.selectedGenerals.map(g => {
-                // 解除委任
-                if (g.status === 'delegated') g.status = 'free';
-                return {
-                    ...g, // 複製屬性
-                    currentTroops: perGen,
-                    maxTroops: perGen
-                };
-            });
-
-            // 扣除地圖上的兵力 (此處簡化：直接扣總數，暫不平均扣除各城)
-            let totalUsed = perGen * count;
-            // Warning: 實際專案應實作從各城扣除的邏輯
-            
-            // 2. 切換介面
-            document.getElementById('prep-screen').style.display = 'none';
-            document.getElementById('combat-screen').style.display = 'flex';
-            document.getElementById('defender-name').innerText = `敵軍 (${battleData.targetCity.name})`;
-
-            // 初始化防守方數值 (使用副本避免直接修改原始數據直到勝利)
-            battleData.defCityStats = {
-                troops: battleData.targetCity.troops,
-                maxTroops: battleData.targetCity.troops,
-                defense: battleData.targetCity.defense,
-                maxDefense: battleData.targetCity.defense
-            };
-
-            updateBattleVisuals();
-            logBattle("戰鬥開始！全軍突擊！", "white");
-            
-            // 生成第一回合順序
-            battleData.round = 0;
-            prepareRoundOrder();
-        }
-
-        // --- 3.3 戰鬥迴圈 (Combat Loop) ---
-
-        function prepareRoundOrder() {
-            battleData.round++;
-            
-            // 排序邏輯：統帥 + 政治
-            battleData.combatUnits.sort((a, b) => (b.lead + b.pol) - (a.lead + a.pol));
-            
-            // 渲染行動條
-            const bar = document.getElementById('turn-order-bar');
-            bar.innerHTML = '';
-            battleData.combatUnits.forEach(u => {
-                if (u.currentTroops > 0) {
-                    const div = document.createElement('div');
-                    div.className = 'order-unit';
-                    div.innerText = `${u.name} (${u.lead + u.pol})`;
-                    bar.appendChild(div);
-                }
-            });
-
-            // 敵方(城)放在最後或中間? 為了簡化，敵方作為反擊方，在每回合結束結算
-            logBattle(`--- 第 ${battleData.round} 回合 ---`, "#f1c40f");
-        }
-
-        function processBattleRound() {
-            const btn = document.getElementById('btn-next-round');
-            btn.disabled = true; // 防止連點
-
-            let delay = 0;
-
-            // 1. 攻擊方行動
-            battleData.combatUnits.forEach((unit, index) => {
-                if (unit.currentTroops <= 0) return;
-
-                setTimeout(() => {
-                    // 攻擊邏輯
-                    // 傷害 = (兵力 * 0.1) + (統帥 * 2)
-                    let baseDmg = (unit.currentTroops * 0.1) + (unit.lead * 2);
-                    
-                    // 城防減免
-                    let defFactor = 1 + (battleData.defCityStats.defense / 100);
-                    let dmg = Math.floor((baseDmg / defFactor) * (0.9 + Math.random()*0.2));
-
-                    // 傷害判定：先打牆，沒牆打人 (或同時) -> 規則：搭配城防，故假設主要消耗城防與守兵
-                    // 這裡改為：同時造成傷害，但城防高時守兵受傷少
-                    
-                    let wallDmg = Math.floor(dmg * 0.5);
-                    let troopDmg = dmg;
-
-                    // 更新數據
-                    battleData.defCityStats.defense -= wallDmg;
-                    if (battleData.defCityStats.defense < 0) battleData.defCityStats.defense = 0;
-                    
-                    if (battleData.defCityStats.troops > 0) {
-                        battleData.defCityStats.troops -= troopDmg;
-                        if (battleData.defCityStats.troops < 0) battleData.defCityStats.troops = 0;
-                        logBattle(`⚔️ ${unit.name} 攻擊！造成 ${troopDmg} 殺傷, 城防損 ${wallDmg}`, "#fff");
-                    } else {
-                        // 已破城，只打城防
-                        logBattle(`🔨 ${unit.name} 攻城！城防損耗 ${dmg}`, "#fff");
-                        battleData.defCityStats.defense -= (dmg * 0.5); // 額外破壞
-                        if (battleData.defCityStats.defense < 0) battleData.defCityStats.defense = 0;
+            handleFieldClick(card) {
+                // 選擇自己的怪獸進行攻擊
+                if (this.phase === 'battle' && card.owner === this.turn) {
+                    if (card.hasAttacked) {
+                        this.log("這隻怪獸已經攻擊過了！");
+                        return;
                     }
+                    this.selectedCard = card;
+                    this.log(`選擇了 ${card.name} 準備攻擊...`);
+                    this.updateUI();
+                    return;
+                }
 
-                    updateBattleVisuals();
-                    checkVictory();
+                // 選擇對手的怪獸作為攻擊目標
+                if (this.phase === 'battle' && card.owner !== this.turn && this.selectedCard) {
+                    this.executeAttack(this.selectedCard, card);
+                }
+            }
 
-                }, index * 800); // 每個武將行動間隔
+            enterBattlePhase() {
+                if (this.phase !== 'main') return;
+                this.phase = 'battle';
+                this.selectedCard = null;
+                this.log("進入戰鬥階段！");
+                this.updateUI();
+            }
+
+            executeAttack(attacker, target) {
+                attacker.hasAttacked = true;
+                this.selectedCard = null;
                 
-                delay = (index + 1) * 800;
-            });
+                this.log(`${attacker.name} 攻擊 ${target.name}！`);
+                
+                // 簡單的攻擊力判定 (暫不考慮守備表示)
+                if (attacker.atk > target.atk) {
+                    const damage = attacker.atk - target.atk;
+                    this.damageLP(target.owner, damage);
+                    this.destroyCard(target);
+                    this.log(`${target.name} 被破壞！對手受到 ${damage} 點傷害。`);
+                } else if (attacker.atk < target.atk) {
+                    const damage = target.atk - attacker.atk;
+                    this.damageLP(attacker.owner, damage);
+                    this.destroyCard(attacker);
+                    this.log(`攻擊失敗！${attacker.name} 被反殺，受到 ${damage} 點傷害。`);
+                } else {
+                    this.destroyCard(attacker);
+                    this.destroyCard(target);
+                    this.log("雙方同歸於盡！");
+                }
+                this.updateUI();
+                this.checkWinCondition();
+            }
 
-            // 2. 防守方反擊 (在所有武將行動後)
-            setTimeout(() => {
-                if (battleData.active) { // 確保戰鬥未結束
-                    logBattle(`🛡️ 敵方城防反擊！`, "#e74c3c");
-                    
-                    // 塔樓傷害
-                    let towerDmg = 200 + (battleData.defCityStats.defense);
-                    
-                    battleData.combatUnits.forEach(u => {
-                        if (u.currentTroops > 0) {
-                            // 隨機波動
-                            let d = Math.floor(towerDmg * (0.8 + Math.random()*0.4));
-                            u.currentTroops -= d;
-                            if (u.currentTroops < 0) u.currentTroops = 0;
+            directAttack() {
+                // 點擊對手區域可觸發直接攻擊（簡單實作）
+                if (this.phase === 'battle' && this.selectedCard) {
+                    const opponent = this.turn === 'p1' ? 'p2' : 'p1';
+                    if (this.players[opponent].field.length === 0) {
+                        const dmg = this.selectedCard.atk;
+                        this.selectedCard.hasAttacked = true;
+                        this.damageLP(opponent, dmg);
+                        this.log(`${this.selectedCard.name} 直接攻擊！造成 ${dmg} 點傷害！`);
+                        this.selectedCard = null;
+                        this.updateUI();
+                        this.checkWinCondition();
+                    } else {
+                        this.log("對手場上有怪獸，無法直接攻擊！");
+                    }
+                }
+            }
+
+            destroyCard(card) {
+                const p = this.players[card.owner];
+                p.field = p.field.filter(c => c.uid !== card.uid);
+            }
+
+            damageLP(player, amount) {
+                this.players[player].lp -= amount;
+                if (this.players[player].lp < 0) this.players[player].lp = 0;
+            }
+
+            checkWinCondition() {
+                if (this.players.p1.lp <= 0) this.endGame('P2');
+                else if (this.players.p2.lp <= 0) this.endGame('P1');
+            }
+
+            endGame(winner) {
+                document.getElementById('winner-overlay').style.display = 'flex';
+                document.getElementById('winner-text').innerText = `${winner} 獲勝！`;
+            }
+
+            endTurn() {
+                this.turn = this.turn === 'p1' ? 'p2' : 'p1';
+                this.startTurn();
+            }
+
+            updateUI() {
+                // 更新文字
+                document.getElementById('p1-lp').innerText = this.players.p1.lp;
+                document.getElementById('p2-lp').innerText = this.players.p2.lp;
+                document.getElementById('current-phase').innerText = this.getPhaseName();
+                document.getElementById('current-player').innerText = this.turn.toUpperCase();
+                
+                // 更新按鈕狀態
+                document.getElementById('btn-battle').disabled = (this.phase !== 'main');
+                
+                // 更新區域高亮
+                document.getElementById('p1-zone').className = `player-zone p1-zone ${this.turn === 'p1' ? 'active-turn' : ''}`;
+                document.getElementById('p2-zone').className = `player-zone p2-zone ${this.turn === 'p2' ? 'active-turn' : ''}`;
+
+                // 渲染區域 (函數封裝)
+                const renderZone = (zoneId, cards, loc) => {
+                    const container = document.getElementById(zoneId);
+                    container.innerHTML = '';
+                    cards.forEach(card => {
+                        const el = card.render(loc);
+                        if (this.selectedCard && this.selectedCard.uid === card.uid) {
+                            el.classList.add('selected');
                         }
+                        container.appendChild(el);
                     });
-                    
-                    updateBattleVisuals();
-                    updateAttackerStatus(); // 更新左側列表
-                    
-                    // 檢查是否全軍覆沒
-                    let totalTroops = battleData.combatUnits.reduce((sum, u) => sum + u.currentTroops, 0);
-                    if (totalTroops <= 0) {
-                        endBattle(false);
-                    } else {
-                        // 準備下一回合
-                        prepareRoundOrder();
-                        btn.disabled = false;
-                    }
+                };
+
+                renderZone('p1-hand', this.players.p1.hand, 'hand');
+                renderZone('p1-field', this.players.p1.field, 'field');
+                renderZone('p2-hand', this.players.p2.hand, 'hand');
+                renderZone('p2-field', this.players.p2.field, 'field');
+            }
+            
+            getPhaseName() {
+                switch(this.phase) {
+                    case 'draw': return '抽牌階段';
+                    case 'main': return '主要階段';
+                    case 'battle': return '戰鬥階段';
+                    default: return '';
                 }
-            }, delay + 1000);
-        }
-
-        function updateBattleVisuals() {
-            // 敵方血條
-            let defPct = (battleData.defCityStats.defense / battleData.defCityStats.maxDefense) * 100;
-            let troopPct = (battleData.defCityStats.troops / battleData.defCityStats.maxTroops) * 100;
-            
-            document.getElementById('def-wall-bar').style.width = `${defPct}%`;
-            document.getElementById('def-wall-val').innerText = Math.floor(battleData.defCityStats.defense);
-            
-            document.getElementById('def-troops-bar').style.width = `${troopPct}%`;
-            document.getElementById('def-troops-val').innerText = Math.floor(battleData.defCityStats.troops);
-
-            updateAttackerStatus();
-        }
-
-        function updateAttackerStatus() {
-            const container = document.getElementById('attacker-status');
-            container.innerHTML = '';
-            battleData.combatUnits.forEach(u => {
-                const div = document.createElement('div');
-                div.style.marginBottom = '5px';
-                div.style.background = '#34495e';
-                div.style.padding = '5px';
-                
-                let pct = (u.currentTroops / u.maxTroops) * 100;
-                let color = pct < 30 ? '#c0392b' : '#2ecc71';
-
-                div.innerHTML = `
-                    <div style="display:flex; justify-content:space-between; font-size:12px;">
-                        <span>${u.name}</span>
-                        <span>${u.currentTroops}</span>
-                    </div>
-                    <div style="height:5px; background:#7f8c8d; width:100%;">
-                        <div style="height:100%; background:${color}; width:${pct}%"></div>
-                    </div>
-                `;
-                container.appendChild(div);
-            });
-        }
-
-        function logBattle(msg, color) {
-            const log = document.getElementById('battle-log');
-            const p = document.createElement('div');
-            p.className = 'log-entry';
-            p.style.color = color;
-            p.innerText = msg;
-            log.prepend(p); // 新訊息在最上
-        }
-
-        function checkVictory() {
-            // 勝利條件：城防0 且 兵力0
-            if (battleData.defCityStats.defense <= 0 && battleData.defCityStats.troops <= 0) {
-                battleData.active = false;
-                endBattle(true);
             }
         }
 
-        function endBattle(isWin) {
-            battleData.active = false;
-            document.getElementById('combat-screen').style.display = 'none';
-            document.getElementById('result-screen').style.display = 'block';
-            
-            if (isWin) {
-                document.getElementById('result-title').innerText = "攻城勝利！";
-                document.getElementById('result-title').style.color = "gold";
-                document.getElementById('result-desc').innerText = `成功佔領 ${battleData.targetCity.name}！敵軍已潰散。`;
-                
-                // 實際修改遊戲數據
-                battleData.targetCity.owner = PLAYER_ID;
-                battleData.targetCity.troops = 1000; // 佔領後的初始兵力
-                battleData.targetCity.defense = 50;   // 佔領後的城防
-                renderMap(); // 重繪地圖
-            } else {
-                document.getElementById('result-title').innerText = "攻城失敗...";
-                document.getElementById('result-title').style.color = "red";
-                document.getElementById('result-desc').innerText = "全軍覆沒，部隊撤退。";
+        // 初始化遊戲
+        const game = new Game();
+
+        // 點擊對手場地區域 (用於直接攻擊)
+        document.getElementById('p2-zone').onclick = (e) => {
+            if (e.target.id === 'p2-zone' || e.target.classList.contains('field-row')) {
+                if(game.turn === 'p1') game.directAttack();
             }
-        }
-
-        function closeBattle() {
-            document.getElementById('battle-overlay').style.display = 'none';
-            // 清除範圍高亮
-            const tiles = document.querySelectorAll('.tile');
-            tiles.forEach(t => t.classList.remove('in-range'));
-        }
-
-        // ==========================================
-        // Utils & Init
-        // ==========================================
-        
-        function updateUI() {
-            document.getElementById('res-gold').innerText = gameState.gold;
-            document.getElementById('res-rice').innerText = gameState.rice;
-        }
-
-        function nextTurn() {
-            gameState.turn++;
-            gameState.gold += 500;
-            gameState.rice += 500;
-            updateUI();
-            alert(`第 ${gameState.turn} 回合開始，收入增加。`);
-        }
-
-        // Start
-        initGame();
-        battleData.active = true; // Flag helper
+        };
+        document.getElementById('p1-zone').onclick = (e) => {
+             if (e.target.id === 'p1-zone' || e.target.classList.contains('field-row')) {
+                if(game.turn === 'p2') game.directAttack();
+            }
+        };
 
     </script>
 </body>
