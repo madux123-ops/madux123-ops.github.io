@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>鬼滅之刃：無限城決戰 RPG (精緻版)</title>
+    <title>鬼滅之刃：無限城決戰 RPG (經驗值優化版)</title>
     <style>
         /* --- 全局設定 --- */
         body {
@@ -15,7 +15,6 @@
             align-items: center;
             margin: 0;
             padding: 5px;
-            /* 背景：深紅暗紋 */
             background-image: repeating-linear-gradient(45deg, #110000 0, #110000 2px, transparent 0, transparent 50%);
             background-size: 30px 30px;
         }
@@ -37,10 +36,9 @@
             display: flex; gap: 10px; align-items: flex-start; justify-content: center;
         }
 
-        /* --- 15x12 地圖 --- */
+        /* --- 地圖 --- */
         #grid-container {
             display: grid;
-            /* JS 會動態設定 grid-template-columns */
             gap: 1px;
             background-color: #222;
             border: 3px solid #555;
@@ -48,7 +46,6 @@
             user-select: none;
         }
 
-        /* 格子大小縮小為 32px */
         .tile {
             width: 32px; height: 32px;
             background-color: #2b2b2b;
@@ -61,9 +58,9 @@
         .tile.attackable { background-color: rgba(255, 69, 0, 0.3); box-shadow: inset 0 0 4px #ff4500; }
         .tile.healable { background-color: rgba(50, 255, 50, 0.25); box-shadow: inset 0 0 4px #00ff00; }
 
-        /* --- 單位樣式 (配合格子縮小) --- */
+        /* --- 單位樣式 --- */
         .unit {
-            width: 26px; height: 26px; /* 單位也縮小 */
+            width: 26px; height: 26px;
             border-radius: 50%;
             display: flex; justify-content: center; align-items: center;
             font-weight: bold; font-size: 12px;
@@ -88,7 +85,6 @@
         .hp-bar-bg { position: absolute; bottom: -3px; width: 100%; height: 3px; background: #000; border-radius: 2px; }
         .hp-bar-fill { height: 100%; background: #0f0; transition: width 0.3s; }
         .unit.demon .hp-bar-fill { background: #f00; }
-        /* 等級標籤縮小 */
         .lvl-tag { position: absolute; top: -5px; right: -5px; font-size: 8px; background: #000; padding: 0 1px; border-radius: 2px; color: #fff; border: 1px solid #666; transform: scale(0.9); }
 
         /* --- UI 面板 --- */
@@ -118,6 +114,7 @@
         .log-dmg { color: #ff6b6b; font-weight: bold; }
         .log-heal { color: #4cd137; font-weight: bold; }
         .log-sys { color: #ffd700; }
+        .log-xp { color: #00bfff; font-style: italic; }
 
         #btn-end-turn {
             width: 100%; padding: 10px; background: #8b0000; color: #fff; font-weight: bold; 
@@ -163,14 +160,14 @@
     const COLS = 15;
     const ROWS = 12;
     const MAX_LEVEL = 9;
-    const TILE_SIZE = 32; // 格子大小縮小
+    const TILE_SIZE = 32;
     
     // --- 技能資料庫 ---
     const SKILL_DB = {
         tanjiro: [
-            { name: "水之呼吸·壹之型", reqLv: 1, range: 1, val: 1.5, cost: 0, aoe: false },
-            { name: "火之神神樂", reqLv: 3, range: 1, val: 2.0, cost: 0, aoe: false },
-            { name: "日之呼吸·陽華突", reqLv: 6, range: 2, val: 3.0, cost: 0, aoe: false }
+            { name: "水之呼吸·壹之型", reqLv: 1, range: 1, val: 1.2, cost: 0, aoe: false },
+            { name: "火之神神樂", reqLv: 3, range: 1, val: 1.6, cost: 0, aoe: false },
+            { name: "日之呼吸·陽華突", reqLv: 6, range: 2, val: 2.2, cost: 0, aoe: false }
         ],
         zenitsu: [
             { name: "霹靂一閃", reqLv: 1, range: 3, val: 1.1, cost: 0, aoe: false },
@@ -180,7 +177,7 @@
         inosuke: [
             { name: "獸之呼吸·獠牙", reqLv: 1, range: 1, val: 1.0, cost: 0, aoe: true },
             { name: "空間感知·殺", reqLv: 3, range: 1, val: 1.5, cost: 0, aoe: true },
-            { name: "爆裂猛進", reqLv: 6, range: 2, val: 2.5, cost: 0, aoe: true }
+            { name: "爆裂猛進", reqLv: 6, range: 1, val: 2.5, cost: 0, aoe: true }
         ],
         nezuko: [
             { name: "再生回復", reqLv: 1, range: 2, val: 50, cost: 0, aoe: false, isHeal: true }, 
@@ -221,6 +218,7 @@
         gainXp(amount) {
             if (this.type !== 'slayer') return;
             this.xp += amount;
+            // log(`${this.name} 獲得 ${amount} EXP`, 'log-xp'); // 防止洗版，在外部統一顯示
             if (this.xp >= this.maxXp) this.levelUp();
         }
 
@@ -232,7 +230,7 @@
             this.atk = Math.floor(this.atk * 1.15);
             this.def = Math.floor(this.def * 1.15);
             this.hp = this.maxHp;
-            log(`✨ ${this.name} 升級 Lv.${this.level}！`, 'log-sys');
+            log(`✨ ${this.name} 升級 Lv.${this.level}！體力全滿！`, 'log-sys');
             renderMap();
         }
     }
@@ -251,13 +249,12 @@
     // --- 初始化 ---
     function initGame() {
         const gridContainer = document.getElementById('grid-container');
-        // 設定 CSS Grid (使用 32px)
         gridContainer.style.gridTemplateColumns = `repeat(${COLS}, ${TILE_SIZE}px)`;
         gridContainer.style.gridTemplateRows = `repeat(${ROWS}, ${TILE_SIZE}px)`;
 
         createGrid();
         
-        // 建立主角群 (預設位置暫定，會在 startLevel 覆蓋)
+        // 初始建立 (位置稍後重置)
         allies = [
             new Unit(1, '炭治郎', 'slayer', 'tanjiro', 0, 0, { hp: 120, atk: 28, def: 10 }),
             new Unit(2, '善逸', 'slayer', 'zenitsu', 0, 0, { hp: 90, atk: 35, def: 6 }),
@@ -295,13 +292,11 @@
         document.getElementById('phase-banner').innerText = `第 ${lvl} 關 - 無限城深處`;
         log(`=== 第 ${lvl} 關 開始 ===`, 'log-sys');
         
-        // --- 站位設定：排成一排 ---
-        // 設定在第 2 列 (index 1)，垂直置中
-        // 地圖高度 12，4人排列佔用 4 格，從 y=4 到 y=7
-        allies[0].x = 1; allies[0].y = 4; // 炭治郎
-        allies[1].x = 1; allies[1].y = 5; // 善逸
-        allies[2].x = 1; allies[2].y = 6; // 伊之助
-        allies[3].x = 1; allies[3].y = 7; // 禰豆子
+        // 站位設定
+        allies[0].x = 1; allies[0].y = 4; 
+        allies[1].x = 1; allies[1].y = 5; 
+        allies[2].x = 1; allies[2].y = 6; 
+        allies[3].x = 1; allies[3].y = 7; 
 
         allies.forEach(u => { u.hasActed = false; u.prevX = u.x; u.prevY = u.y; });
 
@@ -523,9 +518,11 @@
         log(isHeal ? "選擇治療對象..." : "選擇攻擊目標...", 'log-sys');
     }
 
+    // --- 核心 XP 邏輯更新 ---
     function executeSkillAction(attacker, targetObj, skill) {
         let targets = [];
         const isHeal = skill && skill.isHeal;
+        let totalXpGain = 0; // 本次行動總獲得經驗
 
         if (skill && skill.global && isHeal) {
             targets = allies.filter(a => a.hp > 0);
@@ -550,11 +547,17 @@
                 let val = 0;
                 
                 if (isHeal) {
+                    // 治療邏輯
                     val = skill.val + (attacker.atk * 0.5); 
                     val = Math.floor(val);
                     t.hp = Math.min(t.maxHp, t.hp + val);
                     log(`${t.name} 回復了 <span class="log-heal">${val}</span> HP`, 'log-heal');
+                    
+                    // 1. 治療獲得 XP (每補一人 +15)
+                    totalXpGain += 15;
+                    
                 } else {
+                    // 攻擊邏輯
                     let mult = skill ? skill.val : 1.0;
                     let raw = attacker.atk * mult - (t.def * 0.5);
                     val = Math.max(1, Math.floor(raw * (0.9 + Math.random()*0.2)));
@@ -562,13 +565,23 @@
                     t.hp -= val;
                     log(`${attacker.name} 攻擊 ${t.name}，傷害 <span class="log-dmg">${val}</span>`, 'log-dmg');
                     
+                    // 2. 攻擊命中獲得 XP (每打中一人 +10)
+                    totalXpGain += 10;
+                    
                     if (t.hp <= 0) {
                         t.hp = 0;
                         log(`${t.name} 被消滅！`, 'log-sys');
-                        attacker.gainXp(35 + t.level*5 + (t.role==='boss'?100:0));
+                        // 3. 擊殺額外 XP
+                        totalXpGain += (35 + t.level*5 + (t.role==='boss'?80:0));
                     }
                 }
             });
+            
+            // 結算並顯示總經驗值
+            if (totalXpGain > 0) {
+                log(`${attacker.name} 獲得 ${totalXpGain} EXP`, 'log-xp');
+                attacker.gainXp(totalXpGain);
+            }
         }
         finalizeAction(false);
     }
