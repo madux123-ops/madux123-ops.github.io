@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>寶可夢對戰 V3: AI 與 傳說降臨</title>
+    <title>寶可夢對戰 V3.1: 直接攻擊優化</title>
     <style>
         :root {
             --bg-color: #222;
@@ -36,8 +36,7 @@
         .difficulty-btn {
             background: #333; color: #fff; border: 2px solid #555;
             padding: 15px 40px; margin: 10px; font-size: 18px;
-            cursor: pointer; border-radius: 8px; width: 200px;
-            transition: 0.2s;
+            cursor: pointer; border-radius: 8px; width: 220px; transition: 0.2s;
         }
         .difficulty-btn:hover { transform: scale(1.05); }
         .diff-easy { border-color: #4caf50; } .diff-easy:hover { background: #4caf50; }
@@ -46,16 +45,24 @@
 
         /* --- 遊戲主盤面 --- */
         .game-board { flex: 1; display: flex; flex-direction: column; position: relative; }
-        .player-zone { flex: 1; display: flex; flex-direction: column; padding: 5px 10px; position: relative; justify-content: space-between; }
+        .player-zone { flex: 1; display: flex; flex-direction: column; padding: 5px 10px; position: relative; justify-content: space-between; transition: 0.3s;}
         
         .p2-zone { background: linear-gradient(to bottom, #1a1a1a, #2a1a1a); border-bottom: 2px solid #555; }
         .p1-zone { background: linear-gradient(to top, #1a1a1a, #1a2a3a); }
         .active-turn { box-shadow: inset 0 0 30px rgba(255, 255, 255, 0.15); }
+        
+        /* 直接攻擊提示樣式 */
+        .can-direct-attack {
+            box-shadow: inset 0 0 50px rgba(255, 0, 0, 0.3) !important;
+            cursor: crosshair;
+            animation: dangerPulse 1s infinite;
+        }
+        @keyframes dangerPulse { 0% { background-color: rgba(255,0,0,0.05); } 50% { background-color: rgba(255,0,0,0.15); } 100% { background-color: rgba(255,0,0,0.05); } }
 
         .field-container { display: flex; flex-direction: column; gap: 2px; justify-content: center; }
-        .field-row { display: flex; justify-content: center; gap: 8px; height: var(--card-height); align-items: center; padding: 2px; width: 100%; }
+        .field-row { display: flex; justify-content: center; gap: 8px; min-height: var(--card-height); align-items: center; padding: 2px; width: 100%; }
         .monster-zone { background-color: rgba(45, 74, 62, 0.6); border: 1px solid #3d5a4e; border-radius: 6px; }
-        .st-zone { background-color: rgba(58, 42, 74, 0.6); border: 1px solid #4a3a5a; height: 90px; border-radius: 6px;}
+        .st-zone { background-color: rgba(58, 42, 74, 0.6); border: 1px solid #4a3a5a; height: 90px; min-height: 90px; border-radius: 6px;}
         .hand-row { display: flex; justify-content: center; height: 110px; align-items: center; z-index: 20; padding: 5px; }
 
         /* --- 卡片 --- */
@@ -67,15 +74,11 @@
             box-shadow: 0 2px 5px rgba(0,0,0,0.5);
         }
         .hand-row .card { width: 70px; height: 100px; margin: 0 2px; border-color: #fff; }
-        
-        /* P1 手牌互動 */
         #p1-hand .card:hover { transform: translateY(-20px) scale(1.1); z-index: 50; }
-        /* P2 手牌 (AI) - 隱藏內容 */
         #p2-hand .card { background: #222; border-color: #444; }
-        #p2-hand .card * { display: none; } /* 蓋牌 */
-        #p2-hand .card::after { content: ''; position: absolute; top:0; left:0; width:100%; height:100%; background: repeating-linear-gradient(45deg, #b71c1c, #b71c1c 10px, #880e4f 10px, #880e4f 20px); border-radius: 4px;}
+        #p2-hand .card * { display: none; }
+        #p2-hand .card::after { content: ''; position: absolute; top:0; left:0; width:100%; height:100%; background: repeating-linear-gradient(45deg, #b71c1c, #b71c1c 10px, #880e4f 10px, #880e4f 20px); }
 
-        /* 特效與狀態 */
         .card.selected { border-color: #ffd700; box-shadow: 0 0 15px #ffd700; transform: scale(1.05); z-index: 40; }
         .card.tribute-target { border-color: #ff0000; box-shadow: 0 0 15px #ff0000; animation: pulse 1s infinite; }
         .card.ai-highlight { border-color: #ef4444; box-shadow: 0 0 20px #ef4444; transform: scale(1.1); z-index: 60; }
@@ -85,12 +88,10 @@
         .card-img { flex: 1; display: flex; align-items: center; justify-content: center; font-size: 32px; background: #fff; }
         .card-stats { background: #f0f0f0; padding: 2px; display: flex; justify-content: space-between; border-top: 1px solid #000; font-weight: bold; font-size: 10px; }
 
-        /* 屬性顏色 */
         .card[data-cat="monster"] { border-color: #b8860b; }
         .card[data-cat="spell"] { border-color: #107c10; } .card[data-cat="spell"] .card-header { background: #107c10; color: white;}
         .card[data-cat="trap"] { border-color: #c71585; } .card[data-cat="trap"] .card-header { background: #c71585; color: white;}
         
-        /* 蓋牌 */
         .card.facedown { background: #4a3b2a; border-color: #5d4037; }
         .card.facedown > * { visibility: hidden; }
         .card.facedown::after { content: ''; position: absolute; top:0; left:0; width:100%; height:100%; background: repeating-linear-gradient(45deg, #4a3b2a, #4a3b2a 10px, #3e3020 10px, #3e3020 20px); visibility: visible; }
@@ -98,12 +99,17 @@
         /* VFX */
         .slash-effect { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 99; display: none; }
         .slashing .slash-effect { display: block; animation: slashAnim 0.4s ease-out; background: linear-gradient(135deg, transparent 45%, red 50%, transparent 55%); background-size: 200% 200%; }
+        
+        .player-hit-effect { position: absolute; top:0; left:0; width:100%; height:100%; pointer-events: none; z-index: 150; display: none; background: rgba(255,0,0,0.3); }
+        .hit-anim { display: block !important; animation: hitFlash 0.3s; }
+        @keyframes hitFlash { 0% { opacity: 0; } 50% { opacity: 1; background: rgba(255,0,0,0.5); } 100% { opacity: 0; } }
+        
         @keyframes slashAnim { 0% { background-position: 200% 200%; opacity: 0; } 50% { opacity: 1; } 100% { background-position: -100% -100%; opacity: 0; } }
         @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
 
         /* UI */
         .info-panel { position: absolute; top: 50%; left: 0; transform: translateY(-50%); background: rgba(0,0,0,0.85); padding: 15px 10px; border-radius: 0 10px 10px 0; z-index: 100; border-left: 5px solid #ffd700; width: 120px;}
-        .lp-display { font-family: 'Courier New', monospace; font-size: 18px; font-weight: bold; margin-bottom: 5px; }
+        .lp-display { font-family: 'Courier New', monospace; font-size: 18px; font-weight: bold; margin-bottom: 5px; position: relative;}
         .p1-lp { color: var(--p1-color); } .p2-lp { color: var(--p2-color); }
         .phase-box { text-align: center; margin-top: 5px; padding: 2px; border: 1px solid #666; color: #aaa; font-size: 10px; }
         .phase-box.active { color: #ffd700; border-color: #ffd700; font-weight: bold; background: #333; }
@@ -131,7 +137,7 @@
         <div class="lp-display p2-lp">CPU: <span id="p2-lp">8000</span></div>
         <div class="lp-display p1-lp">YOU: <span id="p1-lp">8000</span></div>
         <div id="phase-draw" class="phase-box">抽牌階段</div>
-        <div id="phase-main1" class="phase-box">主要階段</div>
+        <div id="phase-main" class="phase-box">主要階段</div>
         <div id="phase-battle" class="phase-box">戰鬥階段</div>
         <div style="font-size: 12px; margin-top:10px; color: #888;">難度: <span id="diff-label"></span></div>
     </div>
@@ -143,6 +149,7 @@
 
     <div class="game-board">
         <div class="player-zone p2-zone" id="p2-zone">
+            <div class="player-hit-effect" id="p2-hit-effect"></div>
             <div class="hand-row" id="p2-hand"></div>
             <div class="field-container">
                 <div class="field-row st-zone" id="p2-st"></div>
@@ -151,6 +158,7 @@
         </div>
 
         <div class="player-zone p1-zone" id="p1-zone">
+            <div class="player-hit-effect" id="p1-hit-effect"></div>
             <div class="field-container">
                 <div class="field-row monster-zone" id="p1-field"></div>
                 <div class="field-row st-zone" id="p1-st"></div>
@@ -167,9 +175,8 @@
     </div>
 
     <script>
-        // --- 卡片資料 ---
         const CARD_DB = [
-            // 下級 (4星以下)
+            // 下級
             { id: 1, name: "小火龍", category: 'monster', level: 3, atk: 1200, def: 800, img: "🔥" },
             { id: 2, name: "傑尼龜", category: 'monster', level: 3, atk: 1000, def: 1500, img: "💧" },
             { id: 3, name: "妙蛙種子", category: 'monster', level: 3, atk: 1100, def: 1100, img: "🌿" },
@@ -178,26 +185,21 @@
             { id: 6, name: "鬼斯", category: 'monster', level: 2, atk: 1200, def: 200, img: "👻" },
             { id: 7, name: "腕力", category: 'monster', level: 4, atk: 1700, def: 600, img: "💪" },
             { id: 8, name: "鯉魚王", category: 'monster', level: 1, atk: 0, def: 0, img: "🐟" },
-            
-            // 上級 (5-6星, 1祭品)
+            // 上級
             { id: 20, name: "火恐龍", category: 'monster', level: 5, atk: 2100, def: 1400, img: "🔥🔥" },
             { id: 21, name: "卡咪龜", category: 'monster', level: 5, atk: 1900, def: 2000, img: "💧💧" },
             { id: 22, name: "雷丘", category: 'monster', level: 6, atk: 2400, def: 1600, img: "⚡⚡" },
             { id: 23, name: "卡比獸", category: 'monster', level: 6, atk: 2500, def: 2200, img: "💤" },
-            
-            // 傳說 (7星+, 總星數>9)
+            // 傳說
             { id: 40, name: "噴火龍", category: 'monster', level: 7, atk: 2800, def: 2000, img: "🐲🔥" },
             { id: 41, name: "水箭龜", category: 'monster', level: 7, atk: 2600, def: 3000, img: "🐢💧" },
             { id: 42, name: "超夢", category: 'monster', level: 8, atk: 3300, def: 2000, img: "👽" },
             { id: 43, name: "烈空坐", category: 'monster', level: 9, atk: 3500, def: 3000, img: "🐉🟢" },
             { id: 44, name: "固拉多", category: 'monster', level: 8, atk: 3400, def: 2500, img: "🌋" },
-
-            // 魔法
+            // 魔法陷阱
             { id: 100, name: "傷藥", category: 'spell', effect: 'heal_1500', img: "💊", desc: "HP+1500" },
             { id: 101, name: "力量強化", category: 'spell', effect: 'atk_up_600', img: "⚔️", desc: "ATK+600" },
             { id: 102, name: "雷擊", category: 'spell', effect: 'destroy_one', img: "⚡", desc: "破壞對手一隻怪獸" },
-
-            // 陷阱
             { id: 200, name: "變硬", category: 'trap', effect: 'def_up', img: "🛡️", desc: "DEF+2000" },
             { id: 201, name: "鏡壁", category: 'trap', effect: 'destroy_atk', img: "✨", desc: "破壞攻擊者" }
         ];
@@ -233,7 +235,10 @@
                         ${this.category === 'monster' ? `<span>${this.currentAtk}</span><span>${this.def}</span>` : `<span style="width:100%;text-align:center">${this.desc}</span>`}
                     </div>
                 `;
-                el.onclick = () => game.handleCardClick(this, location);
+                el.onclick = (e) => {
+                    e.stopPropagation(); // 防止點擊卡片時觸發場地背景點擊
+                    game.handleCardClick(this, location);
+                };
                 return el;
             }
         }
@@ -245,10 +250,9 @@
                 this.phase = 'draw';
                 this.players = {
                     p1: { lp: 8000, hand: [], field: [], st: [], deck: [] },
-                    p2: { lp: 8000, hand: [], field: [], st: [], deck: [] } // P2 is CPU
+                    p2: { lp: 8000, hand: [], field: [], st: [], deck: [] }
                 };
                 this.selectedCard = null;
-                // 召喚狀態: active, 欲召喚的卡, 模式(level/stars), 需求數值, 已選祭品
                 this.summonState = { active: false, card: null, mode: null, need: 0, tributes: [] };
                 this.turnSummoned = false;
                 
@@ -266,11 +270,9 @@
             }
 
             initDeck(p) {
-                // AI 難度影響牌組強度
                 for(let i=0; i<25; i++) {
                     const r = Math.random();
                     let cardData;
-                    // 困難模式 AI 傳說卡更多
                     let legendChance = (p==='p2' && this.difficulty==='hard') ? 0.15 : 0.05;
                     let upperChance = 0.25;
 
@@ -289,7 +291,6 @@
                 this.updateUI();
             }
 
-            // --- 玩家回合 P1 ---
             startTurnP1() {
                 this.turn = 'p1';
                 this.phase = 'draw';
@@ -307,7 +308,6 @@
                 }, 800);
             }
 
-            // --- AI 回合 P2 ---
             async startTurnAI() {
                 this.turn = 'p2';
                 this.phase = 'draw';
@@ -331,23 +331,15 @@
                 await this.aiBattlePhase();
 
                 await this.delay(1000);
-                this.endTurn(); // 回到 P1
+                this.endTurn();
             }
 
-            // --- AI 邏輯核心 ---
             async aiMainPhase() {
                 const p2 = this.players.p2;
-                // 1. 嘗試召喚
                 if (!this.turnSummoned && p2.field.length < 5) {
                     const monsters = p2.hand.filter(c => c.category === 'monster');
-                    // 根據難度排序
-                    if (this.difficulty === 'hard') {
-                        // 嘗試召喚最強的
-                        monsters.sort((a,b) => b.level - a.level || b.atk - a.atk);
-                    } else {
-                        // 簡單/普通：隨機或只看攻擊力
-                        monsters.sort((a,b) => 0.5 - Math.random());
-                    }
+                    if (this.difficulty === 'hard') monsters.sort((a,b) => b.level - a.level || b.atk - a.atk);
+                    else monsters.sort((a,b) => 0.5 - Math.random());
 
                     for (let m of monsters) {
                         let canSummon = false;
@@ -356,49 +348,32 @@
                         if (m.level <= 4) {
                             canSummon = true;
                         } else if (m.level >= 5 && m.level <= 6) {
-                            // 需要1隻祭品
                             if (p2.field.length >= 1) {
                                 canSummon = true;
-                                tributes = [this.getBestTribute(p2.field, 1)[0]];
+                                tributes = [p2.field[0]];
                             }
-                        } else if (m.level >= 7) {
-                            // 傳說：需要總星數 > 9
-                            // 簡單AI不會算數學，只有困難/普通AI會嘗試
-                            if (this.difficulty !== 'easy') {
-                                const currentStars = p2.field.reduce((acc, c) => acc + c.level, 0);
-                                if (currentStars > 9) {
-                                    canSummon = true;
-                                    // 找出剛好湊夠的組合 (簡化: 全部獻祭直到夠)
-                                    let sum = 0;
-                                    for(let f of p2.field) {
-                                        tributes.push(f);
-                                        sum += f.level;
-                                        if(sum > 9) break;
-                                    }
-                                }
+                        } else if (m.level >= 7 && this.difficulty !== 'easy') {
+                            const currentStars = p2.field.reduce((acc, c) => acc + c.level, 0);
+                            if (currentStars > 9) {
+                                canSummon = true;
+                                let sum = 0;
+                                for(let f of p2.field) { tributes.push(f); sum += f.level; if(sum > 9) break; }
                             }
                         }
 
                         if (canSummon) {
                             await this.highlightCard(m);
-                            if (tributes.length > 0) {
-                                this.log(`[CPU] 獻祭 ${tributes.length} 隻怪獸...`);
-                                for(let t of tributes) {
-                                    await this.highlightCard(t);
-                                    this.removeCard(t);
-                                }
-                            }
+                            if (tributes.length > 0) tributes.forEach(t => this.removeCard(t));
                             this.deployCard(m, 'p2');
-                            break; // 一回合只能召喚一次
+                            break; 
                         }
                     }
                 }
                 
-                // 2. 魔法卡 (普通/困難)
                 if (this.difficulty !== 'easy') {
                     const spells = p2.hand.filter(c => c.category === 'spell');
                     for (let s of spells) {
-                        if (Math.random() > 0.5) { // 50% 機率發動
+                        if (Math.random() > 0.5) { 
                             await this.highlightCard(s);
                             this.activateSpell(s, 'p2');
                             await this.delay(500);
@@ -407,51 +382,30 @@
                 }
             }
 
-            getBestTribute(field, count) {
-                // 找出最弱的怪獸當祭品
-                return field.sort((a,b) => a.atk - b.atk).slice(0, count);
-            }
-
             async aiBattlePhase() {
                 const p2 = this.players.p2;
                 const p1 = this.players.p1;
                 
-                // 攻擊邏輯
                 for (let attacker of p2.field) {
                     if (attacker.hasAttacked) continue;
-
                     let target = null;
                     
                     if (p1.field.length === 0) {
-                        // 直接攻擊
                         target = 'direct';
                     } else {
-                        // 選擇攻擊目標
-                        if (this.difficulty === 'easy') {
-                            target = p1.field[Math.floor(Math.random() * p1.field.length)];
-                        } else {
-                            // 智能攻擊: 找打得贏的
+                        if (this.difficulty === 'easy') target = p1.field[Math.floor(Math.random() * p1.field.length)];
+                        else {
                             const killable = p1.field.filter(def => attacker.currentAtk > def.def);
-                            if (killable.length > 0) {
-                                // 優先打攻擊力高的敵人(威脅大)
-                                target = killable.sort((a,b) => b.atk - a.atk)[0];
-                            } else if (this.difficulty === 'hard') {
-                                // 打不贏就不打
-                                target = null;
-                            } else {
-                                // 普通AI有時候會自殺攻擊
-                                if(Math.random() > 0.7) target = p1.field[0];
-                            }
+                            if (killable.length > 0) target = killable.sort((a,b) => b.atk - a.atk)[0];
+                            else if (this.difficulty === 'hard') target = null;
+                            else if(Math.random() > 0.7) target = p1.field[0];
                         }
                     }
 
                     if (target) {
                         await this.highlightCard(attacker);
-                        if (target === 'direct') {
-                            await this.directAttack(attacker);
-                        } else {
-                            await this.combat(attacker, target);
-                        }
+                        if (target === 'direct') await this.directAttack(attacker);
+                        else await this.combat(attacker, target);
                         await this.delay(800);
                         if (this.checkWin()) return;
                     }
@@ -467,24 +421,16 @@
                 }
             }
 
-            // --- 玩家互動 ---
             handleCardClick(card, loc) {
-                if (this.turn !== 'p1') return; // 不是你的回合
+                if (this.turn !== 'p1') return;
 
-                // 獻祭選擇
+                // 獻祭處理
                 if (this.summonState.active && loc === 'field' && card.owner === 'p1') {
                     if(!this.summonState.tributes.find(c=>c.uid===card.uid)) {
                         this.summonState.tributes.push(card);
-                        
-                        // 計算條件
                         let conditionMet = false;
-                        if (this.summonState.mode === 'count') {
-                            conditionMet = this.summonState.tributes.length >= this.summonState.need;
-                        } else if (this.summonState.mode === 'stars') {
-                            const currentStars = this.summonState.tributes.reduce((a,b)=>a+b.level, 0);
-                            this.log(`目前獻祭星數: ${currentStars} / 10`);
-                            conditionMet = currentStars > 9;
-                        }
+                        if (this.summonState.mode === 'count') conditionMet = this.summonState.tributes.length >= this.summonState.need;
+                        else if (this.summonState.mode === 'stars') conditionMet = this.summonState.tributes.reduce((a,b)=>a+b.level, 0) > 9;
 
                         if (conditionMet) {
                             this.summonState.tributes.forEach(t => this.removeCard(t));
@@ -496,49 +442,34 @@
                     return;
                 }
 
-                // 出牌
+                // 召喚處理
                 if (loc === 'hand' && this.phase === 'main') {
                     if (card.category === 'monster') {
                         if (this.turnSummoned) { this.log("本回合已召喚過"); return; }
                         if (this.players.p1.field.length >= 5) { this.log("場地已滿"); return; }
 
-                        let mode = null;
-                        let need = 0;
-
-                        if (card.level >= 7) {
-                            mode = 'stars'; // 傳說怪獸: 星數模式
-                            need = 9; // > 9
-                        } else if (card.level >= 5) {
-                            mode = 'count'; // 上級怪獸: 數量模式
-                            need = 1;
-                        }
+                        let mode = null; let need = 0;
+                        if (card.level >= 7) { mode = 'stars'; need = 9; }
+                        else if (card.level >= 5) { mode = 'count'; need = 1; }
 
                         if (need > 0 || mode) {
-                            // 檢查是否有足夠資源
                             if (mode === 'count' && this.players.p1.field.length < need) { this.log("祭品不足"); return; }
-                            
-                            // 傳說怪獸預先檢查
-                            if (mode === 'stars') {
-                                const totalFieldStars = this.players.p1.field.reduce((a,b)=>a+b.level, 0);
-                                if (totalFieldStars <= 9) { this.log("場上怪獸總星數不足 10，無法召喚傳說！"); return; }
-                            }
-
+                            if (mode === 'stars' && this.players.p1.field.reduce((a,b)=>a+b.level, 0) <= 9) { this.log("場上怪獸總星數不足 10！"); return; }
                             this.summonState = { active: true, card: card, mode: mode, need: need, tributes: [] };
                             this.log(mode === 'stars' ? "請選擇祭品直到總星數超過 9" : "請選擇 1 隻祭品");
                             this.updateUI();
-                        } else {
-                            this.deployCard(card, 'p1');
-                        }
+                        } else this.deployCard(card, 'p1');
                     }
                     else if (card.category === 'spell') this.activateSpell(card, 'p1');
                     else if (card.category === 'trap') this.setCard(card, 'p1');
                 }
 
-                // 戰鬥
+                // 戰鬥處理
                 if (this.phase === 'battle') {
                     if (loc === 'field') {
                         if (card.owner === 'p1' && !card.hasAttacked) {
                             this.selectedCard = card;
+                            this.log("選擇了攻擊怪獸，點擊目標 (若對方無怪獸可點擊對方背景直接攻擊)");
                             this.updateUI();
                         } else if (card.owner === 'p2' && this.selectedCard) {
                             this.combat(this.selectedCard, card);
@@ -552,7 +483,7 @@
                 player.hand = player.hand.filter(c => c.uid !== card.uid);
                 player.field.push(card);
                 if(p === this.turn) this.turnSummoned = true;
-                this.log(`[${p==='p1'?'YOU':'CPU'}] 召喚 ${card.name} (ATK:${card.atk})`);
+                this.log(`[${p==='p1'?'YOU':'CPU'}] 召喚 ${card.name}`);
                 this.updateUI();
             }
 
@@ -569,7 +500,6 @@
             activateSpell(card, p) {
                 this.players[p].hand = this.players[p].hand.filter(c => c.uid !== card.uid);
                 this.log(`魔法發動: ${card.name}`);
-                
                 if(card.effect === 'heal_1500') this.players[p].lp += 1500;
                 if(card.effect === 'atk_up_600') this.players[p].field.forEach(c=>c.tempAtkBuff+=600);
                 if(card.effect === 'destroy_one') {
@@ -585,17 +515,15 @@
                 this.updateUI();
 
                 const opp = target.owner;
-                // 陷阱檢測
                 const traps = this.players[opp].st.filter(c => c.category === 'trap' && c.isFacedown);
                 if (traps.length > 0) {
-                    const trap = traps[0];
-                    if (Math.random() > 0.3) { // 陷阱不是100%發動，模擬思考
+                    if (Math.random() > 0.3) {
+                        const trap = traps[0];
                         trap.isFacedown = false;
                         this.log(`陷阱觸發: ${trap.name}`);
                         this.updateUI();
                         await this.delay(800);
                         this.removeCard(trap, 'st');
-                        
                         if (trap.effect === 'destroy_atk') {
                             this.removeCard(attacker);
                             this.log("攻擊者被破壞！");
@@ -605,15 +533,9 @@
                     }
                 }
 
-                // VFX
                 const el = document.querySelector(`.card[data-uid="${target.uid}"]`);
-                if(el) { 
-                    el.classList.add('slashing'); 
-                    await this.delay(400); 
-                    el.classList.remove('slashing'); 
-                }
+                if(el) { el.classList.add('slashing'); await this.delay(400); el.classList.remove('slashing'); }
 
-                // 結算
                 if (attacker.currentAtk > target.def) {
                     const dmg = attacker.currentAtk - target.def;
                     this.players[opp].lp = Math.max(0, this.players[opp].lp - dmg);
@@ -634,7 +556,15 @@
                 this.selectedCard = null;
                 const dmg = attacker.currentAtk;
                 this.players[opp].lp = Math.max(0, this.players[opp].lp - dmg);
-                this.log(`${attacker.name} 直接攻擊！傷害 ${dmg}`);
+                
+                // 播放玩家受擊特效
+                const hitEffect = document.getElementById(`${opp}-hit-effect`);
+                if(hitEffect) {
+                    hitEffect.classList.add('hit-anim');
+                    setTimeout(() => hitEffect.classList.remove('hit-anim'), 300);
+                }
+
+                this.log(`${attacker.name} 直接攻擊玩家！傷害 ${dmg}`);
                 this.updateUI();
                 this.checkWin();
             }
@@ -670,7 +600,7 @@
             enterBattlePhase() { 
                 if(this.phase==='main' && this.turn==='p1') { 
                     this.phase='battle'; 
-                    this.log("進入戰鬥階段"); 
+                    this.log("進入戰鬥階段，請點擊怪獸進行攻擊"); 
                     this.updateUI(); 
                 } 
             }
@@ -681,14 +611,20 @@
                 document.getElementById('p1-lp').innerText = this.players.p1.lp;
                 document.getElementById('p2-lp').innerText = this.players.p2.lp;
                 
-                // 階段顯示
                 document.querySelectorAll('.phase-box').forEach(e => e.classList.remove('active'));
                 if(document.getElementById(`phase-${this.phase}`)) document.getElementById(`phase-${this.phase}`).classList.add('active');
-                if(this.phase === 'main' && this.turn === 'p1') document.getElementById('phase-main1').classList.add('active'); // 簡單處理
+                if(this.phase === 'main' && this.turn === 'p1') document.getElementById('phase-main').classList.add('active'); 
 
-                // 區域控制
                 document.getElementById('p1-zone').className = `player-zone p1-zone ${this.turn==='p1'?'active-turn':''}`;
                 document.getElementById('p2-zone').className = `player-zone p2-zone ${this.turn==='p2'?'active-turn':''}`;
+                
+                // 直接攻擊視覺提示
+                if (this.turn === 'p1' && this.phase === 'battle' && this.selectedCard && this.players.p2.field.length === 0) {
+                    document.getElementById('p2-zone').classList.add('can-direct-attack');
+                } else {
+                    document.getElementById('p2-zone').classList.remove('can-direct-attack');
+                }
+
                 document.getElementById('btn-battle').disabled = (this.turn !== 'p1' || this.phase !== 'main');
                 document.getElementById('btn-end').disabled = (this.turn !== 'p1');
 
@@ -698,7 +634,6 @@
                     list.forEach(c => {
                         const el = c.render(loc);
                         if(this.selectedCard?.uid === c.uid) el.classList.add('selected');
-                        // 獻祭高亮
                         if(this.summonState.active && loc==='field' && c.owner==='p1') {
                             if(this.summonState.tributes.find(t=>t.uid===c.uid)) el.classList.add('tribute-target');
                             else { el.style.borderColor='#0f0'; el.style.boxShadow='0 0 5px #0f0'; }
@@ -722,12 +657,19 @@
             game = new Game(diff);
         }
 
-        // P1 直接攻擊觸發
-        document.getElementById('p2-zone').onclick = (e) => {
-            if((e.target.id==='p2-zone'||e.target.classList.contains('field-container')) && game.turn==='p1' && game.phase==='battle' && game.selectedCard) {
-                if(game.players.p2.field.length === 0) game.directAttack(game.selectedCard);
+        // P1 直接攻擊觸發事件 (點擊 P2 區域背景)
+        document.getElementById('p2-zone').addEventListener('click', (e) => {
+            // 確保不是點到卡片 (卡片自己有 onclick)
+            if (e.target.closest('.card')) return;
+
+            if(game && game.turn==='p1' && game.phase==='battle' && game.selectedCard) {
+                if(game.players.p2.field.length === 0) {
+                    game.directAttack(game.selectedCard);
+                } else {
+                    game.log("對方場上還有怪獸，不能直接攻擊！");
+                }
             }
-        };
+        });
 
     </script>
 </body>
