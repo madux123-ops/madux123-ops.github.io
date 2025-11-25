@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>寶可夢對戰 V3.1: 直接攻擊優化</title>
+    <title>寶可夢對戰 V4: 百卡亂鬥</title>
     <style>
         :root {
             --bg-color: #222;
@@ -36,7 +36,8 @@
         .difficulty-btn {
             background: #333; color: #fff; border: 2px solid #555;
             padding: 15px 40px; margin: 10px; font-size: 18px;
-            cursor: pointer; border-radius: 8px; width: 220px; transition: 0.2s;
+            cursor: pointer; border-radius: 8px; width: 250px; transition: 0.2s;
+            display: flex; justify-content: space-between;
         }
         .difficulty-btn:hover { transform: scale(1.05); }
         .diff-easy { border-color: #4caf50; } .diff-easy:hover { background: #4caf50; }
@@ -83,7 +84,7 @@
         .card.tribute-target { border-color: #ff0000; box-shadow: 0 0 15px #ff0000; animation: pulse 1s infinite; }
         .card.ai-highlight { border-color: #ef4444; box-shadow: 0 0 20px #ef4444; transform: scale(1.1); z-index: 60; }
         
-        .card-header { background: #d4af37; padding: 2px; font-weight: bold; text-align: center; border-bottom: 1px solid #000; white-space: nowrap; overflow: hidden; }
+        .card-header { background: #d4af37; padding: 2px; font-weight: bold; text-align: center; border-bottom: 1px solid #000; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .card-level { text-align: center; background: #eee; color: #000; font-size: 10px; line-height: 10px; letter-spacing: -1px;}
         .card-img { flex: 1; display: flex; align-items: center; justify-content: center; font-size: 32px; background: #fff; }
         .card-stats { background: #f0f0f0; padding: 2px; display: flex; justify-content: space-between; border-top: 1px solid #000; font-weight: bold; font-size: 10px; }
@@ -108,8 +109,8 @@
         @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
 
         /* UI */
-        .info-panel { position: absolute; top: 50%; left: 0; transform: translateY(-50%); background: rgba(0,0,0,0.85); padding: 15px 10px; border-radius: 0 10px 10px 0; z-index: 100; border-left: 5px solid #ffd700; width: 120px;}
-        .lp-display { font-family: 'Courier New', monospace; font-size: 18px; font-weight: bold; margin-bottom: 5px; position: relative;}
+        .info-panel { position: absolute; top: 50%; left: 0; transform: translateY(-50%); background: rgba(0,0,0,0.85); padding: 15px 10px; border-radius: 0 10px 10px 0; z-index: 100; border-left: 5px solid #ffd700; width: 130px;}
+        .lp-display { font-family: 'Courier New', monospace; font-size: 16px; font-weight: bold; margin-bottom: 5px; position: relative;}
         .p1-lp { color: var(--p1-color); } .p2-lp { color: var(--p2-color); }
         .phase-box { text-align: center; margin-top: 5px; padding: 2px; border: 1px solid #666; color: #aaa; font-size: 10px; }
         .phase-box.active { color: #ffd700; border-color: #ffd700; font-weight: bold; background: #333; }
@@ -127,10 +128,11 @@
 <body>
 
     <div id="start-screen">
-        <h1 style="color: #ffd700; font-size: 40px; margin-bottom: 30px;">寶可夢決鬥 - 傳說降臨</h1>
-        <button class="difficulty-btn diff-easy" onclick="startGame('easy')">簡單 AI (沙包)</button>
-        <button class="difficulty-btn diff-mid" onclick="startGame('medium')">普通 AI (訓練家)</button>
-        <button class="difficulty-btn diff-hard" onclick="startGame('hard')">困難 AI (冠軍)</button>
+        <h1 style="color: #ffd700; font-size: 40px; margin-bottom: 20px;">寶可夢決鬥 V4</h1>
+        <p style="color: #ccc; margin-bottom: 30px;">全隨機百卡對戰・牌組星數動態平衡系統</p>
+        <div class="difficulty-btn diff-easy" onclick="startGame('easy')"><span>簡單 (沙包)</span><span>星數: 1.0x</span></div>
+        <div class="difficulty-btn diff-mid" onclick="startGame('medium')"><span>普通 (訓練家)</span><span>星數: 1.2x</span></div>
+        <div class="difficulty-btn diff-hard" onclick="startGame('hard')"><span>困難 (冠軍)</span><span>星數: 1.5x</span></div>
     </div>
 
     <div class="info-panel">
@@ -139,7 +141,8 @@
         <div id="phase-draw" class="phase-box">抽牌階段</div>
         <div id="phase-main" class="phase-box">主要階段</div>
         <div id="phase-battle" class="phase-box">戰鬥階段</div>
-        <div style="font-size: 12px; margin-top:10px; color: #888;">難度: <span id="diff-label"></span></div>
+        <div style="font-size: 11px; margin-top:10px; color: #888;">難度: <span id="diff-label"></span></div>
+        <div style="font-size: 10px; margin-top:2px; color: #666;" id="debug-stars"></div>
     </div>
 
     <div class="controls">
@@ -167,7 +170,7 @@
         </div>
     </div>
 
-    <div class="log-box" id="game-log">請選擇難度開始遊戲...</div>
+    <div class="log-box" id="game-log">正在洗切 100+ 張卡片，構建隨機牌組...</div>
 
     <div id="winner-overlay">
         <div id="winner-text" style="font-size:50px; color:#ffd700; margin-bottom:20px;"></div>
@@ -175,35 +178,66 @@
     </div>
 
     <script>
-        const CARD_DB = [
-            // 下級
-            { id: 1, name: "小火龍", category: 'monster', level: 3, atk: 1200, def: 800, img: "🔥" },
-            { id: 2, name: "傑尼龜", category: 'monster', level: 3, atk: 1000, def: 1500, img: "💧" },
-            { id: 3, name: "妙蛙種子", category: 'monster', level: 3, atk: 1100, def: 1100, img: "🌿" },
-            { id: 4, name: "皮卡丘", category: 'monster', level: 4, atk: 1600, def: 800, img: "⚡" },
-            { id: 5, name: "小拳石", category: 'monster', level: 3, atk: 1100, def: 1800, img: "🪨" },
-            { id: 6, name: "鬼斯", category: 'monster', level: 2, atk: 1200, def: 200, img: "👻" },
-            { id: 7, name: "腕力", category: 'monster', level: 4, atk: 1700, def: 600, img: "💪" },
-            { id: 8, name: "鯉魚王", category: 'monster', level: 1, atk: 0, def: 0, img: "🐟" },
-            // 上級
-            { id: 20, name: "火恐龍", category: 'monster', level: 5, atk: 2100, def: 1400, img: "🔥🔥" },
-            { id: 21, name: "卡咪龜", category: 'monster', level: 5, atk: 1900, def: 2000, img: "💧💧" },
-            { id: 22, name: "雷丘", category: 'monster', level: 6, atk: 2400, def: 1600, img: "⚡⚡" },
-            { id: 23, name: "卡比獸", category: 'monster', level: 6, atk: 2500, def: 2200, img: "💤" },
-            // 傳說
-            { id: 40, name: "噴火龍", category: 'monster', level: 7, atk: 2800, def: 2000, img: "🐲🔥" },
-            { id: 41, name: "水箭龜", category: 'monster', level: 7, atk: 2600, def: 3000, img: "🐢💧" },
-            { id: 42, name: "超夢", category: 'monster', level: 8, atk: 3300, def: 2000, img: "👽" },
-            { id: 43, name: "烈空坐", category: 'monster', level: 9, atk: 3500, def: 3000, img: "🐉🟢" },
-            { id: 44, name: "固拉多", category: 'monster', level: 8, atk: 3400, def: 2500, img: "🌋" },
-            // 魔法陷阱
-            { id: 100, name: "傷藥", category: 'spell', effect: 'heal_1500', img: "💊", desc: "HP+1500" },
-            { id: 101, name: "力量強化", category: 'spell', effect: 'atk_up_600', img: "⚔️", desc: "ATK+600" },
-            { id: 102, name: "雷擊", category: 'spell', effect: 'destroy_one', img: "⚡", desc: "破壞對手一隻怪獸" },
-            { id: 200, name: "變硬", category: 'trap', effect: 'def_up', img: "🛡️", desc: "DEF+2000" },
-            { id: 201, name: "鏡壁", category: 'trap', effect: 'destroy_atk', img: "✨", desc: "破壞攻擊者" }
+        // --- V4 資料庫: 100+ 寶可夢 ---
+        // 格式: [Name, Level, Atk, Def, Emoji]
+        const RAW_MONSTERS = [
+            // Level 1-2 (雜魚/幼年)
+            ["鯉魚王",1,0,0,"🐟"], ["綠毛蟲",1,300,300,"🐛"], ["獨角蟲",1,350,300,"🐛"], ["波波",2,800,600,"🐦"], ["小拉達",2,900,600,"🐀"],
+            ["烈雀",2,1000,500,"🐦"], ["超音蝠",2,900,700,"🦇"], ["走路草",2,800,800,"🌱"], ["派拉斯",2,700,900,"🦀"], ["毛球",2,850,700,"🦟"],
+            ["地鼠",2,1100,300,"🐹"], ["喵喵",2,1000,800,"😸"], ["可達鴨",2,1100,900,"🦆"], ["猴怪",2,1300,500,"🐒"], ["卡蒂狗",2,1200,800,"🐶"],
+            ["蚊香蝌蚪",2,900,900,"🌀"], ["凱西",1,500,1500,"🧘"], ["腕力",3,1600,800,"💪"], ["喇叭芽",2,1000,600,"🌱"], ["瑪瑙水母",2,900,1200,"🦑"],
+            
+            // Level 3-4 (下級主力)
+            ["小火龍",3,1200,800,"🔥"], ["傑尼龜",3,1000,1500,"💧"], ["妙蛙種子",3,1100,1100,"🌿"], ["皮卡丘",4,1600,800,"⚡"], ["小拳石",3,1100,1600,"🪨"],
+            ["小紅馬",3,1500,1000,"🐴"], ["呆呆獸",3,1000,1500,"🦛"], ["小磁怪",3,1100,1400,"🧲"], ["大蔥鴨",3,1400,900,"🦆"], ["嘟嘟",3,1500,800,"🐦"],
+            ["小海獅",3,1200,1200,"🦭"], ["臭泥",3,1300,1300,"💩"], ["大舌貝",3,1000,1800,"🐚"], ["鬼斯",3,1300,300,"👻"], ["大岩蛇",4,1400,2000,"🐍"],
+            ["催眠貘",3,1200,1200,"🐘"], ["大鉗蟹",3,1700,1100,"🦀"], ["雷電球",3,1400,1000,"💣"], ["蛋蛋",3,1100,1100,"🥚"], ["卡拉卡拉",3,1300,1500,"🦴"],
+            ["瓦斯彈",3,1200,1400,"🦠"], ["墨海馬",3,1100,1000," Seahorse"], ["角金魚",3,1300,900,"🐠"], ["海星星",3,1400,1000,"⭐"], ["飛天螳螂",4,1800,1200,"🦗"],
+            ["迷唇姐",4,1600,1200,"💋"], ["電擊獸",4,1700,1300,"⚡"], ["鴨嘴火龍",4,1800,1100,"🔥"], ["大甲",4,1850,1500,"🪲"], ["肯泰羅",4,1900,1400,"🐂"],
+            ["伊布",3,1300,1300,"🐕"], ["水伊布",4,1700,1900,"💧"], ["雷伊布",4,1800,1200,"⚡"], ["火伊布",4,1900,1100,"🔥"], ["多邊獸",3,1400,1400,"🧊"],
+            
+            // Level 5-6 (上級怪獸 - 需1祭品)
+            ["火恐龍",5,2100,1400,"🔥🔥"], ["卡咪龜",5,1900,2000,"💧💧"], ["妙蛙草",5,2000,1800,"🌿🌿"], ["巴大蝶",5,1600,1600,"🦋"], ["大針蜂",5,1800,1200,"🐝"],
+            ["比雕",6,2200,1500,"🦅"], ["拉達",5,1800,1400,"🐀"], ["大嘴雀",5,2000,1400,"🦅"], ["阿柏怪",5,2100,1500,"🐍"], ["皮可西",6,2000,2000,"🧚"],
+            ["九尾",6,2200,1800,"🦊"], ["胖可丁",5,1800,2200,"🎈"], ["大嘴蝠",5,1900,1600,"🦇"], ["霸王花",6,2100,1900,"🌺"], ["派拉斯特",5,1900,1800,"🍄"],
+            ["末入蛾",5,2000,1500,"🦋"], ["三地鼠",5,2100,1200,"🐹"], ["貓老大",5,1900,1400,"🐆"], ["哥達鴨",6,2300,1800,"🦆"], ["火爆猴",5,2200,1300,"🦍"],
+            ["風速狗",6,2500,1800,"🐕"], ["蚊香泳士",6,2200,2100,"🐸"], ["胡地",6,2500,1500,"🥄"], ["怪力",6,2600,1800,"💪"], ["大食花",5,2100,1400,"🌱"],
+            ["毒刺水母",6,2000,2200,"🦑"], ["隆隆岩",6,2300,2300,"🪨"], ["烈焰馬",5,2200,1600,"🐴"], ["呆殼獸",6,2000,2400,"🐚"], ["三合一磁怪",5,2100,1800,"🧲"],
+            ["嘟嘟利",5,2300,1500,"🐦"], ["白海獅",6,2000,2200,"🦭"], ["臭臭泥",6,2200,2000,"💩"], ["刺甲貝",6,1900,2800,"🐚"], ["耿鬼",6,2400,1500,"😈"],
+            ["索利柏",5,2000,1900,"🐘"], ["巨鉗蟹",5,2400,1800,"🦀"], ["頑皮雷彈",5,1800,1800,"💣"], ["椰蛋樹",6,2500,1900,"🌴"], ["嘎啦嘎啦",5,2000,2200,"🦴"],
+            ["沙瓦郎",5,2300,1200,"🦵"], ["艾比郎",5,2200,1600,"🥊"], ["雙彈瓦斯",5,2000,2200,"🦠"], ["鐵甲暴龍",6,2500,2200,"🦏"], ["吉利蛋",5,500,3000,"🥚"],
+            ["袋獸",6,2400,2000,"🦘"], ["海刺龍",5,2000,1800,"🐉"], ["金魚王",5,2100,1600,"🐠"], ["寶石海星",6,2300,2000,"⭐"], ["吸盤魔偶",5,1500,2400,"🤡"],
+            ["卡比獸",6,2600,2400,"💤"], ["雷丘",6,2400,1800,"⚡⚡"],
+            
+            // Level 7+ (傳說/最強 - 需總星數>9)
+            ["噴火龍",7,2800,2200,"🐲🔥"], ["水箭龜",7,2600,2800,"🐢💧"], ["妙蛙花",7,2700,2500,"🐸🌿"], ["暴鯉龍",7,2900,1800,"🐉"], ["乘龍",7,2500,2500,"🦕"],
+            ["化石翼龍",7,2800,2000,"🦖"], ["快龍",8,3000,2600,"🐲"], ["急凍鳥",7,2700,2400,"❄️"], ["閃電鳥",7,2800,2300,"⚡"], ["火焰鳥",7,2900,2200,"🔥"],
+            ["超夢",8,3300,2500,"👽"], ["夢幻",8,2500,2500,"🐱"], ["班基拉斯",8,2900,2700,"🦖"], ["洛奇亞",8,2400,3200,"🌪️"], ["鳳王",8,3200,2400,"🌈"],
+            ["蓋歐卡",8,3000,3000,"🐋"], ["固拉多",8,3400,2600,"🌋"], ["烈空坐",9,3500,2800,"🐉🟢"]
         ];
 
+        // 轉換為物件陣列
+        const MONSTERS = RAW_MONSTERS.map((m, i) => ({
+            id: `m_${i}`, name: m[0], category: 'monster', level: m[1], atk: m[2], def: m[3], img: m[4]
+        }));
+
+        const SPELLS = [
+            { id: 's1', name: "傷藥", category: 'spell', effect: 'heal_1500', img: "💊", desc: "HP+1500" },
+            { id: 's2', name: "好傷藥", category: 'spell', effect: 'heal_2500', img: "💉", desc: "HP+2500" },
+            { id: 's3', name: "力量強化", category: 'spell', effect: 'atk_up_600', img: "⚔️", desc: "ATK+600" },
+            { id: 's4', name: "守備強化", category: 'spell', effect: 'def_up_600', img: "🛡️", desc: "DEF+600" },
+            { id: 's5', name: "雷擊", category: 'spell', effect: 'destroy_one', img: "⚡", desc: "破壞一隻" },
+            { id: 's6', name: "黑洞", category: 'spell', effect: 'destroy_all', img: "⚫", desc: "全場破壞" },
+            { id: 's7', name: "貪婪之壺", category: 'spell', effect: 'draw_2', img: "🏺", desc: "抽2張牌" }
+        ];
+
+        const TRAPS = [
+            { id: 't1', name: "變硬", category: 'trap', effect: 'def_up', img: "🪨", desc: "DEF+2000" },
+            { id: 't2', name: "鏡壁", category: 'trap', effect: 'destroy_atk', img: "✨", desc: "破壞攻擊者" },
+            { id: 't3', name: "反擊", category: 'trap', effect: 'reflect_1000', img: "↩️", desc: "反彈1000傷" }
+        ];
+
+        // --- 遊戲邏輯 ---
         class Card {
             constructor(data, owner) {
                 this.uid = Math.random().toString(36).substr(2, 9);
@@ -235,10 +269,7 @@
                         ${this.category === 'monster' ? `<span>${this.currentAtk}</span><span>${this.def}</span>` : `<span style="width:100%;text-align:center">${this.desc}</span>`}
                     </div>
                 `;
-                el.onclick = (e) => {
-                    e.stopPropagation(); // 防止點擊卡片時觸發場地背景點擊
-                    game.handleCardClick(this, location);
-                };
+                el.onclick = (e) => { e.stopPropagation(); game.handleCardClick(this, location); };
                 return el;
             }
         }
@@ -253,36 +284,97 @@
                     p2: { lp: 8000, hand: [], field: [], st: [], deck: [] }
                 };
                 this.selectedCard = null;
-                this.summonState = { active: false, card: null, mode: null, need: 0, tributes: [] };
+                this.summonState = { active: false, tributes: [] };
                 this.turnSummoned = false;
                 
-                this.initDeck('p1'); this.initDeck('p2');
-                for(let i=0; i<5; i++) { this.draw('p1'); this.draw('p2'); }
+                this.buildDecks(); // 隨機組牌
                 
+                for(let i=0; i<5; i++) { this.draw('p1'); this.draw('p2'); }
                 document.getElementById('diff-label').innerText = difficulty.toUpperCase();
                 this.startTurnP1();
+            }
+
+            // --- 隨機牌組構建 ---
+            buildDecks() {
+                // 1. 構建 P1 牌組 (標準隨機)
+                // 結構: 20怪獸(隨機), 5魔法, 5陷阱
+                this.players.p1.deck = this.generateDeck('standard');
+                
+                // 計算 P1 牌組強度 (怪獸總星數)
+                const p1Stars = this.players.p1.deck
+                    .filter(c => c.category === 'monster')
+                    .reduce((sum, c) => sum + c.level, 0);
+
+                // 2. 構建 P2 (CPU) 牌組 - 基於 P1 強度與難度
+                let starMultiplier = 1.0;
+                if (this.difficulty === 'medium') starMultiplier = 1.2;
+                if (this.difficulty === 'hard') starMultiplier = 1.5;
+
+                const targetStars = Math.floor(p1Stars * starMultiplier);
+                this.players.p2.deck = this.generateDeck('target_stars', targetStars);
+
+                // Debug 顯示
+                const p2Stars = this.players.p2.deck.filter(c => c.category === 'monster').reduce((s, c) => s + c.level, 0);
+                document.getElementById('debug-stars').innerText = `Deck Stars: YOU[${p1Stars}] vs CPU[${p2Stars}]`;
+                
+                this.log(`牌組構建完成! 雙方已洗牌。`);
+            }
+
+            generateDeck(mode, targetStars = 0) {
+                let deck = [];
+                // 必備: 5魔法 5陷阱
+                for(let i=0; i<5; i++) deck.push(SPELLS[Math.floor(Math.random()*SPELLS.length)]);
+                for(let i=0; i<5; i++) deck.push(TRAPS[Math.floor(Math.random()*TRAPS.length)]);
+
+                // 20 張怪獸
+                let monsters = [];
+                if (mode === 'standard') {
+                    // 標準: 大多數是低星, 少量高星
+                    for(let i=0; i<20; i++) {
+                        const r = Math.random();
+                        let m;
+                        if(r < 0.6) m = MONSTERS.filter(c=>c.level<=4)[Math.floor(Math.random() * 40)]; // 低星池
+                        else if(r < 0.9) m = MONSTERS.filter(c=>c.level>=5 && c.level<=6)[Math.floor(Math.random() * 40)]; // 中星池
+                        else m = MONSTERS.filter(c=>c.level>=7)[Math.floor(Math.random() * 15)]; // 高星池
+                        monsters.push(m || MONSTERS[0]);
+                    }
+                } else if (mode === 'target_stars') {
+                    // 根據目標星數填充
+                    let currentStars = 0;
+                    while(monsters.length < 20) {
+                        // 如果還缺很多星，就容易抽到高星
+                        let avgNeeded = (targetStars - currentStars) / (20 - monsters.length);
+                        let candidates = [];
+                        
+                        if (avgNeeded >= 6) candidates = MONSTERS.filter(c=>c.level >= 6);
+                        else if (avgNeeded >= 4) candidates = MONSTERS.filter(c=>c.level >= 4 && c.level <= 6);
+                        else candidates = MONSTERS.filter(c=>c.level <= 4);
+
+                        if(candidates.length === 0) candidates = MONSTERS; // Fallback
+                        
+                        const m = candidates[Math.floor(Math.random() * candidates.length)];
+                        monsters.push(m);
+                        currentStars += m.level;
+                    }
+                }
+                
+                // 合併並洗牌
+                deck = deck.concat(monsters);
+                return this.shuffle(deck);
+            }
+
+            shuffle(array) {
+                for (let i = array.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [array[i], array[j]] = [array[j], array[i]];
+                }
+                return array;
             }
 
             log(msg) {
                 const box = document.getElementById('game-log');
                 box.innerText = msg;
                 box.style.color = this.turn === 'p1' ? '#aaf' : '#faa';
-            }
-
-            initDeck(p) {
-                for(let i=0; i<25; i++) {
-                    const r = Math.random();
-                    let cardData;
-                    let legendChance = (p==='p2' && this.difficulty==='hard') ? 0.15 : 0.05;
-                    let upperChance = 0.25;
-
-                    if(r < legendChance) cardData = CARD_DB.filter(c=>c.level>=7)[Math.floor(Math.random()*5)];
-                    else if (r < legendChance + upperChance) cardData = CARD_DB.filter(c=>c.level>=5 && c.level<=6)[Math.floor(Math.random()*4)];
-                    else if (r < 0.8) cardData = CARD_DB.filter(c=>c.level<=4 && c.category==='monster')[Math.floor(Math.random()*8)];
-                    else cardData = CARD_DB.filter(c=>c.category!=='monster')[Math.floor(Math.random()*5)];
-                    
-                    this.players[p].deck.push(cardData || CARD_DB[0]);
-                }
             }
 
             draw(p) {
@@ -424,7 +516,7 @@
             handleCardClick(card, loc) {
                 if (this.turn !== 'p1') return;
 
-                // 獻祭處理
+                // 獻祭
                 if (this.summonState.active && loc === 'field' && card.owner === 'p1') {
                     if(!this.summonState.tributes.find(c=>c.uid===card.uid)) {
                         this.summonState.tributes.push(card);
@@ -442,7 +534,7 @@
                     return;
                 }
 
-                // 召喚處理
+                // 召喚/發動
                 if (loc === 'hand' && this.phase === 'main') {
                     if (card.category === 'monster') {
                         if (this.turnSummoned) { this.log("本回合已召喚過"); return; }
@@ -464,12 +556,12 @@
                     else if (card.category === 'trap') this.setCard(card, 'p1');
                 }
 
-                // 戰鬥處理
+                // 戰鬥
                 if (this.phase === 'battle') {
                     if (loc === 'field') {
                         if (card.owner === 'p1' && !card.hasAttacked) {
                             this.selectedCard = card;
-                            this.log("選擇了攻擊怪獸，點擊目標 (若對方無怪獸可點擊對方背景直接攻擊)");
+                            this.log("選擇了攻擊怪獸，請選擇目標");
                             this.updateUI();
                         } else if (card.owner === 'p2' && this.selectedCard) {
                             this.combat(this.selectedCard, card);
@@ -501,10 +593,17 @@
                 this.players[p].hand = this.players[p].hand.filter(c => c.uid !== card.uid);
                 this.log(`魔法發動: ${card.name}`);
                 if(card.effect === 'heal_1500') this.players[p].lp += 1500;
+                if(card.effect === 'heal_2500') this.players[p].lp += 2500;
                 if(card.effect === 'atk_up_600') this.players[p].field.forEach(c=>c.tempAtkBuff+=600);
-                if(card.effect === 'destroy_one') {
+                if(card.effect === 'def_up_600') this.players[p].field.forEach(c=>c.def+=600);
+                if(card.effect === 'draw_2') { this.draw(p); this.draw(p); }
+                if(card.effect === 'destroy_one' || card.effect === 'destroy_all') {
                     const opp = p==='p1'?'p2':'p1';
-                    if(this.players[opp].field.length > 0) this.removeCard(this.players[opp].field[0]);
+                    const targets = this.players[opp].field;
+                    if(targets.length > 0) {
+                        if(card.effect === 'destroy_one') this.removeCard(targets[0]);
+                        else while(this.players[opp].field.length > 0) this.removeCard(this.players[opp].field[0]);
+                    }
                 }
                 this.updateUI();
             }
@@ -530,6 +629,7 @@
                             return;
                         }
                         if (trap.effect === 'def_up') target.def += 2000;
+                        if (trap.effect === 'reflect_1000') this.players[attacker.owner].lp -= 1000;
                     }
                 }
 
@@ -557,12 +657,8 @@
                 const dmg = attacker.currentAtk;
                 this.players[opp].lp = Math.max(0, this.players[opp].lp - dmg);
                 
-                // 播放玩家受擊特效
                 const hitEffect = document.getElementById(`${opp}-hit-effect`);
-                if(hitEffect) {
-                    hitEffect.classList.add('hit-anim');
-                    setTimeout(() => hitEffect.classList.remove('hit-anim'), 300);
-                }
+                if(hitEffect) { hitEffect.classList.add('hit-anim'); setTimeout(() => hitEffect.classList.remove('hit-anim'), 300); }
 
                 this.log(`${attacker.name} 直接攻擊玩家！傷害 ${dmg}`);
                 this.updateUI();
@@ -600,7 +696,7 @@
             enterBattlePhase() { 
                 if(this.phase==='main' && this.turn==='p1') { 
                     this.phase='battle'; 
-                    this.log("進入戰鬥階段，請點擊怪獸進行攻擊"); 
+                    this.log("進入戰鬥階段，請點擊怪獸攻擊"); 
                     this.updateUI(); 
                 } 
             }
@@ -618,7 +714,6 @@
                 document.getElementById('p1-zone').className = `player-zone p1-zone ${this.turn==='p1'?'active-turn':''}`;
                 document.getElementById('p2-zone').className = `player-zone p2-zone ${this.turn==='p2'?'active-turn':''}`;
                 
-                // 直接攻擊視覺提示
                 if (this.turn === 'p1' && this.phase === 'battle' && this.selectedCard && this.players.p2.field.length === 0) {
                     document.getElementById('p2-zone').classList.add('can-direct-attack');
                 } else {
@@ -657,17 +752,10 @@
             game = new Game(diff);
         }
 
-        // P1 直接攻擊觸發事件 (點擊 P2 區域背景)
         document.getElementById('p2-zone').addEventListener('click', (e) => {
-            // 確保不是點到卡片 (卡片自己有 onclick)
             if (e.target.closest('.card')) return;
-
-            if(game && game.turn==='p1' && game.phase==='battle' && game.selectedCard) {
-                if(game.players.p2.field.length === 0) {
-                    game.directAttack(game.selectedCard);
-                } else {
-                    game.log("對方場上還有怪獸，不能直接攻擊！");
-                }
+            if(game && game.turn==='p1' && game.phase==='battle' && game.selectedCard && game.players.p2.field.length === 0) {
+                game.directAttack(game.selectedCard);
             }
         });
 
