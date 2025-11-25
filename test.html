@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>鬼滅之刃：無限城決戰 RPG (自由回合版)</title>
+    <title>鬼滅之刃：無限城決戰 RPG (禰豆子參戰篇)</title>
     <style>
-        /* --- 全局與背景 --- */
+        /* --- 全局設定 --- */
         body {
             font-family: 'Microsoft JhengHei', sans-serif;
             background-color: #050505;
@@ -14,128 +14,118 @@
             flex-direction: column;
             align-items: center;
             margin: 0;
-            padding: 10px;
-            /* 榻榻米風格暗紋 */
-            background-image: repeating-linear-gradient(45deg, #1a1a1a 0, #1a1a1a 1px, transparent 0, transparent 50%);
-            background-size: 20px 20px;
+            padding: 5px;
+            /* 背景：深紅暗紋 */
+            background-image: repeating-linear-gradient(45deg, #110000 0, #110000 2px, transparent 0, transparent 50%);
+            background-size: 30px 30px;
         }
 
-        h1 { margin: 5px 0; color: #ffcc00; text-shadow: 0 0 5px #ff4d4d; }
+        h1 { margin: 5px 0; font-size: 1.5em; color: #ff99cc; text-shadow: 0 0 5px #ff0055; }
 
         /* --- 頂部狀態列 --- */
         #phase-banner {
-            width: 100%;
-            text-align: center;
-            padding: 10px 0;
-            font-size: 1.5em;
-            font-weight: bold;
-            margin-bottom: 10px;
-            background: linear-gradient(90deg, transparent, #00bfff, transparent);
-            text-shadow: 2px 2px 0 #000;
-            transition: all 0.5s;
+            width: 95%; max-width: 800px;
+            text-align: center; padding: 5px 0;
+            font-size: 1.2em; font-weight: bold; margin-bottom: 5px; border-radius: 5px;
+            text-shadow: 1px 1px 0 #000; transition: all 0.5s;
         }
-        .phase-player { background: linear-gradient(90deg, transparent, #0056b3, transparent) !important; color: #fff; }
-        .phase-enemy { background: linear-gradient(90deg, transparent, #8b0000, transparent) !important; color: #ff9999; }
+        .phase-player { background: linear-gradient(90deg, #003366, #0056b3, #003366); color: #fff; border: 1px solid #4da6ff; }
+        .phase-enemy { background: linear-gradient(90deg, #440000, #8b0000, #440000); color: #ff9999; border: 1px solid #ff4d4d; }
 
-        /* --- 遊戲容器 --- */
+        /* --- 遊戲主區域 --- */
         #game-wrapper {
-            display: flex;
-            gap: 20px;
-            align-items: flex-start;
-            justify-content: center;
+            display: flex; gap: 10px; align-items: flex-start; justify-content: center;
         }
 
-        /* --- 地圖區域 --- */
+        /* --- 15x12 地圖 --- */
         #grid-container {
             display: grid;
-            grid-template-columns: repeat(10, 50px);
-            grid-template-rows: repeat(10, 50px);
+            /* JS 會動態設定 grid-template-columns */
             gap: 1px;
-            background-color: #333;
-            border: 4px solid #666;
-            box-shadow: 0 0 20px rgba(0,0,0,0.8);
+            background-color: #222;
+            border: 3px solid #555;
+            box-shadow: 0 0 15px rgba(0,0,0,0.9);
             user-select: none;
         }
 
         .tile {
-            width: 50px; height: 50px;
+            width: 38px; height: 38px; /* 縮小格子 */
             background-color: #2b2b2b;
             position: relative;
             cursor: pointer;
             display: flex; justify-content: center; align-items: center;
         }
         
-        .tile.movable { background-color: rgba(0, 191, 255, 0.3); box-shadow: inset 0 0 10px #00bfff; animation: pulse 1.5s infinite; }
-        .tile.attackable { background-color: rgba(255, 69, 0, 0.4); box-shadow: inset 0 0 10px #ff4500; }
-        
-        @keyframes pulse { 0% {opacity: 0.6;} 50% {opacity: 1;} 100% {opacity: 0.6;} }
+        .tile.movable { background-color: rgba(0, 191, 255, 0.25); box-shadow: inset 0 0 5px #00bfff; }
+        .tile.attackable { background-color: rgba(255, 69, 0, 0.3); box-shadow: inset 0 0 5px #ff4500; }
+        .tile.healable { background-color: rgba(50, 255, 50, 0.25); box-shadow: inset 0 0 5px #00ff00; } /* 治療範圍 */
 
         /* --- 單位樣式 --- */
         .unit {
-            width: 42px; height: 42px;
+            width: 32px; height: 32px; /* 縮小單位 */
             border-radius: 50%;
             display: flex; justify-content: center; align-items: center;
-            font-weight: bold; font-size: 18px;
+            font-weight: bold; font-size: 14px;
             z-index: 5; position: relative;
-            box-shadow: 2px 2px 5px #000;
+            box-shadow: 1px 1px 3px #000;
             transition: transform 0.2s;
+            border-width: 2px; border-style: solid;
         }
         
-        .unit.tanjiro { background: radial-gradient(#2e8b57, #111); border: 2px solid #00bfff; }
-        .unit.zenitsu { background: radial-gradient(#ffd700, #b8860b); border: 2px solid #fff; color: #000; }
-        .unit.inosuke { background: radial-gradient(#708090, #2f4f4f); border: 2px solid #dcdcdc; }
-        .unit.demon { background: radial-gradient(#555, #222); border: 2px solid #f00; color: #ccc; font-size: 14px; }
-        .unit.boss { background: radial-gradient(#a00, #300); border: 2px solid #f00; color: #fff; font-size: 20px; box-shadow: 0 0 10px #f00; }
+        .unit.tanjiro { background: radial-gradient(#2e8b57, #000); border-color: #00bfff; }
+        .unit.zenitsu { background: radial-gradient(#ffd700, #b8860b); border-color: #fff; color: #000; }
+        .unit.inosuke { background: radial-gradient(#708090, #2f4f4f); border-color: #dcdcdc; }
+        .unit.nezuko  { background: radial-gradient(#ff99cc, #cc0055); border-color: #ff3366; color: #fff; } /* 禰豆子配色 */
 
-        .unit.done { filter: grayscale(100%) brightness(0.6); transform: scale(0.9); }
-        .unit.selected { box-shadow: 0 0 15px 5px #fff; z-index: 10; transform: scale(1.15); }
+        .unit.demon { background: radial-gradient(#444, #111); border-color: #f00; color: #bbb; font-size: 12px; }
+        .unit.boss { background: radial-gradient(#a00, #300); border-color: #ff0000; color: #fff; font-size: 16px; box-shadow: 0 0 8px #f00; }
+
+        .unit.done { filter: grayscale(100%) brightness(0.5); transform: scale(0.9); }
+        .unit.selected { box-shadow: 0 0 10px 3px #fff; z-index: 10; transform: scale(1.2); }
 
         /* 血條與等級 */
-        .hp-bar-bg { position: absolute; bottom: -5px; width: 100%; height: 5px; background: #000; }
+        .hp-bar-bg { position: absolute; bottom: -4px; width: 100%; height: 4px; background: #000; border-radius: 2px; }
         .hp-bar-fill { height: 100%; background: #0f0; transition: width 0.3s; }
         .unit.demon .hp-bar-fill { background: #f00; }
-        .lvl-tag { position: absolute; top: -5px; right: -8px; font-size: 10px; background: #000; padding: 1px 3px; border-radius: 3px; }
+        .lvl-tag { position: absolute; top: -6px; right: -6px; font-size: 9px; background: #000; padding: 0 2px; border-radius: 3px; color: #fff; border: 1px solid #666; }
 
         /* --- UI 面板 --- */
-        #ui-panel { width: 280px; display: flex; flex-direction: column; gap: 10px; }
+        #ui-panel { width: 240px; display: flex; flex-direction: column; gap: 8px; }
         
-        .panel { background: #1f1f1f; padding: 10px; border: 1px solid #444; border-radius: 5px; }
-        .panel-header { color: #d4af37; border-bottom: 1px solid #444; margin-bottom: 8px; font-weight: bold; }
+        .panel { background: #1a1a1a; padding: 8px; border: 1px solid #444; border-radius: 5px; }
+        .panel-header { color: #d4af37; border-bottom: 1px solid #444; margin-bottom: 5px; font-weight: bold; font-size: 0.9em; }
 
         /* 按鈕群組 */
-        .btn-group { display: flex; flex-direction: column; gap: 5px; }
+        .btn-group { display: flex; flex-direction: column; gap: 4px; }
         button {
-            padding: 10px; cursor: pointer; background: #333; color: #fff; border: 1px solid #555;
-            border-radius: 4px; font-size: 1em; text-align: left; transition: 0.2s;
+            padding: 8px; cursor: pointer; background: #333; color: #fff; border: 1px solid #555;
+            border-radius: 4px; font-size: 0.9em; text-align: left; transition: 0.2s;
         }
         button:hover { background: #444; border-color: #888; }
         button:disabled { opacity: 0.3; cursor: default; }
-        .btn-skill { border-left: 4px solid #00bfff; }
-        .btn-cancel { background: #331111; border-color: #552222; text-align: center; }
+        .btn-skill { border-left: 3px solid #ff0055; }
+        .btn-cancel { background: #331111; border-color: #552222; text-align: center; font-size: 0.8em; }
 
         /* 技能子選單 */
-        #skill-list { display: none; flex-direction: column; gap: 5px; margin-top: 5px; }
-        .skill-item { font-size: 0.9em; padding: 8px; background: #253545; }
+        #skill-list { display: none; flex-direction: column; gap: 3px; margin-top: 5px; }
+        .skill-item { font-size: 0.85em; padding: 6px; background: #252525; border-left: 2px solid #666; }
+        .skill-heal { border-left-color: #00ff00; color: #ccffcc; } /* 補血技能樣式 */
 
         /* 戰鬥紀錄 */
-        #log-box { height: 150px; overflow-y: auto; font-size: 0.85em; color: #bbb; line-height: 1.4; }
-        .log-turn { color: #aaa; font-style: italic; border-top: 1px solid #333; margin-top: 5px; padding-top: 2px; }
+        #log-box { height: 180px; overflow-y: auto; font-size: 0.8em; color: #bbb; line-height: 1.4; background: #111; padding: 5px; }
         .log-dmg { color: #ff6b6b; font-weight: bold; }
         .log-heal { color: #4cd137; font-weight: bold; }
-        
-        /* 結束回合按鈕 */
-        #btn-end-turn {
-            width: 100%; padding: 15px; background: #8b0000; color: #fff; font-weight: bold; 
-            border: none; cursor: pointer; margin-top: 10px; font-size: 1.1em;
-        }
-        #btn-end-turn:hover { background: #a00000; }
-        #btn-end-turn:disabled { background: #333; color: #555; }
+        .log-sys { color: #ffd700; }
 
+        #btn-end-turn {
+            width: 100%; padding: 12px; background: #8b0000; color: #fff; font-weight: bold; 
+            border: none; cursor: pointer; margin-top: 5px;
+        }
     </style>
 </head>
 <body>
 
-    <div id="phase-banner" class="phase-player">我方回合 (Player Phase)</div>
+    <div id="phase-banner" class="phase-player">第 1 關 - 我方回合</div>
 
     <div id="game-wrapper">
         <div id="grid-container"></div>
@@ -143,16 +133,15 @@
         <div id="ui-panel">
             <div class="panel">
                 <div class="panel-header">單位資訊</div>
-                <div id="unit-info">請選擇單位...</div>
+                <div id="unit-info" style="font-size: 0.85em;">請選擇單位...</div>
             </div>
 
             <div class="panel" id="action-panel" style="display:none;">
                 <div class="panel-header">行動指令</div>
                 <div class="btn-group">
                     <button id="btn-attack">⚔️ 攻擊</button>
-                    <button id="btn-skill-menu">⚡ 戰技</button>
-                    <div id="skill-list">
-                        </div>
+                    <button id="btn-skill-menu">🔥 血鬼術/呼吸</button>
+                    <div id="skill-list"></div>
                     <button id="btn-wait">✋ 待機</button>
                     <button id="btn-cancel-move" class="btn-cancel">↩ 取消移動</button>
                 </div>
@@ -169,25 +158,33 @@
 
 <script>
     // --- 遊戲常數 ---
-    const GRID_SIZE = 10;
+    const COLS = 15;
+    const ROWS = 12;
     const MAX_LEVEL = 9;
     
-    // --- 技能資料庫 ---
+    // --- 技能資料庫 (新增 Nezuko) ---
+    // isHeal: true 表示補血
+    // global: true 表示全圖/全體
     const SKILL_DB = {
         tanjiro: [
-            { name: "水之呼吸·壹之型", reqLv: 1, range: 1, dmg: 1.2, cost: 0, aoe: false },
-            { name: "火之神神樂", reqLv: 3, range: 1, dmg: 1.6, cost: 0, aoe: false },
-            { name: "日之呼吸·陽華突", reqLv: 6, range: 2, dmg: 2.2, cost: 0, aoe: false }
+            { name: "水之呼吸·壹之型", reqLv: 1, range: 1, val: 1.2, cost: 0, aoe: false },
+            { name: "火之神神樂", reqLv: 3, range: 1, val: 1.6, cost: 0, aoe: false },
+            { name: "日之呼吸·陽華突", reqLv: 6, range: 2, val: 2.2, cost: 0, aoe: false }
         ],
         zenitsu: [
-            { name: "霹靂一閃", reqLv: 1, range: 3, dmg: 1.1, cost: 0, aoe: false },
-            { name: "霹靂一閃·六連", reqLv: 3, range: 4, dmg: 1.4, cost: 0, aoe: false },
-            { name: "霹靂一閃·神速", reqLv: 6, range: 5, dmg: 2.0, cost: 0, aoe: false }
+            { name: "霹靂一閃", reqLv: 1, range: 3, val: 1.1, cost: 0, aoe: false },
+            { name: "霹靂一閃·六連", reqLv: 3, range: 4, val: 1.4, cost: 0, aoe: false },
+            { name: "神速", reqLv: 6, range: 5, val: 2.0, cost: 0, aoe: false }
         ],
         inosuke: [
-            { name: "獸之呼吸·獠牙", reqLv: 1, range: 1, dmg: 1.0, cost: 0, aoe: true }, // 範圍
-            { name: "空間感知·殺", reqLv: 3, range: 1, dmg: 1.5, cost: 0, aoe: true },
-            { name: "爆裂猛進", reqLv: 6, range: 1, dmg: 2.5, cost: 0, aoe: true } // 強力範圍
+            { name: "獸之呼吸·獠牙", reqLv: 1, range: 1, val: 1.0, cost: 0, aoe: true },
+            { name: "空間感知·殺", reqLv: 3, range: 1, val: 1.5, cost: 0, aoe: true },
+            { name: "爆裂猛進", reqLv: 6, range: 1, val: 2.5, cost: 0, aoe: true }
+        ],
+        nezuko: [
+            { name: "再生回復", reqLv: 1, range: 2, val: 50, cost: 0, aoe: false, isHeal: true }, // 單體補
+            { name: "爆血·廣域治癒", reqLv: 3, range: 0, val: 40, cost: 0, aoe: true, isHeal: true, global: true }, // 全體補
+            { name: "爆血·燒灼", reqLv: 6, range: 2, val: 2.5, cost: 0, aoe: false, isHeal: false } // 攻擊技
         ]
     };
 
@@ -201,21 +198,17 @@
             this.x = x;
             this.y = y;
             
-            // 基礎數值
             this.level = stats.level || 1;
             this.maxHp = stats.hp;
             this.hp = stats.hp;
             this.atk = stats.atk;
             this.def = stats.def;
-            this.moveRange = 2; // 固定 2 格
+            this.moveRange = 2; 
             
-            // 狀態
             this.hasActed = false;
-            
-            // 成長與快照 (用於取消移動)
             this.xp = 0;
             this.maxXp = 100 * this.level;
-            this.prevX = x; // 紀錄移動前位置
+            this.prevX = x; 
             this.prevY = y;
         }
 
@@ -227,7 +220,6 @@
         gainXp(amount) {
             if (this.type !== 'slayer') return;
             this.xp += amount;
-            log(`${this.name} 獲得 ${amount} EXP`, 'normal');
             if (this.xp >= this.maxXp) this.levelUp();
         }
 
@@ -238,12 +230,8 @@
             this.maxHp = Math.floor(this.maxHp * 1.2);
             this.atk = Math.floor(this.atk * 1.15);
             this.def = Math.floor(this.def * 1.15);
-            this.hp = this.maxHp; // 回滿血
-            
-            let newSkill = SKILL_DB[this.role].find(s => s.reqLv === this.level);
-            let skillMsg = newSkill ? `<br>💡 習得新招式：${newSkill.name}！` : "";
-            
-            log(`✨ ${this.name} 升級到 Lv.${this.level}！體力全滿！${skillMsg}`, 'heal');
+            this.hp = this.maxHp;
+            log(`✨ ${this.name} 升級 Lv.${this.level}！`, 'log-sys');
             renderMap();
         }
     }
@@ -253,39 +241,44 @@
     let allies = [];
     let enemies = [];
     let currentLevel = 1;
-    let phase = 'PLAYER'; // 'PLAYER' or 'ENEMY'
+    let phase = 'PLAYER';
     
-    // 互動狀態機
-    let selectedUnit = null; // 當前選中的我方單位
-    let selectionState = 'NONE'; // 'NONE', 'MOVING', 'MENU', 'TARGETING'
-    let activeSkill = null; // 當前選擇使用的技能
+    let selectedUnit = null;
+    let selectionState = 'NONE'; // NONE, MOVING, MENU, TARGETING
+    let activeSkill = null;
 
     // --- 初始化 ---
     function initGame() {
+        const gridContainer = document.getElementById('grid-container');
+        // 設定 CSS Grid
+        gridContainer.style.gridTemplateColumns = `repeat(${COLS}, 38px)`;
+        gridContainer.style.gridTemplateRows = `repeat(${ROWS}, 38px)`;
+
         createGrid();
-        // 建立主角群 (永久能力)
+        
+        // 建立主角群 (包含禰豆子)
         allies = [
-            new Unit(1, '炭治郎', 'slayer', 'tanjiro', 1, 4, { hp: 150, atk: 35, def: 8 }),
-            new Unit(2, '善逸', 'slayer', 'zenitsu', 0, 3, { hp: 80, atk: 45, def: 5 }),
-            new Unit(3, '伊之助', 'slayer', 'inosuke', 0, 5, { hp: 195, atk: 28, def: 16 })
+            new Unit(1, '炭治郎', 'slayer', 'tanjiro', 1, 4, { hp: 120, atk: 28, def: 10 }),
+            new Unit(2, '善逸', 'slayer', 'zenitsu', 0, 3, { hp: 90, atk: 35, def: 6 }),
+            new Unit(3, '伊之助', 'slayer', 'inosuke', 0, 5, { hp: 130, atk: 25, def: 12 }),
+            new Unit(4, '禰豆子', 'slayer', 'nezuko', 1, 6, { hp: 140, atk: 20, def: 15 }) // 高防血牛補師
         ];
         startLevel(1);
         
-        // 綁定結束回合按鈕
         document.getElementById('btn-end-turn').onclick = endPlayerPhase;
-        // 綁定指令按鈕
         document.getElementById('btn-attack').onclick = () => prepAttack(false);
         document.getElementById('btn-skill-menu').onclick = toggleSkillMenu;
-        document.getElementById('btn-wait').onclick = () => finalizeAction(true); // 待機
+        document.getElementById('btn-wait').onclick = () => finalizeAction(true);
         document.getElementById('btn-cancel-move').onclick = cancelMovement;
     }
 
     function createGrid() {
         const container = document.getElementById('grid-container');
         container.innerHTML = '';
-        for (let y = 0; y < GRID_SIZE; y++) {
+        grid = [];
+        for (let y = 0; y < ROWS; y++) {
             let row = [];
-            for (let x = 0; x < GRID_SIZE; x++) {
+            for (let x = 0; x < COLS; x++) {
                 let div = document.createElement('div');
                 div.className = 'tile';
                 div.onclick = () => onTileClick(x, y);
@@ -298,61 +291,62 @@
 
     function startLevel(lvl) {
         currentLevel = lvl;
-        document.getElementById('phase-banner').innerText = `第 ${lvl} 關 - 開始`;
-        log(`=== 第 ${lvl} 關 開始 ===`, 'normal');
+        document.getElementById('phase-banner').innerText = `第 ${lvl} 關 - 無限城深處`;
+        log(`=== 第 ${lvl} 關 開始 ===`, 'log-sys');
         
-        // 重置位置
-        allies[0].x=1; allies[0].y=4;
-        allies[1].x=0; allies[1].y=3;
-        allies[2].x=0; allies[2].y=5;
+        // 重置位置 (左側集結)
+        allies[0].x=2; allies[0].y=6;
+        allies[1].x=1; allies[1].y=5;
+        allies[2].x=1; allies[2].y=7;
+        allies[3].x=0; allies[3].y=6;
+
         allies.forEach(u => { u.hasActed = false; u.prevX = u.x; u.prevY = u.y; });
 
-        // 生成敵人
+        // 生成敵人 (雜魚 8-10 隻)
         enemies = [];
         let difficulty = 1 + (lvl * 0.15);
-        let count = 3 + Math.floor(Math.random()*3); // 3-5隻
+        let count = 8 + Math.floor(Math.random() * 3); 
         
+        // 雜魚散佈在右半邊
         for(let i=0; i<count; i++) {
-            let ex = 6 + Math.floor(Math.random()*4);
-            let ey = Math.floor(Math.random()*10);
+            let ex = 6 + Math.floor(Math.random() * (COLS - 6));
+            let ey = Math.floor(Math.random() * ROWS);
             if(!isOccupied(ex, ey)) {
                 enemies.push(new Unit(100+i, '雜魚鬼', 'demon', 'grunt', ex, ey, {
                     hp: Math.floor(40*difficulty), atk: Math.floor(12*difficulty), def: Math.floor(2*difficulty), level: lvl
                 }));
             }
         }
-        // Boss
-        let by = 4;
-        if(isOccupied(9, 4)) by = 5;
-        enemies.push(new Unit(200, getBossName(lvl), 'demon', 'boss', 9, by, {
-            hp: Math.floor(150*difficulty), atk: Math.floor(25*difficulty), def: Math.floor(8*difficulty), level: lvl+2
+        
+        // BOSS (血量 3 倍)
+        let bossName = getBossName(lvl);
+        let bx = COLS - 2;
+        let by = Math.floor(ROWS / 2);
+        enemies.push(new Unit(200, bossName, 'demon', 'boss', bx, by, {
+            hp: Math.floor(150 * difficulty * 3), // Boss HP x3
+            atk: Math.floor(25 * difficulty), 
+            def: Math.floor(8 * difficulty), 
+            level: lvl+2
         }));
 
         startPlayerPhase();
     }
 
-    function isOccupied(x, y) {
-        return [...allies, ...enemies].some(u => u.x === x && u.y === y && u.hp > 0);
-    }
-    
-    function getUnitAt(x, y) {
-        return [...allies, ...enemies].find(u => u.x === x && u.y === y && u.hp > 0);
-    }
+    function isOccupied(x, y) { return [...allies, ...enemies].some(u => u.x === x && u.y === y && u.hp > 0); }
+    function getUnitAt(x, y) { return [...allies, ...enemies].find(u => u.x === x && u.y === y && u.hp > 0); }
 
-    // --- 核心流程控制 ---
+    // --- 遊戲流程 ---
 
     function startPlayerPhase() {
         phase = 'PLAYER';
         const banner = document.getElementById('phase-banner');
         banner.className = 'phase-player';
-        banner.innerText = "我方回合 (Player Phase)";
+        banner.innerText = `第 ${currentLevel} 關 - 我方回合`;
         document.getElementById('btn-end-turn').disabled = false;
         
-        // 重置所有我方狀態
         allies.forEach(u => {
             u.hasActed = false;
-            u.prevX = u.x; // 更新回合起始點
-            u.prevY = u.y;
+            u.prevX = u.x; u.prevY = u.y;
         });
         
         resetSelection();
@@ -369,84 +363,71 @@
         phase = 'ENEMY';
         const banner = document.getElementById('phase-banner');
         banner.className = 'phase-enemy';
-        banner.innerText = "敵方行動中 (Enemy Phase)";
+        banner.innerText = "敵方行動中...";
         document.getElementById('btn-end-turn').disabled = true;
-        
         renderMap();
 
-        // 依序執行敵人 AI
         for (const demon of enemies) {
             if (demon.hp > 0) {
-                await new Promise(r => setTimeout(r, 600)); // 每個敵人行動間隔
+                await new Promise(r => setTimeout(r, 400)); // 加快一點節奏
                 runEnemyAI(demon);
                 renderMap();
             }
         }
 
-        // 檢查勝利/失敗
         if (checkWinLose()) return;
-
-        // 回到我方回合
         startPlayerPhase();
     }
 
-    // --- 玩家互動邏輯 (複雜狀態機) ---
+    // --- 玩家操作邏輯 ---
 
     function onTileClick(x, y) {
-        if (phase !== 'PLAYER') return; // 敵方回合鎖定點擊
-
+        if (phase !== 'PLAYER') return;
         const targetUnit = getUnitAt(x, y);
 
-        // 狀態 1: 未選擇任何單位
         if (selectionState === 'NONE') {
             if (targetUnit && targetUnit.type === 'slayer' && !targetUnit.hasActed) {
                 selectUnit(targetUnit);
             } else if (targetUnit) {
-                // 僅查看
                 showUnitInfo(targetUnit);
             }
             return;
         }
 
-        // 狀態 2: 移動選擇中 (MOVING)
         if (selectionState === 'MOVING') {
-            // 點擊藍色格子 -> 移動
             if (grid[y][x].classList.contains('movable')) {
                 executeMove(selectedUnit, x, y);
-            } 
-            // 點擊自己 -> 取消移動/不做事
-            else if (x === selectedUnit.x && y === selectedUnit.y) {
-                 executeMove(selectedUnit, x, y); // 原地移動，進入選單
-            }
-            // 點擊其他地方 -> 取消選擇
-            else {
+            } else if (x === selectedUnit.x && y === selectedUnit.y) {
+                 executeMove(selectedUnit, x, y);
+            } else {
                 resetSelection();
                 if (targetUnit && targetUnit.type === 'slayer' && !targetUnit.hasActed) selectUnit(targetUnit);
             }
             return;
         }
 
-        // 狀態 3: 選單開啟中 (MENU) -> 點擊地圖視為取消移動
         if (selectionState === 'MENU') {
-            cancelMovement(); // 後悔了，退回原位
+            cancelMovement();
             return;
         }
 
-        // 狀態 4: 選擇攻擊目標 (TARGETING)
+        // 選擇目標 (攻擊或治療)
         if (selectionState === 'TARGETING') {
-            if (grid[y][x].classList.contains('attackable')) {
-                // 判斷是否點擊了敵人 (或者範圍技點擊了空地)
-                // 這裡簡化：如果有敵人，打敵人；如果是 AOE，以格子為中心
-                const hitEnemy = getUnitAt(x, y);
-                if (hitEnemy && hitEnemy.type === 'demon') {
-                    executeAttack(selectedUnit, hitEnemy, activeSkill);
+            if (grid[y][x].classList.contains('attackable') || grid[y][x].classList.contains('healable')) {
+                const hitUnit = getUnitAt(x, y);
+                // 執行攻擊/治療
+                if (activeSkill && activeSkill.global) {
+                     // 全體技能，點擊任意有效格觸發
+                     executeSkillAction(selectedUnit, null, activeSkill);
+                } else if (hitUnit) {
+                     // 單體/範圍中心
+                     executeSkillAction(selectedUnit, hitUnit, activeSkill);
                 } else if (activeSkill && activeSkill.aoe) {
-                     // 範圍技打擊空地
-                     executeAttack(selectedUnit, {x:x, y:y, name:"地面"}, activeSkill);
+                     // 空地 AOE
+                     executeSkillAction(selectedUnit, {x:x, y:y, name:"地面"}, activeSkill);
                 }
             } else {
-                // 點錯地方，回到選單
-                openActionMenu();
+                openActionMenu(); // 點錯返回選單
             }
         }
     }
@@ -455,18 +436,14 @@
         selectedUnit = unit;
         selectionState = 'MOVING';
         showUnitInfo(unit);
-        
-        // 顯示移動範圍
         renderMap();
-        highlightMoveRange(unit);
-    }
-
-    function highlightMoveRange(unit) {
-        const range = unit.moveRange;
-        for(let y=0; y<GRID_SIZE; y++) {
-            for(let x=0; x<GRID_SIZE; x++) {
+        
+        // 移動範圍
+        const range = 2;
+        for(let y=0; y<ROWS; y++) {
+            for(let x=0; x<COLS; x++) {
                 const dist = Math.abs(x - unit.x) + Math.abs(y - unit.y);
-                const occupied = isOccupied(x, y) && (x !== unit.x || y !== unit.y); // 不能穿過
+                const occupied = isOccupied(x, y) && (x !== unit.x || y !== unit.y);
                 if (dist <= range && !occupied) {
                     grid[y][x].classList.add('movable');
                 }
@@ -475,15 +452,13 @@
     }
 
     function executeMove(unit, x, y) {
-        unit.x = x;
-        unit.y = y;
+        unit.x = x; unit.y = y;
         renderMap();
         openActionMenu();
     }
 
     function cancelMovement() {
         if (!selectedUnit) return;
-        // 回溯位置
         selectedUnit.x = selectedUnit.prevX;
         selectedUnit.y = selectedUnit.prevY;
         resetSelection();
@@ -492,36 +467,30 @@
 
     function openActionMenu() {
         selectionState = 'MENU';
-        const panel = document.getElementById('action-panel');
-        panel.style.display = 'block';
-        document.getElementById('skill-list').style.display = 'none'; // 隱藏子選單
-        
-        // 檢查攻擊範圍內是否有敵人，決定按鈕是否禁用
-        // 這裡為了流暢，不禁用攻擊按鈕，點了沒敵人再提示即可
+        document.getElementById('action-panel').style.display = 'block';
+        document.getElementById('skill-list').style.display = 'none';
     }
 
     function toggleSkillMenu() {
         const list = document.getElementById('skill-list');
-        if (list.style.display === 'flex') {
-            list.style.display = 'none';
-        } else {
-            list.style.display = 'flex';
-            list.innerHTML = '';
-            const skills = selectedUnit.getSkills();
-            skills.forEach(skill => {
-                let btn = document.createElement('button');
-                btn.className = 'skill-item';
-                btn.innerHTML = `${skill.name} <small>(距${skill.range}/${skill.aoe?'範圍':'單體'})</small>`;
-                btn.onclick = () => {
-                    activeSkill = skill;
-                    prepAttack(true);
-                };
-                list.appendChild(btn);
-            });
-            if(skills.length === 0) {
-                list.innerHTML = '<div style="font-size:0.8em; color:#888; padding:5px;">無可用招式</div>';
-            }
-        }
+        list.style.display = (list.style.display === 'flex') ? 'none' : 'flex';
+        list.innerHTML = '';
+        
+        const skills = selectedUnit.getSkills();
+        skills.forEach(skill => {
+            let btn = document.createElement('button');
+            btn.className = 'skill-item';
+            if(skill.isHeal) btn.classList.add('skill-heal');
+            
+            let rangeTxt = skill.global ? "全體" : `距${skill.range}`;
+            let typeTxt = skill.isHeal ? "回復" : "傷害";
+            if(skill.aoe && !skill.global) rangeTxt += "/範圍";
+            
+            btn.innerHTML = `${skill.name} <small>(${rangeTxt})</small>`;
+            btn.onclick = () => { activeSkill = skill; prepAttack(true); };
+            list.appendChild(btn);
+        });
+        if(skills.length===0) list.innerHTML = '<div style="color:#666; font-size:0.8em;">無可用招式</div>';
     }
 
     function prepAttack(isSkill) {
@@ -530,87 +499,101 @@
         document.getElementById('action-panel').style.display = 'none';
         
         renderMap();
-        // 顯示攻擊紅格子
-        const range = isSkill ? activeSkill.range : 1; // 普攻距離1
         
-        // 善逸普攻距離修正? 需求說善逸遠攻，假設普攻也是 1，但技能遠
-        // 不，需求說 "我方增加善逸（遠攻）" -> 善逸普攻可以設為 3? 
-        // 為了平衡，讓善逸只有技能遠攻，或者普攻設為 1。
-        // 這裡依照上一版，善逸普攻如果沒特別定義就 1，但為了符合「遠攻」描述：
-        // 我們讓善逸普攻 Range 3 吧？但 Unit class 沒存 range。
-        // 簡單處理：如果沒用技能，範圍固定 1 (除了善逸)。
-        // 這裡為了技能系統清晰，普攻統一 1 格，靠技能打遠。
-        
-        for(let y=0; y<GRID_SIZE; y++) {
-            for(let x=0; x<GRID_SIZE; x++) {
+        const range = isSkill ? activeSkill.range : 1; 
+        const isHeal = isSkill && activeSkill.isHeal;
+        const isGlobal = isSkill && activeSkill.global;
+
+        if (isGlobal) {
+            // 全體技能，標亮所有隊友
+            allies.forEach(a => { if(a.hp > 0) grid[a.y][a.x].classList.add('healable'); });
+            log("請點擊任意隊友發動全體技...", 'log-sys');
+            return;
+        }
+
+        for(let y=0; y<ROWS; y++) {
+            for(let x=0; x<COLS; x++) {
                 const dist = Math.abs(x - selectedUnit.x) + Math.abs(y - selectedUnit.y);
-                if (dist <= range && dist > 0) {
-                    grid[y][x].classList.add('attackable');
+                if (dist <= range && (dist > 0 || isHeal)) { // 補血可以補自己(距離0)
+                    // 根據技能類型標記顏色
+                    const unitHere = getUnitAt(x, y);
+                    if (isHeal) {
+                        // 補血：只標示有隊友的格子
+                        if (unitHere && unitHere.type === 'slayer') {
+                            grid[y][x].classList.add('healable');
+                        }
+                    } else {
+                        // 攻擊：標示範圍內所有格子 (AOE可能打空地)
+                        grid[y][x].classList.add('attackable');
+                    }
                 }
             }
         }
-        log(isSkill ? `使用 [${activeSkill.name}] 選擇目標...` : "選擇攻擊目標...", 'normal');
+        log(isHeal ? "選擇治療對象..." : "選擇攻擊目標...", 'log-sys');
     }
 
-    function executeAttack(attacker, targetObj, skill) {
+    function executeSkillAction(attacker, targetObj, skill) {
         let targets = [];
-        
-        if (skill && skill.aoe) {
-            // 範圍攻擊：目標點周圍 3x3
+        const isHeal = skill && skill.isHeal;
+
+        if (skill && skill.global && isHeal) {
+            // 全體補血
+            targets = allies.filter(a => a.hp > 0);
+            log(`${attacker.name} 使用 ${skill.name}！`, 'log-heal');
+        } else if (skill && skill.aoe && !isHeal) {
+            // 範圍攻擊
+            let cx = targetObj.x; let cy = targetObj.y;
             for(let dy=-1; dy<=1; dy++){
                 for(let dx=-1; dx<=1; dx++){
-                    let tx = targetObj.x !== undefined ? targetObj.x + dx : targetObj.x; // Handle target object structure
-                    let ty = targetObj.y !== undefined ? targetObj.y + dy : targetObj.y;
-                    // 如果 targetObj 是單位，用它的 x,y。如果是 {x,y} 結構，直接用
-                    if (targetObj.x === undefined) { tx=targetObj.x; ty=targetObj.y; } // Fallback logic
-                    
-                    // 實際抓取該格的敵人
-                    let u = getUnitAt(tx, ty);
+                    let u = getUnitAt(cx+dx, cy+dy);
                     if (u && u.type === 'demon') targets.push(u);
                 }
             }
-            log(`${attacker.name} 施放範圍戰技！`, 'normal');
+            log(`${attacker.name} 施放範圍攻擊！`, 'log-dmg');
         } else {
-            // 單體
-            if (targetObj.type === 'demon') targets.push(targetObj);
+            // 單體 (攻擊或補血)
+            if (targetObj) targets.push(targetObj);
         }
 
         if (targets.length === 0) {
-            log("沒有擊中任何敵人！", 'normal');
+            log("無效的目標！", 'log-sys');
         } else {
-            targets.forEach(def => {
-                let dmgMult = skill ? skill.dmg : 1.0;
-                let raw = attacker.atk * dmgMult - (def.def * 0.5);
-                let dmg = Math.max(1, Math.floor(raw * (0.9 + Math.random()*0.2)));
+            targets.forEach(t => {
+                let val = 0;
                 
-                def.hp -= dmg;
-                log(`${attacker.name} 對 ${def.name} 造成 <span class="log-dmg">${dmg}</span> 傷害`, 'dmg');
-                
-                if (def.hp <= 0) {
-                    def.hp = 0;
-                    log(`${def.name} 被消滅！`, 'normal');
-                    attacker.gainXp(35 + def.level*5 + (def.role==='boss'?50:0));
+                if (isHeal) {
+                    // 治療公式
+                    val = skill.val + (attacker.atk * 0.5); // 吃一點攻擊力加成
+                    val = Math.floor(val);
+                    t.hp = Math.min(t.maxHp, t.hp + val);
+                    log(`${t.name} 回復了 <span class="log-heal">${val}</span> HP`, 'log-heal');
+                } else {
+                    // 攻擊公式
+                    let mult = skill ? skill.val : 1.0;
+                    let raw = attacker.atk * mult - (t.def * 0.5);
+                    val = Math.max(1, Math.floor(raw * (0.9 + Math.random()*0.2)));
+                    
+                    t.hp -= val;
+                    log(`${attacker.name} 攻擊 ${t.name}，傷害 <span class="log-dmg">${val}</span>`, 'log-dmg');
+                    
+                    if (t.hp <= 0) {
+                        t.hp = 0;
+                        log(`${t.name} 被消滅！`, 'log-sys');
+                        attacker.gainXp(35 + t.level*5 + (t.role==='boss'?100:0));
+                    }
                 }
             });
         }
-
         finalizeAction(false);
     }
 
     function finalizeAction(isWait) {
         if (selectedUnit) {
             selectedUnit.hasActed = true;
-            if (isWait) log(`${selectedUnit.name} 待機`, 'normal');
+            if (isWait) log(`${selectedUnit.name} 待機`, 'log-sys');
         }
         resetSelection();
         renderMap();
-        
-        // 自動檢查是否所有人都動完了
-        if (allies.every(u => u.hasActed)) {
-            setTimeout(() => {
-                if (confirm("所有人員已行動，結束回合？")) endPlayerPhase();
-            }, 200);
-        }
     }
 
     function resetSelection() {
@@ -619,12 +602,10 @@
         activeSkill = null;
         document.getElementById('action-panel').style.display = 'none';
         document.getElementById('unit-info').innerHTML = "請選擇單位...";
-        
-        // 清除格子樣式
-        document.querySelectorAll('.tile').forEach(t => t.classList.remove('movable', 'attackable'));
+        document.querySelectorAll('.tile').forEach(t => t.classList.remove('movable', 'attackable', 'healable'));
     }
 
-    // --- 敵方 AI ---
+    // --- AI 邏輯 ---
     function runEnemyAI(demon) {
         // 1. 找最近目標
         let target = null;
@@ -635,27 +616,21 @@
                 if (d < minDist) { minDist = d; target = a; }
             }
         });
-
         if (!target) return;
 
-        // 2. 移動 (嘗試接近，範圍 2)
-        let moves = 2; // AI 移動力
+        // 2. 移動
+        let moves = 2; 
         let bestX = demon.x, bestY = demon.y;
-        
-        // 簡單邏輯：每一步都往目標靠近
         for(let m=0; m<moves; m++) {
             let dx = target.x - bestX;
             let dy = target.y - bestY;
-            if (Math.abs(dx) + Math.abs(dy) <= 1) break; // 已相鄰，不動
-
+            if (Math.abs(dx) + Math.abs(dy) <= 1) break; 
             let tryX = bestX + Math.sign(dx);
             let tryY = bestY + (dx === 0 ? Math.sign(dy) : 0); 
-            // 如果 X 軸走不動或已對齊，走 Y
-            
             if (!isOccupied(tryX, tryY)) {
                 bestX = tryX; bestY = tryY;
             } else if (!isOccupied(bestX, bestY + Math.sign(dy))) {
-                bestY += Math.sign(dy); // 嘗試繞路
+                bestY += Math.sign(dy); 
             }
         }
         demon.x = bestX; demon.y = bestY;
@@ -665,27 +640,23 @@
         if (d === 1) {
             let dmg = Math.max(1, Math.floor((demon.atk - target.def*0.5) * 0.9));
             target.hp -= dmg;
-            log(`${demon.name} 攻擊 ${target.name}，造成 <span class="log-dmg">${dmg}</span> 傷害`, 'dmg');
+            log(`${demon.name} 攻擊 ${target.name}，傷害 <span class="log-dmg">${dmg}</span>`, 'log-dmg');
             if (target.hp <= 0) {
                 target.hp = 0;
-                log(`${target.name} 倒下了...`, 'dmg');
+                log(`${target.name} 倒下了...`, 'log-dmg');
             }
         }
     }
 
-    // --- 輔助功能 ---
-
     function renderMap() {
-        // 清除 DOM 內容
-        for(let y=0; y<GRID_SIZE; y++) {
-            for(let x=0; x<GRID_SIZE; x++) {
-                let cell = grid[y][x];
-                cell.innerHTML = '';
-                cell.className = 'tile';
+        // Clear
+        for(let y=0; y<ROWS; y++) {
+            for(let x=0; x<COLS; x++) {
+                grid[y][x].innerHTML = '';
+                grid[y][x].className = 'tile';
             }
         }
-
-        // 繪製單位
+        // Draw
         [...enemies, ...allies].forEach(u => {
             if (u.hp <= 0) return;
             let div = document.createElement('div');
@@ -694,7 +665,7 @@
             if (u === selectedUnit) div.classList.add('selected');
 
             div.innerText = u.name[0];
-
+            
             let hpBg = document.createElement('div');
             hpBg.className = 'hp-bar-bg';
             let hpFill = document.createElement('div');
@@ -702,7 +673,7 @@
             hpFill.style.width = (u.hp / u.maxHp * 100) + '%';
             hpBg.appendChild(hpFill);
             div.appendChild(hpBg);
-
+            
             let lvl = document.createElement('div');
             lvl.className = 'lvl-tag';
             lvl.innerText = u.level;
@@ -715,36 +686,31 @@
     function showUnitInfo(u) {
         let skills = u.getSkills ? u.getSkills().map(s=>s.name).join(', ') : "無";
         let html = `
-            <strong style="color:${u.type==='slayer'?'#00bfff':'#ff4d4d'}">${u.name} (Lv.${u.level})</strong><br>
-            HP: ${u.hp} / ${u.maxHp}<br>
-            ATK: ${u.atk} | DEF: ${u.def}<br>
+            <strong style="color:${u.type==='slayer'?'#4da6ff':'#ff4d4d'}">${u.name} (Lv.${u.level})</strong><br>
+            HP: ${u.hp}/${u.maxHp} | ATK: ${u.atk}<br>
+            ${u.type==='slayer' ? `EXP: ${u.xp}/${u.maxXp}` : ''}
         `;
-        if(u.type === 'slayer') {
-            html += `EXP: ${u.xp} / ${u.maxXp}<br>招式: ${skills || "尚未習得"}`;
-        }
         document.getElementById('unit-info').innerHTML = html;
     }
 
     function log(msg, type) {
         const box = document.getElementById('log-box');
-        if (type === 'turn') msg = `<div class="log-turn">${msg}</div>`;
-        else msg = `<div>${msg}</div>`;
-        box.innerHTML += msg;
+        box.innerHTML += `<div class="${type}">${msg}</div>`;
         box.scrollTop = box.scrollHeight;
     }
 
     function checkWinLose() {
         if (allies.every(u => u.hp <= 0)) {
-            alert("全軍覆沒... 遊戲結束。");
+            alert("全軍覆沒... 彌豆子被抓走了。");
             location.reload();
             return true;
         }
         if (enemies.every(u => u.hp <= 0)) {
             setTimeout(() => {
                 if (currentLevel >= MAX_LEVEL) {
-                    alert("恭喜通關！無限城崩塌，鬼殺隊勝利！");
+                    alert("恭喜通關！消滅了鬼舞辻無慘！");
                 } else {
-                    alert(`第 ${currentLevel} 關通過！全員回復狀態。`);
+                    alert(`第 ${currentLevel} 關通過！`);
                     startLevel(currentLevel + 1);
                 }
             }, 500);
@@ -754,11 +720,10 @@
     }
 
     function getBossName(l) {
-        const n = ["下弦之陸", "下弦之伍", "下弦之壹", "墮姬", "玉壺", "半天狗", "猗窩座", "童磨", "黑死牟"];
+        const n = ["下弦之陸", "下弦之壹", "墮姬", "妓夫太郎", "玉壺", "半天狗", "猗窩座", "童磨", "黑死牟"];
         return n[l-1] || "無慘";
     }
 
-    // 啟動
     initGame();
 
 </script>
