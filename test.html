@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>三國志：漢末霸業 (版面優化版)</title>
+    <title>三國志：漢末霸業 (百名武將實裝版)</title>
     <style>
         :root {
             --bg-color: #1a1815;
@@ -30,17 +30,11 @@
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.92); z-index: 200; justify-content: center; align-items: center; }
         .modal-box { background: #2d2d2d; padding: 20px; border: 2px solid var(--gold-color); text-align: center; box-shadow: 0 0 30px #000; max-height: 95vh; overflow-y: auto; position: relative;}
 
-        #game-container { width: 100%; max-width: 1500px; display: none; height: 96vh; }
+        #game-container { width: 100%; max-width: 1600px; display: none; height: 96vh; }
 
         /* 開始選單 */
-        #start-screen { background: var(--panel-bg); padding: 30px; border: 2px solid #5d4037; text-align: center; width: 900px; margin-top: 20px; }
-        
-        /* 難度選擇區 */
-        .diff-select { display: flex; justify-content: center; gap: 20px; margin-bottom: 20px; }
-        .diff-btn { padding: 10px 20px; background: #333; border: 1px solid #555; color: #aaa; font-size: 1rem; }
-        .diff-btn.active { background: #b71c1c; color: white; border-color: #ff5252; box-shadow: 0 0 10px #b71c1c; }
-
-        .clan-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; }
+        #start-screen { background: var(--panel-bg); padding: 40px; border: 2px solid #5d4037; text-align: center; width: 1000px; margin-top: 40px; }
+        .clan-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-top: 20px; }
         .clan-btn { 
             padding: 15px; color: #ddd; border: 1px solid #444; background: #3e3832; 
             height: 80px; position: relative; display: flex; flex-direction: column; 
@@ -56,34 +50,21 @@
         .stat-val { font-size: 1rem; font-weight: bold; color: var(--gold-color); }
         .stat-label { font-size: 0.7rem; color: #aaa; }
 
-        /* 地圖區 (緊湊優化) */
-        .main-content { display: grid; grid-template-columns: 1fr 280px; gap: 0; height: 100%; }
-        .map-frame { 
-            background-color: var(--map-bg); position: relative; overflow: hidden; /* 改為 hidden 或 auto 視需求 */
-            cursor: grab; border-right: 2px solid #3e3832; 
-            display: flex; justify-content: center; align-items: center; /* 置中地圖 */
-        }
+        /* 地圖區 */
+        .main-content { display: grid; grid-template-columns: 1fr 300px; gap: 0; height: 100%; }
+        .map-frame { background-color: var(--map-bg); position: relative; overflow: auto; cursor: grab; border-right: 2px solid #3e3832; }
         
-        /* 地圖尺寸縮減以減少留白 */
-        #road-layer { position: absolute; top: 0; left: 0; width: 1200px; height: 1000px; pointer-events: none; z-index: 0; }
+        #road-layer { position: absolute; top: 0; left: 0; width: 1500px; height: 1400px; pointer-events: none; z-index: 0; }
         .road-line { stroke: rgba(255, 255, 255, 0.25); stroke-width: 2; stroke-dasharray: 6,4; }
 
-        /* Grid 尺寸調整: 42px 格子大小 (放大一點填滿畫面) */
-        .map-grid { 
-            display: grid; 
-            grid-template-columns: repeat(30, 42px); 
-            grid-template-rows: repeat(28, 42px); 
-            width: 1260px; height: 1176px; 
-            position: relative; z-index: 1; 
-        }
-        
+        .map-grid { display: grid; grid-template-columns: repeat(42, 32px); grid-template-rows: repeat(40, 32px); width: 1500px; height: 1400px; padding: 40px; position: relative; z-index: 1; }
         .province { 
             border: 1px solid rgba(255,255,255,0.2); background: #333; color: #ccc;
             display: flex; flex-direction: column; justify-content: center; align-items: center;
             cursor: pointer; position: relative; transition: 0.2s; box-shadow: 2px 2px 5px rgba(0,0,0,0.5); border-radius: 3px;
         }
         .province:hover { transform: scale(1.3); z-index: 100; border-color: #fff; box-shadow: 0 0 15px #000; }
-        .prov-name { font-size: 0.9rem; font-weight: bold; text-shadow: 1px 1px 2px #000; pointer-events: none; white-space: nowrap; z-index: 2; }
+        .prov-name { font-size: 0.85rem; font-weight: bold; text-shadow: 1px 1px 2px #000; pointer-events: none; white-space: nowrap; z-index: 2; }
         
         /* 勢力顏色 */
         .c-wei { background: #1565c0; color: #fff; } 
@@ -104,7 +85,7 @@
         .panel-block { background: #352e2a; padding: 10px; border: 1px solid #5d4037; }
         .action-btn { width: 100%; padding: 10px; margin-bottom: 5px; background: #4e443e; color: #e0e0e0; text-align: left; }
         
-        /* 戰鬥動畫 */
+        /* 戰鬥動畫介面 */
         #battle-anim-ui { display: none; width: 600px; flex-direction: column; gap: 15px; }
         .battle-stage { display: flex; justify-content: space-between; align-items: center; background: #111; padding: 20px; border-radius: 5px; position: relative; overflow: hidden; }
         .battle-side { width: 45%; text-align: center; z-index: 2; }
@@ -125,15 +106,7 @@
 
     <div id="start-screen">
         <h1>三國志：漢末霸業</h1>
-        <p>公元190年 · 英雄集結</p>
-        
-        <div class="diff-select">
-            <button class="diff-btn active" onclick="setDiff(1, this)">初級</button>
-            <button class="diff-btn" onclick="setDiff(2, this)">中級</button>
-            <button class="diff-btn" onclick="setDiff(3, this)">上級</button>
-        </div>
-        <div style="font-size:0.8rem; color:#aaa; margin-bottom:15px;" id="diff-desc">資源豐沛，戰鬥有利</div>
-
+        <p>公元190年 · 英雄集結 · 實名武將版</p>
         <div class="clan-grid" id="clan-area"></div>
     </div>
 
@@ -191,6 +164,7 @@
                     <button class="close-btn" onclick="closeModal()">取消</button>
                 </div>
             </div>
+
             <div id="battle-anim-ui">
                 <h2 style="color:#ffeb3b; margin:0;">兩軍交戰</h2>
                 <div class="battle-stage">
@@ -214,6 +188,7 @@
             </div>
         </div>
     </div>
+
     <div id="end-modal" class="modal">
         <div class="modal-box">
             <h2 id="end-title" style="color:var(--gold-color);"></h2>
@@ -223,40 +198,30 @@
     </div>
 
 <script>
-    // 緊湊地圖座標 (Row 1-28, Col 1-30)
-    // 每個格子 42px，減少留白
+    // 城市數據
     const CITIES = [
-        // 東北 - 左移約10格，上移
-        {id:1,n:"襄平",r:2,c:25}, {id:51,n:"遼西",r:3,c:23}, {id:2,n:"北平",r:4,c:21}, {id:3,n:"薊",r:5,c:20},
-        
-        {id:4,n:"南皮",r:7,c:20}, {id:5,n:"鄴",r:8,c:19}, {id:6,n:"晉陽",r:7,c:17}, {id:7,n:"平原",r:8,c:21},
-        {id:8,n:"北海",r:8,c:24}, {id:9,n:"濮陽",r:10,c:20}, {id:10,n:"陳留",r:11,c:19},
-        {id:11,n:"洛陽",r:11,c:16}, {id:48,n:"虎牢",r:11,c:18},
-        {id:12,n:"許昌",r:13,c:18}, {id:13,n:"汝南",r:15,c:19},
-        {id:14,n:"下邳",r:12,c:23}, {id:15,n:"小沛",r:11,c:22}, {id:16,n:"廣陵",r:14,c:25},
-        {id:17,n:"壽春",r:15,c:22}, {id:47,n:"新野",r:15,c:17}, {id:18,n:"宛",r:14,c:16},
-        
-        // 西北 - 緊湊化
-        {id:19,n:"長安",r:12,c:13}, {id:20,n:"天水",r:10,c:9}, {id:21,n:"安定",r:9,c:11},
-        {id:52,n:"金城",r:8,c:7}, {id:22,n:"武威",r:6,c:5}, {id:23,n:"西平",r:7,c:3},
-        
-        // 巴蜀
-        {id:24,n:"漢中",r:14,c:11}, {id:49,n:"葭萌",r:15,c:10},
-        {id:25,n:"梓潼",r:16,c:9}, {id:26,n:"成都",r:18,c:8},
-        {id:27,n:"江州",r:19,c:12}, {id:30,n:"永安",r:18,c:14},
-        {id:50,n:"越嶲",r:22,c:8}, {id:28,n:"建寧",r:25,c:8}, {id:29,n:"雲南",r:27,c:5},
-        
-        // 荊州
-        {id:31,n:"上庸",r:13,c:15}, {id:32,n:"襄陽",r:16,c:16}, {id:33,n:"江夏",r:18,c:19},
-        {id:34,n:"江陵",r:19,c:16}, {id:35,n:"長沙",r:22,c:18}, {id:36,n:"武陵",r:21,c:15},
-        {id:37,n:"零陵",r:25,c:16}, {id:38,n:"桂陽",r:25,c:19},
-        
-        // 江東
-        {id:39,n:"廬江",r:17,c:21}, {id:40,n:"建業",r:17,c:24}, {id:41,n:"吳",r:18,c:26},
-        {id:42,n:"會稽",r:20,c:27}, {id:43,n:"柴桑",r:21,c:21}, {id:44,n:"豫章",r:23,c:22},
-        {id:45,n:"南海",r:28,c:20}, {id:46,n:"交趾",r:28,c:12} // 交趾左移上移
+        {id:1,n:"襄平",r:2,c:34}, {id:51,n:"遼西",r:3,c:32}, {id:2,n:"北平",r:4,c:30}, {id:3,n:"薊",r:5,c:29},
+        {id:4,n:"南皮",r:7,c:29}, {id:5,n:"鄴",r:9,c:28}, {id:6,n:"晉陽",r:7,c:26}, {id:7,n:"平原",r:9,c:30},
+        {id:8,n:"北海",r:9,c:33}, {id:9,n:"濮陽",r:11,c:29}, {id:10,n:"陳留",r:12,c:28},
+        {id:11,n:"洛陽",r:12,c:25}, {id:48,n:"虎牢",r:12,c:27},
+        {id:12,n:"許昌",r:14,c:26}, {id:13,n:"汝南",r:16,c:28},
+        {id:14,n:"下邳",r:13,c:32}, {id:15,n:"小沛",r:12,c:31}, {id:16,n:"廣陵",r:15,c:34},
+        {id:17,n:"壽春",r:16,c:31}, {id:47,n:"新野",r:16,c:25}, {id:18,n:"宛",r:15,c:24},
+        {id:19,n:"長安",r:13,c:22}, {id:20,n:"天水",r:11,c:18}, {id:21,n:"安定",r:10,c:20},
+        {id:52,n:"金城",r:9,c:16}, {id:22,n:"武威",r:7,c:14}, {id:23,n:"西平",r:8,c:12},
+        {id:24,n:"漢中",r:15,c:20}, {id:49,n:"葭萌",r:16,c:18},
+        {id:25,n:"梓潼",r:17,c:17}, {id:26,n:"成都",r:19,c:16},
+        {id:27,n:"江州",r:20,c:20}, {id:30,n:"永安",r:19,c:22},
+        {id:50,n:"越嶲",r:23,c:16}, {id:28,n:"建寧",r:26,c:16}, {id:29,n:"雲南",r:28,c:13},
+        {id:31,n:"上庸",r:14,c:23}, {id:32,n:"襄陽",r:17,c:24}, {id:33,n:"江夏",r:19,c:27},
+        {id:34,n:"江陵",r:20,c:24}, {id:35,n:"長沙",r:23,c:26}, {id:36,n:"武陵",r:22,c:23},
+        {id:37,n:"零陵",r:26,c:24}, {id:38,n:"桂陽",r:26,c:27},
+        {id:39,n:"廬江",r:18,c:30}, {id:40,n:"建業",r:18,c:33}, {id:41,n:"吳",r:19,c:35},
+        {id:42,n:"會稽",r:21,c:36}, {id:43,n:"柴桑",r:22,c:29}, {id:44,n:"豫章",r:24,c:30},
+        {id:45,n:"南海",r:29,c:28}, {id:46,n:"交趾",r:31,c:25}
     ];
 
+    // 12名君主
     const LORDS = {
         cao: { n: "曹操", desc:"治世能臣", c: "c-wei", cities: [10, 12, 48] },
         liu: { n: "劉備", desc:"仁德之君", c: "c-shu", cities: [7] },
@@ -273,34 +238,48 @@
         in野: { n: "在野", desc:"", c: "c-neutral", cities: [] }
     };
 
+    // 實名武將資料庫 (w:統武, o:初始歸屬)
     const HISTORICAL_GENS = [
+        // 魏 (曹操)
         {n:"曹操",w:99,o:"cao"}, {n:"夏侯惇",w:92,o:"cao"}, {n:"夏侯淵",w:91,o:"cao"}, {n:"曹仁",w:89,o:"cao"}, 
         {n:"曹洪",w:86,o:"cao"}, {n:"李典",w:82,o:"cao"}, {n:"樂進",w:85,o:"cao"}, {n:"荀彧",w:60,o:"cao"},
         {n:"郭嘉",w:50,o:"cao"}, {n:"于禁",w:84,o:"cao"}, {n:"典韋",w:98,o:"cao"},
+        // 蜀 (劉備)
         {n:"劉備",w:80,o:"liu"}, {n:"關羽",w:97,o:"liu"}, {n:"張飛",w:98,o:"liu"}, {n:"簡雍",w:60,o:"liu"},
         {n:"關平",w:82,o:"liu"}, {n:"周倉",w:81,o:"liu"},
+        // 吳 (孫堅)
         {n:"孫堅",w:94,o:"sun"}, {n:"孫策",w:95,o:"sun"}, {n:"孫權",w:78,o:"sun"}, {n:"黃蓋",w:83,o:"sun"},
         {n:"程普",w:84,o:"sun"}, {n:"韓當",w:82,o:"sun"}, {n:"朱治",w:75,o:"sun"}, {n:"祖茂",w:78,o:"sun"},
+        // 袁紹
         {n:"袁紹",w:82,o:"yuan"}, {n:"顏良",w:94,o:"yuan"}, {n:"文醜",w:95,o:"yuan"}, {n:"張郃",w:90,o:"yuan"},
         {n:"高覽",w:87,o:"yuan"}, {n:"鞠義",w:85,o:"yuan"}, {n:"田豐",w:70,o:"yuan"}, {n:"沮授",w:72,o:"yuan"},
+        // 董卓
         {n:"董卓",w:88,o:"dong"}, {n:"華雄",w:92,o:"dong"}, {n:"李儒",w:60,o:"dong"}, {n:"李傕",w:78,o:"dong"},
         {n:"郭汜",w:76,o:"dong"}, {n:"徐榮",w:82,o:"dong"}, {n:"樊稠",w:75,o:"dong"},
+        // 呂布
         {n:"呂布",w:100,o:"lu"}, {n:"張遼",w:94,o:"lu"}, {n:"高順",w:88,o:"lu"}, {n:"陳宮",w:70,o:"lu"},
         {n:"臧霸",w:81,o:"lu"}, {n:"魏續",w:75,o:"lu"},
+        // 馬騰
         {n:"馬騰",w:84,o:"ma"}, {n:"馬超",w:97,o:"ma"}, {n:"龐德",w:93,o:"ma"}, {n:"馬岱",w:85,o:"ma"},
+        // 劉表
         {n:"劉表",w:68,o:"biao"}, {n:"蔡瑁",w:78,o:"biao"}, {n:"張允",w:75,o:"biao"}, {n:"黃祖",w:74,o:"biao"},
         {n:"文聘",w:86,o:"biao"}, {n:"黃忠",w:95,o:"biao"}, {n:"甘寧",w:94,o:"biao"}, {n:"魏延",w:92,o:"biao"},
+        // 劉璋
         {n:"劉璋",w:50,o:"zhang"}, {n:"張任",w:89,o:"zhang"}, {n:"嚴顏",w:85,o:"zhang"}, {n:"李嚴",w:84,o:"zhang"},
         {n:"雷銅",w:78,o:"zhang"}, {n:"吳蘭",w:77,o:"zhang"},
+        // 袁術
         {n:"袁術",w:65,o:"shu"}, {n:"紀靈",w:83,o:"shu"}, {n:"張勳",w:72,o:"shu"}, {n:"橋蕤",w:70,o:"shu"},
+        // 公孫瓚
         {n:"公孫瓚",w:84,o:"gong"}, {n:"趙雲",w:96,o:"gong"}, {n:"嚴綱",w:78,o:"gong"}, {n:"田楷",w:72,o:"gong"},
+        // 張魯
         {n:"張魯",w:70,o:"z_lu"}, {n:"閻圃",w:68,o:"z_lu"}, {n:"楊任",w:76,o:"z_lu"}, {n:"楊昂",w:74,o:"z_lu"},
+        // 在野 (隨機出現或特定地點，此處簡化為統一在野池或分配給空城)
         {n:"許褚",w:96,o:"in野"}, {n:"徐晃",w:91,o:"in野"}, {n:"太史慈",w:93,o:"in野"}, {n:"周泰",w:90,o:"in野"},
         {n:"蔣欽",w:84,o:"in野"}, {n:"陳武",w:85,o:"in野"}, {n:"潘璋",w:82,o:"in野"}
     ];
 
     let G = {
-        turn: 190, player: null, diff: 1, acts: 3, res: {g:0, f:0, t:0},
+        turn: 190, player: null, acts: 3, res: {g:2000, f:2000, t:5000},
         map: {}, gens: [], battle: {}
     };
 
@@ -316,38 +295,22 @@
         }
     };
 
-    function setDiff(lvl, btn) {
-        G.diff = lvl;
-        document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        let txt = "";
-        if(lvl===1) txt = "初級：資源豐沛，我軍戰鬥加成";
-        if(lvl===2) txt = "中級：標準資源，公平競爭";
-        if(lvl===3) txt = "上級：資源匱乏，敵軍強大";
-        document.getElementById('diff-desc').innerText = txt;
-    }
-
     function initGame(pid) {
         G.player = pid;
-        // 初始化資源依難度
-        let base = G.diff === 1 ? 5000 : (G.diff === 2 ? 2000 : 800);
-        G.res = { g: base, f: base, t: base * 1.5 };
-        if (G.diff === 3) G.res.t = 1000;
-
+        // 地圖
         CITIES.forEach(c => {
             G.map[c.id] = { ...c, owner: 'in野', troops: 2000, def: 100, gen: null };
         });
+        // 勢力
         for(let k in LORDS) {
             LORDS[k].cities.forEach(id => {
                 if(G.map[id]) {
                     G.map[id].owner = k;
-                    // AI 兵力依難度
-                    let aiTroops = 3000;
-                    if(G.diff === 3) aiTroops = 5000;
-                    G.map[id].troops = (k===G.player) ? 0 : aiTroops; 
+                    G.map[id].troops = (k===G.player) ? 0 : 3000; 
                 }
             });
         }
+        // 武將初始化
         let gid = 0;
         HISTORICAL_GENS.forEach(g => {
             G.gens.push({id: gid++, n: g.n, w: g.w, o: g.o, loc: null});
@@ -364,20 +327,16 @@
         const roadLayer = document.getElementById('road-layer');
         grid.innerHTML = ''; roadLayer.innerHTML = '';
 
-        // 道路連線 (閾值調整為緊湊版適合的距離)
         CITIES.forEach(c1 => {
             CITIES.forEach(c2 => {
                 if(c1.id < c2.id) {
                     let dist = Math.sqrt(Math.pow(c1.r-c2.r, 2) + Math.pow(c1.c-c2.c, 2));
-                    // 因為格子變大(42px)，距離計算相對單位變小，約 4.5
-                    if(dist < 4.5) {
+                    if(dist < 4.2) {
                         let line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-                        let gap = 42; // 格子大小
-                        let half = 21; // 半格
-                        line.setAttribute('x1', (c1.c-1)*gap + 40 + half);
-                        line.setAttribute('y1', (c1.r-1)*gap + 40 + half);
-                        line.setAttribute('x2', (c2.c-1)*gap + 40 + half);
-                        line.setAttribute('y2', (c2.r-1)*gap + 40 + half);
+                        line.setAttribute('x1', (c1.c-1)*32 + 40 + 16);
+                        line.setAttribute('y1', (c1.r-1)*32 + 40 + 16);
+                        line.setAttribute('x2', (c2.c-1)*32 + 40 + 16);
+                        line.setAttribute('y2', (c2.r-1)*32 + 40 + 16);
                         line.setAttribute('class', 'road-line');
                         roadLayer.appendChild(line);
                     }
@@ -407,7 +366,7 @@
             let c2 = G.map[k];
             if(c1.id !== c2.id) {
                 let dist = Math.sqrt(Math.pow(c1.r-c2.r, 2) + Math.pow(c1.c-c2.c, 2));
-                if(dist < 4.5) n.push(k);
+                if(dist < 4.2) n.push(k);
             }
         }
         return n;
@@ -433,13 +392,12 @@
         let genId = document.getElementById('gen-select').value;
         if(!genId) return alert("無武將");
         let g = G.gens.find(x=>x.id==genId);
-        let bonus = 1 + (g.w/200); // 簡單加成
         
-        if(type==='comm') { G.res.g += Math.floor(500*bonus); G.res.f -= 100; log(`${g.n} 商業開發`); }
-        if(type==='agri') { G.res.f += Math.floor(500*bonus); G.res.g -= 100; log(`${g.n} 農業開墾`); }
+        if(type==='comm') { G.res.g += 500; G.res.f -= 100; log(`${g.n} 商業開發 (金+500)`); }
+        if(type==='agri') { G.res.f += 500; G.res.g -= 100; log(`${g.n} 農業開墾 (糧+500)`); }
         if(type==='recruit') { 
             if(G.res.g < 200) return alert("金錢不足");
-            G.res.t += Math.floor(1000*bonus); G.res.g -= 200; log(`${g.n} 徵兵`); 
+            G.res.t += 1000; G.res.g -= 200; log(`${g.n} 徵兵 (兵+1000)`); 
         }
         G.acts--; updateUI();
     }
@@ -499,11 +457,6 @@
         let e_war = t.gen ? G.gens.find(g=>g.id==t.gen).w : 55;
         if(t.owner !== 'in野') e_war += 10; 
 
-        // 難度加成
-        let p_dmg_mod = 1.0, e_dmg_mod = 1.0;
-        if(G.diff === 1) { p_dmg_mod = 1.2; e_dmg_mod = 0.8; }
-        if(G.diff === 3) { p_dmg_mod = 0.8; e_dmg_mod = 1.2; }
-
         let round = 1;
         let timer = setInterval(() => {
             if(p_curr <= 0 || e_curr <= 0 || round > 8) {
@@ -511,8 +464,8 @@
                 finishAnim(p_curr, e_curr, p_max, e_max);
                 return;
             }
-            let p_dmg = Math.floor(p_curr * (p_war/200) * (0.8+Math.random()*0.4) * p_dmg_mod) + 50;
-            let e_dmg = Math.floor(e_curr * (e_war/200) * (0.8+Math.random()*0.4) * e_dmg_mod) + 50;
+            let p_dmg = Math.floor(p_curr * (p_war/200) * (0.8+Math.random()*0.4)) + 50;
+            let e_dmg = Math.floor(e_curr * (e_war/200) * (0.8+Math.random()*0.4)) + 50;
             p_dmg = Math.floor(p_dmg * (1 - Math.min(0.5, t.def/200)));
             e_curr -= p_dmg;
             p_curr -= e_dmg;
@@ -568,6 +521,7 @@
             if(oldOwner !== 'in野') checkRetreatOrDie(oldOwner, t.id);
             t.owner = G.player;
             log(`攻佔 ${t.n}！`);
+            // 隨機登庸在野
             let frees = G.gens.filter(g=>g.o==='in野');
             if(frees.length > 0 && Math.random() < 0.3) {
                 let lucky = frees[Math.floor(Math.random()*frees.length)];
@@ -621,13 +575,9 @@
 
     function endTurn() {
         G.acts = 3; G.res.g += 500; G.res.f += 500;
-        // AI 兵力增長依難度
-        let growth = 200;
-        if(G.diff === 3) growth = 400;
-
         for(let id in G.map) {
             let c = G.map[id];
-            if(c.owner !== 'in野' && c.owner !== G.player) c.troops += growth;
+            if(c.owner !== 'in野' && c.owner !== G.player) c.troops += 200;
         }
         log("進入下個月");
         updateUI(); drawMap();
