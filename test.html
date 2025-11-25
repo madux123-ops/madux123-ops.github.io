@@ -167,9 +167,9 @@
     // global: true 表示全圖/全體
     const SKILL_DB = {
         tanjiro: [
-            { name: "水之呼吸·壹之型", reqLv: 1, range: 1, val: 1.2, cost: 0, aoe: false },
-            { name: "火之神神樂", reqLv: 3, range: 1, val: 1.6, cost: 0, aoe: false },
-            { name: "日之呼吸·陽華突", reqLv: 6, range: 2, val: 2.2, cost: 0, aoe: false }
+            { name: "水之呼吸·壹之型", reqLv: 1, range: 1, val: 1.5, cost: 0, aoe: false },
+            { name: "火之神神樂", reqLv: 3, range: 1, val: 2.0, cost: 0, aoe: false },
+            { name: "日之呼吸·陽華突", reqLv: 6, range: 2, val: 3.0, cost: 0, aoe: false }
         ],
         zenitsu: [
             { name: "霹靂一閃", reqLv: 1, range: 3, val: 1.1, cost: 0, aoe: false },
@@ -179,10 +179,10 @@
         inosuke: [
             { name: "獸之呼吸·獠牙", reqLv: 1, range: 1, val: 1.0, cost: 0, aoe: true },
             { name: "空間感知·殺", reqLv: 3, range: 1, val: 1.5, cost: 0, aoe: true },
-            { name: "爆裂猛進", reqLv: 6, range: 1, val: 2.5, cost: 0, aoe: true }
+            { name: "爆裂猛進", reqLv: 6, range: 2, val: 2.5, cost: 0, aoe: true }
         ],
         nezuko: [
-            { name: "再生回復", reqLv: 1, range: 2, val: 50, cost: 0, aoe: false, isHeal: true }, // 單體補
+            { name: "再生回復", reqLv: 1, range: 2, val: 60, cost: 0, aoe: false, isHeal: true }, // 單體補
             { name: "爆血·廣域治癒", reqLv: 3, range: 0, val: 40, cost: 0, aoe: true, isHeal: true, global: true }, // 全體補
             { name: "爆血·燒灼", reqLv: 6, range: 2, val: 2.5, cost: 0, aoe: false, isHeal: false } // 攻擊技
         ]
@@ -258,9 +258,9 @@
         
         // 建立主角群 (包含禰豆子)
         allies = [
-            new Unit(1, '炭治郎', 'slayer', 'tanjiro', 1, 4, { hp: 120, atk: 28, def: 10 }),
-            new Unit(2, '善逸', 'slayer', 'zenitsu', 0, 3, { hp: 90, atk: 35, def: 6 }),
-            new Unit(3, '伊之助', 'slayer', 'inosuke', 0, 5, { hp: 130, atk: 25, def: 12 }),
+            new Unit(1, '炭治郎', 'slayer', 'tanjiro', 1, 4, { hp: 150, atk: 38, def: 10 }),
+            new Unit(2, '善逸', 'slayer', 'zenitsu', 0, 3, { hp: 90, atk: 45, def: 6 }),
+            new Unit(3, '伊之助', 'slayer', 'inosuke', 0, 5, { hp: 190, atk: 30, def: 16 }),
             new Unit(4, '禰豆子', 'slayer', 'nezuko', 1, 6, { hp: 140, atk: 20, def: 15 }) // 高防血牛補師
         ];
         startLevel(1);
