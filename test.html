@@ -3,591 +3,631 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>三國志：漢末霸業 (百名武將實裝版)</title>
+    <title>寶可夢對戰-進化與獻祭</title>
     <style>
         :root {
-            --bg-color: #1a1815;
-            --panel-bg: #2b2623;
-            --text-color: #dcd6cc;
-            --gold-color: #d4af37;
-            --map-bg: #2f353b;
-            --hp-green: #4caf50;
-            --hp-red: #f44336;
+            --bg-color: #1a1a1a;
+            --field-monster: #2d4a3e;
+            --field-st: #3a2a4a; /* 魔法陷阱區顏色 */
+            --card-bg: #e0e0e0;
+            --p1-color: #3b82f6;
+            --p2-color: #ef4444;
+            --text-color: #fff;
+            --card-width: 85px;
+            --card-height: 125px;
         }
+
         body {
-            font-family: "PMingLiU", "KaiTi", serif;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: var(--bg-color);
-            background-image: linear-gradient(rgba(0,0,0,0.85), rgba(0,0,0,0.85)), url('https://www.transparenttextures.com/patterns/aged-paper.png');
             color: var(--text-color);
-            margin: 0; padding: 0;
-            display: flex; flex-direction: column; align-items: center;
-            height: 100vh; overflow: hidden; user-select: none;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+            user-select: none;
         }
-        
-        h1 { margin: 6px 0; font-size: 1.4rem; text-shadow: 2px 2px 2px #000; letter-spacing: 4px; color: var(--gold-color); font-weight: bold; }
-        button { cursor: pointer; border: 1px solid #6d5e56; transition: 0.2s; font-family: inherit; }
-        button:hover { filter: brightness(1.2); }
-        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.92); z-index: 200; justify-content: center; align-items: center; }
-        .modal-box { background: #2d2d2d; padding: 20px; border: 2px solid var(--gold-color); text-align: center; box-shadow: 0 0 30px #000; max-height: 95vh; overflow-y: auto; position: relative;}
 
-        #game-container { width: 100%; max-width: 1600px; display: none; height: 96vh; }
+        /* --- 佈局調整 --- */
+        .game-board { flex: 1; display: flex; flex-direction: column; }
+        .player-zone { flex: 1; display: flex; flex-direction: column; padding: 5px; position: relative; transition: background 0.3s; justify-content: center;}
+        .p2-zone { border-bottom: 2px solid #444; background: rgba(239, 68, 68, 0.05); flex-direction: column-reverse;}
+        .p1-zone { background: rgba(59, 130, 246, 0.05); }
+        .active-turn { background: rgba(255, 255, 255, 0.1) !important; }
 
-        /* 開始選單 */
-        #start-screen { background: var(--panel-bg); padding: 40px; border: 2px solid #5d4037; text-align: center; width: 1000px; margin-top: 40px; }
-        .clan-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-top: 20px; }
-        .clan-btn { 
-            padding: 15px; color: #ddd; border: 1px solid #444; background: #3e3832; 
-            height: 80px; position: relative; display: flex; flex-direction: column; 
-            justify-content: center; align-items: center; font-size: 1.1rem;
-            box-shadow: inset 0 0 10px #000;
+        /* --- 區域列 --- */
+        .field-row {
+            display: flex; justify-content: center; gap: 8px; height: var(--card-height); align-items: center;
+            border-radius: 8px; margin: 4px 0; box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+            padding: 5px;
         }
-        .clan-btn:hover { border-color: var(--gold-color); background: #4e443e; transform: translateY(-2px); }
-        .clan-desc { font-size: 0.75rem; color: #aaa; margin-top: 4px; }
-
-        /* 頂部資訊列 */
-        .top-bar { display: flex; gap: 15px; background: #201c1a; padding: 5px 20px; border-y: 2px solid #5d4037; justify-content: space-between; align-items: center; }
-        .stat-box { text-align: center; min-width: 60px; }
-        .stat-val { font-size: 1rem; font-weight: bold; color: var(--gold-color); }
-        .stat-label { font-size: 0.7rem; color: #aaa; }
-
-        /* 地圖區 */
-        .main-content { display: grid; grid-template-columns: 1fr 300px; gap: 0; height: 100%; }
-        .map-frame { background-color: var(--map-bg); position: relative; overflow: auto; cursor: grab; border-right: 2px solid #3e3832; }
-        
-        #road-layer { position: absolute; top: 0; left: 0; width: 1500px; height: 1400px; pointer-events: none; z-index: 0; }
-        .road-line { stroke: rgba(255, 255, 255, 0.25); stroke-width: 2; stroke-dasharray: 6,4; }
-
-        .map-grid { display: grid; grid-template-columns: repeat(42, 32px); grid-template-rows: repeat(40, 32px); width: 1500px; height: 1400px; padding: 40px; position: relative; z-index: 1; }
-        .province { 
-            border: 1px solid rgba(255,255,255,0.2); background: #333; color: #ccc;
-            display: flex; flex-direction: column; justify-content: center; align-items: center;
-            cursor: pointer; position: relative; transition: 0.2s; box-shadow: 2px 2px 5px rgba(0,0,0,0.5); border-radius: 3px;
+        .monster-zone { background-color: var(--field-monster); }
+        .st-zone { background-color: var(--field-st); height: 100px;} /* 魔法陷阱區較矮 */
+        .hand-row {
+            display: flex; justify-content: center; gap: -10px; height: 110px; align-items: center;
+            overflow-x: visible; z-index: 20;
         }
-        .province:hover { transform: scale(1.3); z-index: 100; border-color: #fff; box-shadow: 0 0 15px #000; }
-        .prov-name { font-size: 0.85rem; font-weight: bold; text-shadow: 1px 1px 2px #000; pointer-events: none; white-space: nowrap; z-index: 2; }
-        
-        /* 勢力顏色 */
-        .c-wei { background: #1565c0; color: #fff; } 
-        .c-shu { background: #2e7d32; color: #fff; } 
-        .c-wu { background: #c62828; color: #fff; }  
-        .c-yuan { background: #f9a825; color: #000; } 
-        .c-dong { background: #6a1b9a; color: #fff; } 
-        .c-lu { background: #212121; border: 1px solid #ff5252; } 
-        .c-others { background: #4e342e; color: #fff; }
-        .c-zhang { background: #00838f; color: #fff; }
-        .c-neutral { background: #546e7a; opacity: 0.5; }
 
-        .status-direct { border: 2px solid #fff; box-shadow: inset 0 0 8px #fff; }
-        .status-auto { border: 2px double #66bb6a; }
+        /* --- 卡片樣式 --- */
+        .card {
+            width: var(--card-width); height: var(--card-height);
+            background: var(--card-bg); border-radius: 6px; border: 3px solid #888;
+            color: #000; display: flex; flex-direction: column; font-size: 9px;
+            position: relative; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s;
+            overflow: hidden;
+        }
+        .hand-row .card { width: 75px; height: 105px; transform: translateY(0px); transition: 0.3s;}
+        .hand-row .card:hover { transform: translateY(-15px) scale(1.1); z-index: 100;}
 
-        /* 控制面板 */
-        .control-panel { background: var(--panel-bg); padding: 15px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; z-index: 50; }
-        .panel-block { background: #352e2a; padding: 10px; border: 1px solid #5d4037; }
-        .action-btn { width: 100%; padding: 10px; margin-bottom: 5px; background: #4e443e; color: #e0e0e0; text-align: left; }
-        
-        /* 戰鬥動畫介面 */
-        #battle-anim-ui { display: none; width: 600px; flex-direction: column; gap: 15px; }
-        .battle-stage { display: flex; justify-content: space-between; align-items: center; background: #111; padding: 20px; border-radius: 5px; position: relative; overflow: hidden; }
-        .battle-side { width: 45%; text-align: center; z-index: 2; }
-        .hp-bar-bg { width: 100%; height: 10px; background: #333; margin-top: 5px; border-radius: 5px; overflow: hidden; }
-        .hp-bar-fill { height: 100%; transition: width 0.3s ease-out; }
-        .dmg-text { position: absolute; font-size: 1.5rem; font-weight: bold; color: #ffeb3b; text-shadow: 2px 2px 0 #b71c1c; opacity: 0; transition: 0.5s; top: 40%; left: 50%; transform: translate(-50%, -50%); z-index: 10; }
-        .battle-log-live { height: 100px; background: #000; color: #0f0; font-family: monospace; overflow-y: auto; text-align: left; padding: 5px; font-size: 0.8rem; border: 1px solid #444; }
+        .card.selected { border-color: #ffd700; box-shadow: 0 0 15px #ffd700; transform: scale(1.05); z-index: 50;}
+        .card.tribute-target { border-color: #ff0000; box-shadow: 0 0 15px #ff0000; animation: pulse 1s infinite;}
 
-        #battle-prep-ui { display: block; width: 600px; }
-        .gen-list { height: 200px; overflow-y: auto; background: #222; border: 1px solid #444; text-align: left; }
-        .gen-item { padding: 5px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; }
-        
-        #log-box { height: 150px; background: #111; padding: 5px; font-size: 0.8rem; color: #ccc; overflow-y: auto; }
-        .close-btn { background: #444; color: #fff; padding: 5px 15px; margin-top: 10px; }
+        .card-header { background: #d4af37; padding: 2px; font-weight: bold; text-align: center; border-bottom: 1px solid #000; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
+        .card-level { text-align: center; background: #eee; color: #000; font-size: 10px; letter-spacing: -2px;}
+        .card-img { flex: 1; display: flex; align-items: center; justify-content: center; font-size: 32px; background: #fff; position: relative;}
+        .card-stats { background: #f0f0f0; padding: 2px; display: flex; justify-content: space-between; border-top: 1px solid #000; font-weight: bold; font-size: 10px;}
+
+        /* 卡片種類顏色 */
+        .card[data-cat="monster"] { border-color: #c0a060; }
+        .card[data-cat="spell"] { border-color: #00a86b; } /* 魔法綠 */
+        .card[data-cat="spell"] .card-header { background: #00a86b; color: white;}
+        .card[data-cat="trap"] { border-color: #bc5a84; } /* 陷阱紫 */
+        .card[data-cat="trap"] .card-header { background: #bc5a84; color: white;}
+
+        .card.attacked { filter: grayscale(1); cursor: not-allowed; }
+        .card.facedown { background: #333; border-color: #555; color: transparent; }
+        .card.facedown * { opacity: 0; }
+        .card.facedown::after { content: '🎴'; position: absolute; top:50%; left:50%; transform:translate(-50%, -50%); font-size: 40px; color: #666; opacity: 1;}
+
+        /* --- VFX: 攻擊特效 --- */
+        .slash-effect {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: transparent;
+            pointer-events: none;
+            z-index: 99;
+            display: none;
+        }
+        .slashing .slash-effect {
+            display: block;
+            animation: slashAnim 0.6s ease-out;
+            background: linear-gradient(45deg, transparent 40%, rgba(255,0,0,0.8) 45%, rgba(255,255,255,0.9) 50%, rgba(255,0,0,0.8) 55%, transparent 60%);
+            background-size: 300% 300%;
+        }
+
+        @keyframes slashAnim {
+            0% { background-position: 100% 0%; opacity: 0; }
+            10% { opacity: 1; }
+            100% { background-position: 0% 100%; opacity: 0; }
+        }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+
+        /* --- UI 面板 --- */
+        .info-panel { position: absolute; top: 50%; left: 10px; transform: translateY(-50%); background: rgba(0,0,0,0.8); padding: 10px; border-radius: 8px; z-index: 100; width: 140px; }
+        .lp-box { margin-bottom: 5px; font-size: 16px; font-weight: bold; }
+        .p1-lp { color: var(--p1-color); } .p2-lp { color: var(--p2-color); }
+        .phase-indicator { text-align: center; margin-top: 10px; font-weight: bold; color: #ffd700; border: 1px solid #ffd700; padding: 5px; font-size: 14px;}
+        .controls { position: absolute; top: 50%; right: 10px; transform: translateY(-50%); display: flex; flex-direction: column; gap: 10px; z-index: 100; }
+        button { padding: 8px 15px; font-size: 14px; cursor: pointer; background: #444; color: white; border: 1px solid #888; border-radius: 5px; }
+        button:hover { background: #666; } button:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-end { background: #8b0000; border-color: #ff0000; }
+        .log-box { height: 80px; background: #000; border-top: 1px solid #555; padding: 5px; overflow-y: auto; font-family: monospace; font-size: 11px; }
+        .log-entry { margin: 2px 0; border-bottom: 1px solid #333; color: #ccc;}
+        #winner-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 999; }
+        #winner-text { font-size: 40px; color: #ffd700; margin-bottom: 20px; }
     </style>
 </head>
 <body>
 
-    <div id="start-screen">
-        <h1>三國志：漢末霸業</h1>
-        <p>公元190年 · 英雄集結 · 實名武將版</p>
-        <div class="clan-grid" id="clan-area"></div>
+    <div class="info-panel">
+        <div class="lp-box p2-lp">P2: <span id="p2-lp">8000</span></div>
+        <div class="lp-box p1-lp">P1: <span id="p1-lp">8000</span></div>
+        <div class="phase-indicator" id="current-phase">抽牌階段</div>
+        <div style="font-size: 12px; text-align: center; margin-top:5px;">當前: <span id="current-player">P1</span></div>
     </div>
 
-    <div id="game-container">
-        <div class="top-bar">
-            <div class="stat-box"><span class="stat-label">年</span><div class="stat-val" id="d-year">190</div></div>
-            <div class="stat-box"><span class="stat-label">金</span><div class="stat-val" id="d-gold">0</div></div>
-            <div class="stat-box"><span class="stat-label">糧</span><div class="stat-val" id="d-food">0</div></div>
-            <div class="stat-box"><span class="stat-label">兵</span><div class="stat-val" id="d-troops">0</div></div>
-            <div class="stat-box"><span class="stat-label">城</span><div class="stat-val" id="d-lands">0</div></div>
-            <div style="background:#b71c1c; padding:2px 10px; color:white; font-size:0.9rem;">政令: <span id="d-ap">3</span></div>
+    <div class="controls">
+        <button id="btn-battle" onclick="game.enterBattlePhase()">進入戰鬥</button>
+        <button id="btn-main2" onclick="game.enterMainPhase2()" disabled>主要階段2</button>
+        <button id="btn-end" class="btn-end" onclick="game.endTurn()">結束回合</button>
+    </div>
+
+    <div class="game-board">
+        <div class="player-zone p2-zone" id="p2-zone">
+            <div class="hand-row" id="p2-hand"></div>
+            <div class="field-row st-zone" id="p2-st"></div>
+            <div class="field-row monster-zone" id="p2-field"></div>
         </div>
 
-        <div class="main-content">
-            <div class="map-frame" id="map-frame">
-                <svg id="road-layer"></svg>
-                <div class="map-grid" id="map-grid"></div>
-            </div>
-
-            <div class="control-panel">
-                <div class="panel-block">
-                    <div style="color:var(--gold-color); margin-bottom:5px; font-weight:bold;">內政</div>
-                    <select id="gen-select" style="width:100%; margin-bottom:5px; padding:5px; background:#222; color:#fff; border:1px solid #555;"></select>
-                    <button class="action-btn" onclick="doAction('comm')">💰 商業開發 (金+)</button>
-                    <button class="action-btn" onclick="doAction('agri')">🌾 農業開墾 (糧+)</button>
-                    <button class="action-btn" onclick="doAction('recruit')">⚔️ 徵召義兵 (兵+)</button>
-                </div>
-                <div class="panel-block">
-                    <div style="color:var(--gold-color); margin-bottom:5px; font-weight:bold;">軍事</div>
-                    <div style="font-size:0.8rem; color:#aaa; margin-bottom:5px;">點擊相鄰敵城進行攻擊</div>
-                </div>
-                <button class="action-btn" style="text-align:center; margin-top:auto; background:#212121;" onclick="endTurn()">🌙 結束本月</button>
-                <div id="log-box"></div>
-            </div>
+        <div class="player-zone p1-zone" id="p1-zone">
+            <div class="field-row monster-zone" id="p1-field"></div>
+            <div class="field-row st-zone" id="p1-st"></div>
+            <div class="hand-row" id="p1-hand"></div>
         </div>
     </div>
 
-    <div id="battle-modal" class="modal">
-        <div class="modal-box">
-            <div id="battle-prep-ui">
-                <h2 style="color:#e57373; margin:0 0 10px 0;">出征準備</h2>
-                <div style="display:flex; gap:20px; text-align:left;">
-                    <div style="flex:1;">
-                        <h4 style="margin:5px 0; color:#64b5f6;">我軍出陣 (最多5人)</h4>
-                        <div class="gen-list" id="prep-gen-list"></div>
-                        <div style="margin-top:5px;">兵力: <span id="prep-troops">0</span></div>
-                    </div>
-                    <div style="flex:1; border-left:1px solid #444; padding-left:10px;">
-                        <h4 style="margin:5px 0; color:#e57373;">敵方情報</h4>
-                        <div id="prep-enemy-info" style="font-size:0.9rem; line-height:1.6;"></div>
-                    </div>
-                </div>
-                <div style="margin-top:20px;">
-                    <button style="background:#d32f2f; color:white; padding:10px 30px; font-size:1.1rem; border:none;" onclick="startBattleAnim()">開戰</button>
-                    <button class="close-btn" onclick="closeModal()">取消</button>
-                </div>
-            </div>
-
-            <div id="battle-anim-ui">
-                <h2 style="color:#ffeb3b; margin:0;">兩軍交戰</h2>
-                <div class="battle-stage">
-                    <div class="dmg-text" id="dmg-popup">-0</div>
-                    <div class="battle-side">
-                        <div style="color:#64b5f6; font-weight:bold; font-size:1.2rem;">我軍</div>
-                        <div style="font-size:0.9rem;" id="anim-p-name"></div>
-                        <div class="hp-bar-bg"><div class="hp-bar-fill" id="p-hp-bar" style="width:100%; background:var(--hp-green);"></div></div>
-                        <div id="p-hp-text">5000</div>
-                    </div>
-                    <div style="color:#aaa; font-weight:bold; font-size:1.5rem;">VS</div>
-                    <div class="battle-side">
-                        <div style="color:#e57373; font-weight:bold; font-size:1.2rem;">敵軍</div>
-                        <div style="font-size:0.9rem;" id="anim-e-name"></div>
-                        <div class="hp-bar-bg"><div class="hp-bar-fill" id="e-hp-bar" style="width:100%; background:var(--hp-red);"></div></div>
-                        <div id="e-hp-text">3000</div>
-                    </div>
-                </div>
-                <div class="battle-log-live" id="battle-live-log"></div>
-                <button id="battle-end-btn" style="display:none; width:100%; padding:10px;" onclick="finalizeBattle()">確認結果</button>
-            </div>
-        </div>
+    <div class="log-box" id="game-log">
+        <div class="log-entry">遊戲開始！LP設置為8000。請 P1 抽牌。</div>
     </div>
 
-    <div id="end-modal" class="modal">
-        <div class="modal-box">
-            <h2 id="end-title" style="color:var(--gold-color);"></h2>
-            <p id="end-msg"></p>
-            <button class="close-btn" onclick="location.reload()">重新開始</button>
-        </div>
+    <div id="winner-overlay">
+        <div id="winner-text">P1 獲勝!</div>
+        <button onclick="location.reload()" style="font-size: 20px;">重新開始</button>
     </div>
 
-<script>
-    // 城市數據
-    const CITIES = [
-        {id:1,n:"襄平",r:2,c:34}, {id:51,n:"遼西",r:3,c:32}, {id:2,n:"北平",r:4,c:30}, {id:3,n:"薊",r:5,c:29},
-        {id:4,n:"南皮",r:7,c:29}, {id:5,n:"鄴",r:9,c:28}, {id:6,n:"晉陽",r:7,c:26}, {id:7,n:"平原",r:9,c:30},
-        {id:8,n:"北海",r:9,c:33}, {id:9,n:"濮陽",r:11,c:29}, {id:10,n:"陳留",r:12,c:28},
-        {id:11,n:"洛陽",r:12,c:25}, {id:48,n:"虎牢",r:12,c:27},
-        {id:12,n:"許昌",r:14,c:26}, {id:13,n:"汝南",r:16,c:28},
-        {id:14,n:"下邳",r:13,c:32}, {id:15,n:"小沛",r:12,c:31}, {id:16,n:"廣陵",r:15,c:34},
-        {id:17,n:"壽春",r:16,c:31}, {id:47,n:"新野",r:16,c:25}, {id:18,n:"宛",r:15,c:24},
-        {id:19,n:"長安",r:13,c:22}, {id:20,n:"天水",r:11,c:18}, {id:21,n:"安定",r:10,c:20},
-        {id:52,n:"金城",r:9,c:16}, {id:22,n:"武威",r:7,c:14}, {id:23,n:"西平",r:8,c:12},
-        {id:24,n:"漢中",r:15,c:20}, {id:49,n:"葭萌",r:16,c:18},
-        {id:25,n:"梓潼",r:17,c:17}, {id:26,n:"成都",r:19,c:16},
-        {id:27,n:"江州",r:20,c:20}, {id:30,n:"永安",r:19,c:22},
-        {id:50,n:"越嶲",r:23,c:16}, {id:28,n:"建寧",r:26,c:16}, {id:29,n:"雲南",r:28,c:13},
-        {id:31,n:"上庸",r:14,c:23}, {id:32,n:"襄陽",r:17,c:24}, {id:33,n:"江夏",r:19,c:27},
-        {id:34,n:"江陵",r:20,c:24}, {id:35,n:"長沙",r:23,c:26}, {id:36,n:"武陵",r:22,c:23},
-        {id:37,n:"零陵",r:26,c:24}, {id:38,n:"桂陽",r:26,c:27},
-        {id:39,n:"廬江",r:18,c:30}, {id:40,n:"建業",r:18,c:33}, {id:41,n:"吳",r:19,c:35},
-        {id:42,n:"會稽",r:21,c:36}, {id:43,n:"柴桑",r:22,c:29}, {id:44,n:"豫章",r:24,c:30},
-        {id:45,n:"南海",r:29,c:28}, {id:46,n:"交趾",r:31,c:25}
-    ];
+    <script>
+        // --- 資料庫: 寶可夢與魔陷卡 ---
+        // category: 'monster', 'spell', 'trap'
+        // level: 1-4 (無祭品), 5-6 (1祭品), 7+ (2祭品)
+        // effect: spell/trap 的效果代碼
+        const CARD_DB = [
+            // 下級怪獸 (15種)
+            { id: 1, name: "小火龍", category: 'monster', level: 3, atk: 1200, def: 800, img: "🔥" },
+            { id: 2, name: "傑尼龜", category: 'monster', level: 3, atk: 1000, def: 1500, img: "💧" },
+            { id: 3, name: "妙蛙種子", category: 'monster', level: 3, atk: 1100, def: 1100, img: "🌿" },
+            { id: 4, name: "皮卡丘", category: 'monster', level: 4, atk: 1600, def: 1000, img: "⚡" },
+            { id: 5, name: "伊布", category: 'monster', level: 3, atk: 1300, def: 1300, img: "🐕" },
+            { id: 6, name: "鬼斯", category: 'monster', level: 2, atk: 1000, def: 200, img: "👻" },
+            { id: 7, name: "腕力", category: 'monster', level: 4, atk: 1700, def: 800, img: "💪" },
+            { id: 8, name: "凱西", category: 'monster', level: 1, atk: 500, def: 1500, img: "🧘" },
+            { id: 9, name: "小拳石", category: 'monster', level: 3, atk: 1200, def: 1600, img: "🪨" },
+            { id: 10, name: "鯉魚王", category: 'monster', level: 1, atk: 0, def: 0, img: "🐟" },
+            
+            // 上級怪獸 (1祭品) (10種)
+            { id: 20, name: "火恐龍", category: 'monster', level: 5, atk: 2000, def: 1400, img: "🔥🔥" },
+            { id: 21, name: "卡咪龜", category: 'monster', level: 5, atk: 1800, def: 1800, img: "💧💧" },
+            { id: 22, name: "妙蛙草", category: 'monster', level: 5, atk: 1900, def: 1600, img: "🌿🌿" },
+            { id: 23, name: "雷丘", category: 'monster', level: 6, atk: 2400, def: 1800, img: "⚡⚡" },
+            { id: 24, name: "卡比獸", category: 'monster', level: 6, atk: 2500, def: 2000, img: "💤" },
+            { id: 25, name: "耿鬼", category: 'monster', level: 6, atk: 2300, def: 1500, img: "😈" },
+            { id: 26, name: "怪力", category: 'monster', level: 6, atk: 2600, def: 1600, img: "💪💪" },
 
-    // 12名君主
-    const LORDS = {
-        cao: { n: "曹操", desc:"治世能臣", c: "c-wei", cities: [10, 12, 48] },
-        liu: { n: "劉備", desc:"仁德之君", c: "c-shu", cities: [7] },
-        sun: { n: "孫堅", desc:"江東猛虎", c: "c-wu", cities: [35] },
-        yuan: { n: "袁紹", desc:"四世三公", c: "c-yuan", cities: [4, 5, 2] },
-        dong: { n: "董卓", desc:"魔王降臨", c: "c-dong", cities: [11, 19, 21] },
-        lu: { n: "呂布", desc:"天下無雙", c: "c-lu", cities: [9] },
-        ma: { n: "馬騰", desc:"西涼鐵騎", c: "c-others", cities: [22, 23, 52] },
-        biao: { n: "劉表", desc:"鎮守荊襄", c: "c-others", cities: [32, 33, 47] },
-        zhang: { n: "劉璋", desc:"天府之土", c: "c-others", cities: [26, 25, 49] },
-        shu: { n: "袁術", desc:"仲家皇帝", c: "c-others", cities: [13, 17] },
-        gong: { n: "公孫瓚", desc:"白馬義從", c: "c-others", cities: [3, 51] },
-        z_lu: { n: "張魯", desc:"五斗米道", c: "c-zhang", cities: [24] },
-        in野: { n: "在野", desc:"", c: "c-neutral", cities: [] }
-    };
+            // 傳說/最強級怪獸 (2祭品) (8種)
+            { id: 40, name: "噴火龍", category: 'monster', level: 7, atk: 2800, def: 2200, img: "🐲🔥" },
+            { id: 41, name: "水箭龜", category: 'monster', level: 7, atk: 2600, def: 2800, img: "🐢💧" },
+            { id: 42, name: "妙蛙花", category: 'monster', level: 7, atk: 2700, def: 2500, img: "🐸🌿" },
+            { id: 43, name: "快龍", category: 'monster', level: 8, atk: 3000, def: 2500, img: "🐉" },
+            { id: 44, name: "超夢", category: 'monster', level: 8, atk: 3200, def: 2000, img: "👽" },
+            { id: 45, name: "暴鯉龍", category: 'monster', level: 7, atk: 2900, def: 1500, img: "🐍💧" },
+            { id: 46, name: "烈空坐", category: 'monster', level: 8, atk: 3500, def: 2800, img: "🟢🐉" },
 
-    // 實名武將資料庫 (w:統武, o:初始歸屬)
-    const HISTORICAL_GENS = [
-        // 魏 (曹操)
-        {n:"曹操",w:99,o:"cao"}, {n:"夏侯惇",w:92,o:"cao"}, {n:"夏侯淵",w:91,o:"cao"}, {n:"曹仁",w:89,o:"cao"}, 
-        {n:"曹洪",w:86,o:"cao"}, {n:"李典",w:82,o:"cao"}, {n:"樂進",w:85,o:"cao"}, {n:"荀彧",w:60,o:"cao"},
-        {n:"郭嘉",w:50,o:"cao"}, {n:"于禁",w:84,o:"cao"}, {n:"典韋",w:98,o:"cao"},
-        // 蜀 (劉備)
-        {n:"劉備",w:80,o:"liu"}, {n:"關羽",w:97,o:"liu"}, {n:"張飛",w:98,o:"liu"}, {n:"簡雍",w:60,o:"liu"},
-        {n:"關平",w:82,o:"liu"}, {n:"周倉",w:81,o:"liu"},
-        // 吳 (孫堅)
-        {n:"孫堅",w:94,o:"sun"}, {n:"孫策",w:95,o:"sun"}, {n:"孫權",w:78,o:"sun"}, {n:"黃蓋",w:83,o:"sun"},
-        {n:"程普",w:84,o:"sun"}, {n:"韓當",w:82,o:"sun"}, {n:"朱治",w:75,o:"sun"}, {n:"祖茂",w:78,o:"sun"},
-        // 袁紹
-        {n:"袁紹",w:82,o:"yuan"}, {n:"顏良",w:94,o:"yuan"}, {n:"文醜",w:95,o:"yuan"}, {n:"張郃",w:90,o:"yuan"},
-        {n:"高覽",w:87,o:"yuan"}, {n:"鞠義",w:85,o:"yuan"}, {n:"田豐",w:70,o:"yuan"}, {n:"沮授",w:72,o:"yuan"},
-        // 董卓
-        {n:"董卓",w:88,o:"dong"}, {n:"華雄",w:92,o:"dong"}, {n:"李儒",w:60,o:"dong"}, {n:"李傕",w:78,o:"dong"},
-        {n:"郭汜",w:76,o:"dong"}, {n:"徐榮",w:82,o:"dong"}, {n:"樊稠",w:75,o:"dong"},
-        // 呂布
-        {n:"呂布",w:100,o:"lu"}, {n:"張遼",w:94,o:"lu"}, {n:"高順",w:88,o:"lu"}, {n:"陳宮",w:70,o:"lu"},
-        {n:"臧霸",w:81,o:"lu"}, {n:"魏續",w:75,o:"lu"},
-        // 馬騰
-        {n:"馬騰",w:84,o:"ma"}, {n:"馬超",w:97,o:"ma"}, {n:"龐德",w:93,o:"ma"}, {n:"馬岱",w:85,o:"ma"},
-        // 劉表
-        {n:"劉表",w:68,o:"biao"}, {n:"蔡瑁",w:78,o:"biao"}, {n:"張允",w:75,o:"biao"}, {n:"黃祖",w:74,o:"biao"},
-        {n:"文聘",w:86,o:"biao"}, {n:"黃忠",w:95,o:"biao"}, {n:"甘寧",w:94,o:"biao"}, {n:"魏延",w:92,o:"biao"},
-        // 劉璋
-        {n:"劉璋",w:50,o:"zhang"}, {n:"張任",w:89,o:"zhang"}, {n:"嚴顏",w:85,o:"zhang"}, {n:"李嚴",w:84,o:"zhang"},
-        {n:"雷銅",w:78,o:"zhang"}, {n:"吳蘭",w:77,o:"zhang"},
-        // 袁術
-        {n:"袁術",w:65,o:"shu"}, {n:"紀靈",w:83,o:"shu"}, {n:"張勳",w:72,o:"shu"}, {n:"橋蕤",w:70,o:"shu"},
-        // 公孫瓚
-        {n:"公孫瓚",w:84,o:"gong"}, {n:"趙雲",w:96,o:"gong"}, {n:"嚴綱",w:78,o:"gong"}, {n:"田楷",w:72,o:"gong"},
-        // 張魯
-        {n:"張魯",w:70,o:"z_lu"}, {n:"閻圃",w:68,o:"z_lu"}, {n:"楊任",w:76,o:"z_lu"}, {n:"楊昂",w:74,o:"z_lu"},
-        // 在野 (隨機出現或特定地點，此處簡化為統一在野池或分配給空城)
-        {n:"許褚",w:96,o:"in野"}, {n:"徐晃",w:91,o:"in野"}, {n:"太史慈",w:93,o:"in野"}, {n:"周泰",w:90,o:"in野"},
-        {n:"蔣欽",w:84,o:"in野"}, {n:"陳武",w:85,o:"in野"}, {n:"潘璋",w:82,o:"in野"}
-    ];
+            // 魔法卡 (Spell) (8種) - 簡單效果
+            { id: 100, name: "傷藥", category: 'spell', effect: 'heal_1000', img: "💊", desc: "回復 1000 LP。" },
+            { id: 101, name: "好傷藥", category: 'spell', effect: 'heal_2000', img: "💊💊", desc: "回復 2000 LP。" },
+            { id: 102, name: "力量強化", category: 'spell', effect: 'atk_up_500', img: "⚔️⬆️", desc: "場上所有己方怪獸 ATK+500 (直到回合結束)。" },
+            { id: 103, name: "精靈球", category: 'spell', effect: 'destroy_low', img: "🔴", desc: "破壞對手場上一隻 4星以下的怪獸。" },
+            { id: 104, name: "大師球", category: 'spell', effect: 'destroy_high', img: "🟣", desc: "破壞對手場上一隻 7星以上的怪獸。" },
 
-    let G = {
-        turn: 190, player: null, acts: 3, res: {g:2000, f:2000, t:5000},
-        map: {}, gens: [], battle: {}
-    };
+            // 陷阱卡 (Trap) (7種) - 被攻擊時觸發
+            { id: 200, name: "變硬", category: 'trap', effect: 'def_up_1500', img: "🪨🛡️", desc: "被攻擊時，目標怪獸 DEF+1500 (僅此戰鬥)。" },
+            { id: 201, name: "替身", category: 'trap', effect: 'negate_attack', img: "🧸", desc: "使對手的一次怪獸攻擊無效。" },
+            { id: 202, name: "反擊", category: 'trap', effect: 'reflect_500', img: "↪️", desc: "被攻擊時，對手受到 500 傷害。" },
+             { id: 203, name: "光牆", category: 'trap', effect: 'dmg_half', img: "🧱", desc: "被攻擊時，我方受到的戰鬥傷害減半。" },
+        ];
 
-    window.onload = () => {
-        const area = document.getElementById('clan-area');
-        for(let k in LORDS) {
-            if(k === 'in野') continue;
-            let d = document.createElement('div');
-            d.className = `clan-btn ${LORDS[k].c}`;
-            d.innerHTML = `<strong>${LORDS[k].n}</strong><div class="clan-desc">${LORDS[k].desc}</div>`;
-            d.onclick = () => initGame(k);
-            area.appendChild(d);
-        }
-    };
+        class Card {
+            constructor(data, owner) {
+                this.uid = Math.random().toString(36).substr(2, 9);
+                Object.assign(this, data); // 複製所有資料屬性
+                this.owner = owner;
+                this.hasAttacked = false;
+                this.isFacedown = false;
+                this.tempAtkBuff = 0; // 用於魔法卡加成
+            }
 
-    function initGame(pid) {
-        G.player = pid;
-        // 地圖
-        CITIES.forEach(c => {
-            G.map[c.id] = { ...c, owner: 'in野', troops: 2000, def: 100, gen: null };
-        });
-        // 勢力
-        for(let k in LORDS) {
-            LORDS[k].cities.forEach(id => {
-                if(G.map[id]) {
-                    G.map[id].owner = k;
-                    G.map[id].troops = (k===G.player) ? 0 : 3000; 
+            get currentAtk() { return (this.atk || 0) + this.tempAtkBuff; }
+
+            render(location) {
+                const el = document.createElement('div');
+                el.className = `card`;
+                el.dataset.uid = this.uid;
+                el.dataset.cat = this.category;
+
+                if (this.hasAttacked) el.classList.add('attacked');
+                if (this.isFacedown && location !== 'hand') el.classList.add('facedown');
+
+                // 星級顯示
+                let stars = '';
+                if (this.category === 'monster') {
+                    for(let i=0; i<this.level; i++) stars += '★';
                 }
-            });
+
+                el.innerHTML = `
+                    <div class="slash-effect"></div>
+                    <div class="card-header">${this.name}</div>
+                    ${this.category === 'monster' ? `<div class="card-level">${stars}</div>` : ''}
+                    <div class="card-img">${this.img}</div>
+                    <div class="card-stats" style="font-size: ${this.category !== 'monster' ? '8px' : '10px'}">
+                        ${this.category === 'monster' 
+                            ? `<span>⚔️${this.atk}</span><span>🛡️${this.def}</span>` 
+                            : `<span style="text-align:center; width:100%">${this.desc || '魔法陷阱卡'}</span>`}
+                    </div>
+                `;
+                
+                el.onclick = () => game.handleCardClick(this, location);
+                return el;
+            }
         }
-        // 武將初始化
-        let gid = 0;
-        HISTORICAL_GENS.forEach(g => {
-            G.gens.push({id: gid++, n: g.n, w: g.w, o: g.o, loc: null});
-        });
 
-        drawMap();
-        updateUI();
-        document.getElementById('start-screen').style.display = 'none';
-        document.getElementById('game-container').style.display = 'block';
-    }
+        class Game {
+            constructor() {
+                this.turn = 'p1';
+                this.phase = 'draw';
+                this.players = {
+                    p1: { lp: 8000, hand: [], field: [], st: [], deck: [] },
+                    p2: { lp: 8000, hand: [], field: [], st: [], deck: [] }
+                };
+                this.selectedCard = null;
+                this.summonState = { active: false, cardToSummon: null, tributesNeeded: 0, selectedTributes: [] };
+                this.turnSummonCount = 0; // 每回合通常召喚次數
+                
+                this.initDeck('p1');
+                this.initDeck('p2');
+                
+                for(let i=0; i<5; i++) { this.drawCard('p1'); this.drawCard('p2'); }
+                this.startTurn();
+            }
 
-    function drawMap() {
-        const grid = document.getElementById('map-grid');
-        const roadLayer = document.getElementById('road-layer');
-        grid.innerHTML = ''; roadLayer.innerHTML = '';
+            log(msg) {
+                const box = document.getElementById('game-log');
+                const div = document.createElement('div');
+                div.className = 'log-entry';
+                div.innerHTML = `[${this.turn.toUpperCase()}] ${msg}`;
+                box.insertBefore(div, box.firstChild);
+            }
 
-        CITIES.forEach(c1 => {
-            CITIES.forEach(c2 => {
-                if(c1.id < c2.id) {
-                    let dist = Math.sqrt(Math.pow(c1.r-c2.r, 2) + Math.pow(c1.c-c2.c, 2));
-                    if(dist < 4.2) {
-                        let line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-                        line.setAttribute('x1', (c1.c-1)*32 + 40 + 16);
-                        line.setAttribute('y1', (c1.r-1)*32 + 40 + 16);
-                        line.setAttribute('x2', (c2.c-1)*32 + 40 + 16);
-                        line.setAttribute('y2', (c2.r-1)*32 + 40 + 16);
-                        line.setAttribute('class', 'road-line');
-                        roadLayer.appendChild(line);
+            initDeck(player) {
+                for(let i=0; i<30; i++) { // 30張牌組
+                    // 增加下級怪獸的權重
+                    let randomCard;
+                    const rand = Math.random();
+                    if(rand < 0.5) {
+                         randomCard = CARD_DB.filter(c=>c.level<=4 && c.category==='monster')[Math.floor(Math.random() * 10)]; // 前10個下級
+                    } else if (rand < 0.75) {
+                         randomCard = CARD_DB.filter(c=>c.category!=='monster')[Math.floor(Math.random() * CARD_DB.filter(c=>c.category!=='monster').length)]; // 魔陷
+                    }
+                    else {
+                         randomCard = CARD_DB[Math.floor(Math.random() * CARD_DB.length)]; // 全隨機
+                    }
+                    this.players[player].deck.push(randomCard);
+                }
+            }
+
+            drawCard(player) {
+                if (this.players[player].deck.length === 0) { this.endGame(player === 'p1' ? 'P2' : 'P1', "牌組抽乾"); return;}
+                const data = this.players[player].deck.pop();
+                this.players[player].hand.push(new Card(data, player));
+                this.updateUI();
+            }
+
+            startTurn() {
+                this.phase = 'draw';
+                this.turnSummonCount = 0;
+                this.selectedCard = null;
+                this.summonState = { active: false, cardToSummon: null, tributesNeeded: 0, selectedTributes: [] };
+                
+                // 重置狀態
+                ['p1', 'p2'].forEach(p => {
+                    this.players[p].field.forEach(c => {
+                        c.hasAttacked = false;
+                        c.tempAtkBuff = 0; // 重置回合Buff
+                    });
+                });
+                
+                this.updateUI();
+                this.log("回合開始，抽牌。");
+                
+                setTimeout(() => {
+                    this.drawCard(this.turn);
+                    this.phase = 'main1';
+                    this.updateUI();
+                }, 800);
+            }
+
+            handleCardClick(card, location) {
+                // --- 獻祭模式 ---
+                if (this.summonState.active && location === 'field' && card.owner === this.turn) {
+                    this.handleTributeSelection(card);
+                    return;
+                }
+
+                // --- 正常模式 ---
+                if (card.owner === this.turn && location === 'hand') {
+                    if (this.phase === 'main1' || this.phase === 'main2') {
+                        if (card.category === 'monster') this.trySummonMonster(card);
+                        else if (card.category === 'spell') this.activateSpell(card);
+                        else if (card.category === 'trap') this.setTrap(card);
+                    }
+                } else if (location === 'field') {
+                    // 戰鬥階段選擇攻擊者或目標
+                    if (this.phase === 'battle') {
+                         if (card.owner === this.turn) {
+                             if (!card.hasAttacked) {
+                                 this.selectedCard = card;
+                                 this.log(`選擇 ${card.name} 準備攻擊。`);
+                                 this.updateUI();
+                             }
+                         } else if (this.selectedCard) {
+                             this.executeAttack(this.selectedCard, card);
+                         }
                     }
                 }
-            });
-        });
-
-        for(let id in G.map) {
-            let c = G.map[id];
-            let d = document.createElement('div');
-            d.className = `province ${LORDS[c.owner].c}`;
-            if(c.owner === G.player) {
-                if(c.troops === 0) d.classList.add('status-direct');
-                else d.classList.add('status-auto');
             }
-            d.style.gridRow = c.r; d.style.gridColumn = c.c;
-            d.innerHTML = `<div class="prov-name">${c.n}</div><div style="font-size:0.6rem; z-index:2;">${c.troops}</div>`;
-            d.onclick = () => clickCity(id);
-            grid.appendChild(d);
-        }
-    }
 
-    function getNeighbors(id) {
-        let n = [];
-        let c1 = G.map[id];
-        for(let k in G.map) {
-            let c2 = G.map[k];
-            if(c1.id !== c2.id) {
-                let dist = Math.sqrt(Math.pow(c1.r-c2.r, 2) + Math.pow(c1.c-c2.c, 2));
-                if(dist < 4.2) n.push(k);
+            // --- 召喚相關 ---
+            trySummonMonster(card) {
+                if (this.turnSummonCount >= 1) { this.log("本回合已進行過通常召喚。"); return; }
+                if (this.players[this.turn].field.length >= 5) { this.log("怪獸區域已滿。"); return; }
+
+                let tributesNeeded = 0;
+                if (card.level >= 5 && card.level <= 6) tributesNeeded = 1;
+                else if (card.level >= 7) tributesNeeded = 2;
+
+                if (tributesNeeded > 0) {
+                    if (this.players[this.turn].field.length < tributesNeeded) {
+                        this.log(`召喚 ${card.name} 需要 ${tributesNeeded} 隻祭品，場上怪獸不足。`);
+                        return;
+                    }
+                    this.log(`請選擇 ${tributesNeeded} 隻怪獸作為祭品獻祭。`);
+                    this.summonState = { active: true, cardToSummon: card, tributesNeeded: tributesNeeded, selectedTributes: [] };
+                    this.selectedCard = null; // 清除戰鬥選擇
+                    this.updateUI();
+                } else {
+                    this.summonMonster(card);
+                }
+            }
+
+            handleTributeSelection(card) {
+                // 避免重複選擇
+                if(this.summonState.selectedTributes.find(c => c.uid === card.uid)) return;
+
+                this.summonState.selectedTributes.push(card);
+                this.updateUI(); // 更新高亮
+
+                if (this.summonState.selectedTributes.length === this.summonState.tributesNeeded) {
+                    // 祭品足夠，執行獻祭召喚
+                    this.summonState.selectedTributes.forEach(tribute => this.destroyCard(tribute));
+                    this.summonMonster(this.summonState.cardToSummon);
+                    this.summonState = { active: false, cardToSummon: null, tributesNeeded: 0, selectedTributes: [] };
+                }
+            }
+
+            summonMonster(card) {
+                const p = this.players[this.turn];
+                p.hand = p.hand.filter(c => c.uid !== card.uid);
+                p.field.push(card);
+                this.turnSummonCount++;
+                this.log(`召喚了 ${card.name}！`);
+                this.updateUI();
+            }
+
+            // --- 魔法陷阱相關 ---
+            activateSpell(card) {
+                 const p = this.players[this.turn];
+                 p.hand = p.hand.filter(c => c.uid !== card.uid); // 從手牌移除，送入墓地(簡化為消失)
+                 this.log(`發動魔法卡：${card.name}！`);
+                 
+                 // 魔法效果實現
+                 switch(card.effect) {
+                     case 'heal_1000': this.damageLP(this.turn, -1000); break;
+                     case 'heal_2000': this.damageLP(this.turn, -2000); break;
+                     case 'atk_up_500':
+                         p.field.forEach(m => m.tempAtkBuff += 500);
+                         this.log("我方全體怪獸 ATK 上升 500！");
+                         break;
+                     // 簡化版破壞效果，隨機破壞符合條件的一隻
+                     case 'destroy_low':
+                         const opp = this.turn === 'p1' ? 'p2' : 'p1';
+                         const lowTargets = this.players[opp].field.filter(c => c.level <= 4);
+                         if(lowTargets.length > 0) {
+                             const target = lowTargets[Math.floor(Math.random() * lowTargets.length)];
+                             this.destroyCard(target);
+                             this.log(`破壞了對手的 ${target.name}！`);
+                         } else this.log("對手場上沒有符合條件的怪獸。");
+                         break;
+                 }
+                 this.updateUI();
+            }
+
+            setTrap(card) {
+                const p = this.players[this.turn];
+                if(p.st.length >= 5) { this.log("魔法陷阱區已滿。"); return; }
+                p.hand = p.hand.filter(c => c.uid !== card.uid);
+                card.isFacedown = true;
+                p.st.push(card);
+                this.log(`覆蓋了一張卡片到後場。`);
+                this.updateUI();
+            }
+
+            // --- 戰鬥流程 ---
+            enterBattlePhase() {
+                if (this.phase !== 'main1') return;
+                this.phase = 'battle';
+                this.selectedCard = null;
+                this.log("進入戰鬥階段！");
+                this.updateUI();
+            }
+            
+            enterMainPhase2() {
+                 if (this.phase !== 'battle') return;
+                 this.phase = 'main2';
+                 this.selectedCard = null;
+                 this.log("進入主要階段 2。");
+                 this.updateUI();
+            }
+
+            async executeAttack(attacker, target) {
+                attacker.hasAttacked = true;
+                this.selectedCard = null;
+                this.log(`${attacker.name} (ATK:${attacker.currentAtk}) 攻擊 ${target.name} (DEF:${target.def})！`);
+
+                // --- 觸發陷阱卡 ---
+                const defender = target.owner;
+                const traps = this.players[defender].st.filter(c => c.isFacedown && c.category === 'trap');
+                let attackNegated = false;
+                let damageMultiplier = 1;
+                let reflectDamage = 0;
+                let defenseBuff = 0;
+
+                if (traps.length > 0) {
+                    // 簡單起見，觸發第一張可用的陷阱
+                    const trap = traps[0];
+                    trap.isFacedown = false; // 翻開
+                    this.log(`對手發動陷阱卡：${trap.name}！`);
+                    
+                    switch(trap.effect) {
+                        case 'negate_attack': attackNegated = true; this.log("攻擊無效化！"); break;
+                        case 'def_up_1500': defenseBuff = 1500; this.log(`${target.name} 的 DEF 上升 1500！`); break;
+                        case 'reflect_500': reflectDamage = 500; break;
+                        case 'dmg_half': damageMultiplier = 0.5; this.log("戰鬥傷害減半！"); break;
+                    }
+                    // 移除發動後的陷阱
+                    this.players[defender].st = this.players[defender].st.filter(c => c.uid !== trap.uid);
+                    this.updateUI();
+                    await new Promise(r => setTimeout(r, 800)); // 等待陷阱動畫展示
+                }
+
+                if (attackNegated) { this.updateUI(); return; }
+
+                // --- 播放攻擊 VFX ---
+                await this.playAttackVFX(target);
+
+                // --- 傷害計算 ---
+                const finalDef = target.def + defenseBuff;
+                if (attacker.currentAtk > finalDef) {
+                    const damage = (attacker.currentAtk - finalDef) * damageMultiplier;
+                    this.damageLP(target.owner, damage);
+                    this.destroyCard(target);
+                    this.log(`${target.name} 被破壞！對手受到 ${damage} 傷害。`);
+                } else if (attacker.currentAtk < finalDef) {
+                    const damage = (finalDef - attacker.currentAtk) * damageMultiplier;
+                    this.damageLP(attacker.owner, damage);
+                    this.log(`攻擊未破防！我方受到 ${damage} 反傷。`);
+                } else {
+                    this.log("攻擊力與守備力相同，無事發生。");
+                }
+
+                if(reflectDamage > 0) {
+                    this.damageLP(attacker.owner, reflectDamage);
+                    this.log(`受到陷阱卡反擊，損傷 ${reflectDamage}！`);
+                }
+
+                this.updateUI();
+                this.checkWinCondition();
+            }
+
+            async playAttackVFX(targetCard) {
+                const cardEl = document.querySelector(`.card[data-uid="${targetCard.uid}"]`);
+                if(cardEl) {
+                    cardEl.classList.add('slashing');
+                    // 等待動畫 CSS 結束 (0.6s)
+                    await new Promise(resolve => setTimeout(() => {
+                        cardEl.classList.remove('slashing');
+                        resolve();
+                    }, 600));
+                }
+            }
+
+            directAttack() {
+                if (this.phase !== 'battle' || !this.selectedCard) return;
+                const opponent = this.turn === 'p1' ? 'p2' : 'p1';
+                if (this.players[opponent].field.length === 0) {
+                    const dmg = this.selectedCard.currentAtk;
+                    this.selectedCard.hasAttacked = true;
+                    this.damageLP(opponent, dmg);
+                    this.log(`${this.selectedCard.name} 直接攻擊！造成 ${dmg} 傷害！`);
+                    this.selectedCard = null;
+                    this.updateUI();
+                    this.checkWinCondition();
+                }
+            }
+
+            // --- 輔助功能 ---
+            destroyCard(card) {
+                const p = this.players[card.owner];
+                p.field = p.field.filter(c => c.uid !== card.uid);
+            }
+
+            damageLP(player, amount) {
+                this.players[player].lp = Math.max(0, this.players[player].lp - amount);
+            }
+
+            checkWinCondition() {
+                if (this.players.p1.lp <= 0) this.endGame('P2');
+                else if (this.players.p2.lp <= 0) this.endGame('P1');
+            }
+
+            endGame(winner, reason="") {
+                document.getElementById('winner-overlay').style.display = 'flex';
+                document.getElementById('winner-text').innerHTML = `${winner} 獲勝!<br><span style="font-size:20px">${reason}</span>`;
+            }
+
+            endTurn() {
+                this.turn = this.turn === 'p1' ? 'p2' : 'p1';
+                this.startTurn();
+            }
+
+            updateUI() {
+                document.getElementById('p1-lp').innerText = this.players.p1.lp;
+                document.getElementById('p2-lp').innerText = this.players.p2.lp;
+                document.getElementById('current-phase').innerText = this.getPhaseName();
+                document.getElementById('current-player').innerText = this.turn.toUpperCase();
+                
+                document.getElementById('btn-battle').disabled = (this.phase !== 'main1');
+                document.getElementById('btn-main2').disabled = (this.phase !== 'battle');
+                
+                document.getElementById('p1-zone').className = `player-zone p1-zone ${this.turn === 'p1' ? 'active-turn' : ''}`;
+                document.getElementById('p2-zone').className = `player-zone p2-zone ${this.turn === 'p2' ? 'active-turn' : ''}`;
+
+                const renderZone = (zoneId, cards, loc) => {
+                    const container = document.getElementById(zoneId);
+                    container.innerHTML = '';
+                    cards.forEach(card => {
+                        const el = card.render(loc);
+                        if (this.selectedCard && this.selectedCard.uid === card.uid) el.classList.add('selected');
+                        // 獻祭選擇高亮
+                        if (this.summonState.active && loc === 'field' && card.owner === this.turn) {
+                            if(this.summonState.selectedTributes.find(c=>c.uid === card.uid)) {
+                                 el.classList.add('tribute-target'); // 已選中
+                            } else {
+                                 el.style.borderColor = '#00ff00'; // 可選擇
+                                 el.style.boxShadow = '0 0 10px #00ff00';
+                            }
+                        }
+                        container.appendChild(el);
+                    });
+                };
+
+                renderZone('p1-hand', this.players.p1.hand, 'hand');
+                renderZone('p1-field', this.players.p1.field, 'field');
+                renderZone('p1-st', this.players.p1.st, 'st');
+                renderZone('p2-hand', this.players.p2.hand, 'hand');
+                renderZone('p2-field', this.players.p2.field, 'field');
+                renderZone('p2-st', this.players.p2.st, 'st');
+            }
+            
+            getPhaseName() {
+                switch(this.phase) {
+                    case 'draw': return '抽牌階段';
+                    case 'main1': return '主要階段 1';
+                    case 'battle': return '戰鬥階段';
+                    case 'main2': return '主要階段 2';
+                    default: return '';
+                }
             }
         }
-        return n;
-    }
 
-    function clickCity(id) {
-        let c = G.map[id];
-        if(c.owner === G.player) {
-            if(c.troops === 0) { c.troops = 1000; log(`委任 ${c.n}`); } 
-            else { c.troops = 0; log(`收回 ${c.n} 兵力`); }
-            drawMap();
-        } else {
-            if(G.acts <= 0) return alert("政令不足");
-            let neighbors = getNeighbors(id);
-            let canAtk = neighbors.some(nid => G.map[nid].owner === G.player);
-            if(!canAtk) return alert("未與我方領土相連");
-            prepBattle(id);
-        }
-    }
+        const game = new Game();
 
-    function doAction(type) {
-        if(G.acts <= 0) return;
-        let genId = document.getElementById('gen-select').value;
-        if(!genId) return alert("無武將");
-        let g = G.gens.find(x=>x.id==genId);
-        
-        if(type==='comm') { G.res.g += 500; G.res.f -= 100; log(`${g.n} 商業開發 (金+500)`); }
-        if(type==='agri') { G.res.f += 500; G.res.g -= 100; log(`${g.n} 農業開墾 (糧+500)`); }
-        if(type==='recruit') { 
-            if(G.res.g < 200) return alert("金錢不足");
-            G.res.t += 1000; G.res.g -= 200; log(`${g.n} 徵兵 (兵+1000)`); 
-        }
-        G.acts--; updateUI();
-    }
+        // 直接攻擊觸發區
+        document.getElementById('p2-zone').onclick = (e) => {
+            if ((e.target.id === 'p2-zone' || e.target.classList.contains('field-row')) && game.turn === 'p1') game.directAttack();
+        };
+        document.getElementById('p1-zone').onclick = (e) => {
+             if ((e.target.id === 'p1-zone' || e.target.classList.contains('field-row')) && game.turn === 'p2') game.directAttack();
+        };
 
-    function prepBattle(tid) {
-        let t = G.map[tid];
-        G.battle = { tid: tid, p_troops: G.res.t, e_troops: t.troops, p_gens: [], result: null };
-        
-        document.getElementById('battle-prep-ui').style.display = 'block';
-        document.getElementById('battle-anim-ui').style.display = 'none';
-        
-        let guard = t.gen ? G.gens.find(g=>g.id==t.gen).n : (t.owner==='in野'?'流寇':`${LORDS[t.owner].n}軍`);
-        document.getElementById('prep-enemy-info').innerHTML = `
-            <strong>${t.n}</strong> (${LORDS[t.owner].n})<br>
-            兵力: ${t.troops}<br>守軍: ${guard}
-        `;
-        document.getElementById('prep-troops').innerText = G.res.t;
-
-        let list = document.getElementById('prep-gen-list');
-        list.innerHTML = '';
-        G.gens.filter(g=>g.o===G.player).sort((a,b)=>b.w-a.w).forEach(g => {
-            let row = document.createElement('div');
-            row.className = 'gen-item';
-            row.innerHTML = `<label><input type="checkbox" value="${g.id}"> ${g.n}</label><span>武${g.w}</span>`;
-            list.appendChild(row);
-        });
-        
-        document.getElementById('battle-modal').style.display = 'flex';
-    }
-
-    function startBattleAnim() {
-        let cbs = document.querySelectorAll('#prep-gen-list input:checked');
-        if(cbs.length === 0 || cbs.length > 5) return alert("請派遣 1-5 名武將");
-        if(G.res.t < 500) return alert("兵力不足");
-
-        G.battle.p_gens = Array.from(cbs).map(c=>G.gens.find(g=>g.id==c.value));
-        G.acts--;
-
-        document.getElementById('battle-prep-ui').style.display = 'none';
-        document.getElementById('battle-anim-ui').style.display = 'flex';
-        document.getElementById('battle-end-btn').style.display = 'none';
-        document.getElementById('battle-live-log').innerHTML = '';
-
-        let p_name = G.battle.p_gens[0].n + (G.battle.p_gens.length>1?" 等":" 隊");
-        let t = G.map[G.battle.tid];
-        let e_name = t.gen ? G.gens.find(g=>g.id==t.gen).n : (t.owner==='in野'?'流寇':`${LORDS[t.owner].n}軍`);
-        
-        document.getElementById('anim-p-name').innerText = p_name;
-        document.getElementById('anim-e-name').innerText = e_name;
-
-        let p_max = G.battle.p_troops;
-        let e_max = G.battle.e_troops;
-        let p_curr = p_max;
-        let e_curr = e_max;
-
-        let p_war = G.battle.p_gens.reduce((a,b)=>a+b.w,0) / G.battle.p_gens.length;
-        let e_war = t.gen ? G.gens.find(g=>g.id==t.gen).w : 55;
-        if(t.owner !== 'in野') e_war += 10; 
-
-        let round = 1;
-        let timer = setInterval(() => {
-            if(p_curr <= 0 || e_curr <= 0 || round > 8) {
-                clearInterval(timer);
-                finishAnim(p_curr, e_curr, p_max, e_max);
-                return;
-            }
-            let p_dmg = Math.floor(p_curr * (p_war/200) * (0.8+Math.random()*0.4)) + 50;
-            let e_dmg = Math.floor(e_curr * (e_war/200) * (0.8+Math.random()*0.4)) + 50;
-            p_dmg = Math.floor(p_dmg * (1 - Math.min(0.5, t.def/200)));
-            e_curr -= p_dmg;
-            p_curr -= e_dmg;
-
-            if(p_curr < 0) p_curr = 0;
-            if(e_curr < 0) e_curr = 0;
-
-            updateBattleAnimUI(p_curr, p_max, e_curr, e_max, p_dmg, e_dmg);
-            logBattle(`第${round}回合：我軍傷${e_dmg}，敵軍傷${p_dmg}`);
-            round++;
-        }, 1000);
-    }
-
-    function updateBattleAnimUI(p, pMax, e, eMax, pDmg, eDmg) {
-        let pPct = (p / pMax) * 100;
-        let ePct = (e / eMax) * 100;
-        document.getElementById('p-hp-bar').style.width = pPct + "%";
-        document.getElementById('e-hp-bar').style.width = ePct + "%";
-        document.getElementById('p-hp-text').innerText = Math.floor(p);
-        document.getElementById('e-hp-text').innerText = Math.floor(e);
-        let pop = document.getElementById('dmg-popup');
-        pop.innerText = `⚔️ -${eDmg} / -${pDmg}`;
-        pop.style.opacity = 1;
-        setTimeout(() => pop.style.opacity = 0, 800);
-    }
-
-    function logBattle(msg) {
-        let b = document.getElementById('battle-live-log');
-        b.innerHTML += `<div>${msg}</div>`; b.scrollTop = b.scrollHeight;
-    }
-
-    function finishAnim(p, e, pMax, eMax) {
-        let win = e <= 0;
-        G.battle.result = { win: win, p_left: Math.floor(p), e_left: Math.floor(e) };
-        let btn = document.getElementById('battle-end-btn');
-        btn.style.display = 'block';
-        btn.innerText = win ? "大獲全勝 - 佔領城池" : "戰敗撤退";
-        btn.style.background = win ? "#2e7d32" : "#c62828";
-        btn.style.color = "white";
-    }
-
-    function finalizeBattle() {
-        let r = G.battle.result;
-        let t = G.map[G.battle.tid];
-        let oldOwner = t.owner;
-
-        G.res.t = r.p_left;
-        t.troops = r.e_left;
-
-        if(r.win) {
-            t.troops = 0;
-            t.def = Math.max(0, t.def - 30);
-            if(oldOwner !== 'in野') checkRetreatOrDie(oldOwner, t.id);
-            t.owner = G.player;
-            log(`攻佔 ${t.n}！`);
-            // 隨機登庸在野
-            let frees = G.gens.filter(g=>g.o==='in野');
-            if(frees.length > 0 && Math.random() < 0.3) {
-                let lucky = frees[Math.floor(Math.random()*frees.length)];
-                lucky.o = G.player;
-                log(`在野武將 ${lucky.n} 慕名來投！`);
-            }
-        } else {
-            log(`進攻 ${t.n} 失敗...`);
-        }
-        closeModal(); drawMap(); updateUI();
-    }
-
-    function checkRetreatOrDie(loserId, lostCityId) {
-        let hasCity = false;
-        for(let id in G.map) {
-            if(G.map[id].owner === loserId && id != lostCityId) { hasCity = true; break; }
-        }
-        if(!hasCity) {
-            let retreatCity = null;
-            let neighbors = getNeighbors(lostCityId);
-            for(let nid of neighbors) {
-                if(G.map[nid].owner === 'in野') { retreatCity = nid; break; }
-            }
-            if(retreatCity) {
-                G.map[retreatCity].owner = loserId; G.map[retreatCity].troops = 1000;
-                log(`【${LORDS[loserId].n}】流亡至 ${G.map[retreatCity].n}！`);
-            } else {
-                log(`【${LORDS[loserId].n}】滅亡！武將歸降。`);
-                G.gens.forEach(g => { if(g.o === loserId) g.o = G.player; });
-            }
-        }
-    }
-
-    function updateUI() {
-        document.getElementById('d-year').innerText = G.turn;
-        document.getElementById('d-gold').innerText = G.res.g;
-        document.getElementById('d-food').innerText = G.res.f;
-        document.getElementById('d-troops').innerText = G.res.t;
-        document.getElementById('d-lands').innerText = Object.values(G.map).filter(c=>c.owner===G.player).length;
-        document.getElementById('d-ap').innerText = G.acts;
-
-        let sel = document.getElementById('gen-select');
-        sel.innerHTML = '';
-        G.gens.filter(g=>g.o===G.player).forEach(g => {
-            let opt = document.createElement('option');
-            opt.value = g.id;
-            opt.innerText = `${g.n} (武${g.w})`;
-            sel.appendChild(opt);
-        });
-    }
-
-    function endTurn() {
-        G.acts = 3; G.res.g += 500; G.res.f += 500;
-        for(let id in G.map) {
-            let c = G.map[id];
-            if(c.owner !== 'in野' && c.owner !== G.player) c.troops += 200;
-        }
-        log("進入下個月");
-        updateUI(); drawMap();
-    }
-
-    function closeModal() { document.getElementById('battle-modal').style.display='none'; }
-    function log(msg) { 
-        let b = document.getElementById('log-box'); 
-        b.innerHTML += `<div>> ${msg}</div>`; b.scrollTop = b.scrollHeight; 
-    }
-</script>
+    </script>
 </body>
 </html>
