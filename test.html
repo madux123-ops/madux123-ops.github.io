@@ -3,635 +3,708 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>鬼滅之刃：光明與黑暗戰記</title>
+    <title>鬼滅之刃：無限城決戰篇 (RPG版)</title>
     <style>
         /* --- 全局設定 --- */
         body {
             font-family: 'Microsoft JhengHei', sans-serif;
-            background-color: #222;
+            background-color: #111;
             color: #eee;
             display: flex;
             flex-direction: column;
             align-items: center;
             margin: 0;
-            padding: 20px;
-            /* 融入炭治郎風格背景 */
-            background-image: linear-gradient(45deg, #000 25%, transparent 25%, transparent 75%, #000 75%, #000),
-                              linear-gradient(45deg, #000 25%, transparent 25%, transparent 75%, #000 75%, #000);
-            background-color: #367c59; 
-            background-size: 40px 40px;
-            background-position: 0 0, 20px 20px;
+            padding: 10px;
+            /* 背景：深色日式紋理 */
+            background-image: radial-gradient(#333 15%, transparent 16%), radial-gradient(#333 15%, transparent 16%);
+            background-size: 20px 20px;
+            background-position: 0 0, 10px 10px;
         }
 
-        h1 {
-            text-shadow: 2px 2px 4px #000;
-            margin-bottom: 10px;
-        }
+        h1 { margin: 5px 0; color: #ffcc00; text-shadow: 2px 2px #000; }
+        .sub-header { color: #aaa; font-size: 0.9em; margin-bottom: 10px; }
 
         /* --- 遊戲主容器 --- */
-        #game-container {
+        #game-wrapper {
             display: flex;
-            gap: 20px;
-            background-color: rgba(0,0,0,0.8);
-            padding: 20px;
-            border-radius: 10px;
-            border: 3px solid #d4af37; /* 金色邊框，致敬經典 RPG */
-            box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+            gap: 15px;
+            align-items: flex-start;
         }
 
-        /* --- 戰棋地圖區域 --- */
+        /* --- 戰棋地圖 --- */
         #grid-container {
             display: grid;
-            grid-template-columns: repeat(6, 60px); /* 6x6 地圖 */
-            grid-template-rows: repeat(6, 60px);
+            grid-template-columns: repeat(10, 45px); /* 10x10, 每格 45px */
+            grid-template-rows: repeat(10, 45px);
             gap: 2px;
+            background-color: #222;
             border: 4px solid #555;
-            background-color: #333;
+            padding: 2px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.8);
         }
 
         .tile {
-            width: 60px;
-            height: 60px;
-            background-color: #5c4b36; /* 土地顏色 */
-            border: 1px solid #444;
+            width: 45px;
+            height: 45px;
+            background-color: #3d3d3d;
+            border: 1px solid #4d4d4d;
+            position: relative;
+            cursor: pointer;
             display: flex;
             justify-content: center;
             align-items: center;
-            position: relative;
-            cursor: pointer;
         }
         
-        /* 地板紋理 - 榻榻米/泥土感 */
-        .tile::after {
-            content: '';
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            opacity: 0.2;
-            background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAIklEQVQIW2NkQAJfv379zwjjgzj//v37z4ivDKBCGAY4AABwKA75J6P9OgAAAABJRU5ErkJggg==');
-        }
+        .tile.movable { background-color: rgba(100, 200, 255, 0.3); box-shadow: inset 0 0 5px #4a90e2; }
+        .tile.attackable { background-color: rgba(255, 80, 80, 0.3); box-shadow: inset 0 0 5px #e74c3c; }
 
-        /* 可移動範圍提示 */
-        .tile.movable {
-            background-color: rgba(100, 200, 255, 0.4);
-            box-shadow: inset 0 0 10px #4a90e2;
-        }
-        
-        /* 可攻擊範圍提示 */
-        .tile.attackable {
-            background-color: rgba(255, 80, 80, 0.4);
-            box-shadow: inset 0 0 10px #e74c3c;
-        }
-
-        /* --- 角色單位 --- */
+        /* --- 單位樣式 --- */
         .unit {
-            width: 50px;
-            height: 50px;
+            width: 38px;
+            height: 38px;
             border-radius: 50%;
             display: flex;
             justify-content: center;
             align-items: center;
             font-weight: bold;
-            font-size: 24px;
+            font-size: 16px;
             z-index: 2;
             position: relative;
-            transition: all 0.2s;
-            /* 簡單的陰影 */
-            box-shadow: 2px 2px 5px rgba(0,0,0,0.5);
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.8);
+            border: 2px solid #fff;
         }
 
-        .unit.slayer {
-            background: linear-gradient(135deg, #2e8b57, #1a1a1a); /* 炭治郎綠黑 */
-            border: 2px solid #00bfff;
-        }
+        /* 我方角色配色 */
+        .unit.tanjiro { background: linear-gradient(135deg, #2e8b57, #000); border-color: #00bfff; }
+        .unit.zenitsu { background: linear-gradient(135deg, #ffd700, #ff8c00); border-color: #fff; color: #000; }
+        .unit.inosuke { background: linear-gradient(135deg, #708090, #4682b4); border-color: #dcdcdc; }
 
-        .unit.demon {
-            background: linear-gradient(135deg, #800000, #333); /* 惡鬼暗紅 */
-            border: 2px solid #ff4d4d;
-        }
+        /* 敵方配色 */
+        .unit.demon { background: #555; border-color: #888; color: #bbb; font-size: 12px; }
+        .unit.boss { background: linear-gradient(135deg, #800000, #ff0000); border-color: #ff4d4d; font-size: 18px; color: #fff; }
 
-        .unit.active {
-            box-shadow: 0 0 15px yellow;
-            transform: scale(1.1);
-        }
-        
-        /* 血條 */
+        .unit.active { box-shadow: 0 0 10px 3px yellow; transform: scale(1.1); z-index: 10; }
+        .unit.done { filter: grayscale(80%); opacity: 0.7; }
+
+        /* 血條與等級 */
         .hp-bar-bg {
-            position: absolute;
-            bottom: -5px;
-            left: 0;
-            width: 100%;
-            height: 6px;
-            background: #333;
-            border-radius: 3px;
+            position: absolute; bottom: -4px; left: 0; width: 100%; height: 4px; background: #000;
         }
-        .hp-bar-fill {
-            height: 100%;
-            background: #2ecc71;
-            border-radius: 3px;
-            transition: width 0.3s;
-        }
-        .unit.demon .hp-bar-fill { background: #e74c3c; }
-
-        /* --- UI 介面區域 --- */
-        #ui-panel {
-            width: 250px;
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-        }
-
-        .panel-box {
-            background: #444;
-            padding: 15px;
-            border-radius: 8px;
-            border: 2px solid #666;
-        }
+        .hp-bar-fill { height: 100%; background: #0f0; transition: width 0.2s; }
+        .unit.demon .hp-bar-fill, .unit.boss .hp-bar-fill { background: #f00; }
         
-        .panel-title {
-            font-size: 1.1em;
-            color: #d4af37;
-            border-bottom: 1px solid #666;
-            padding-bottom: 5px;
-            margin-bottom: 10px;
+        .lvl-badge {
+            position: absolute; top: -5px; right: -5px;
+            background: #000; color: #fff; font-size: 10px;
+            padding: 1px 3px; border-radius: 3px; border: 1px solid #aaa;
         }
 
-        #action-menu {
-            display: none; /* 預設隱藏 */
+        /* --- UI 面板 --- */
+        #ui-panel {
+            width: 260px;
+            display: flex;
             flex-direction: column;
             gap: 10px;
         }
 
-        button.action-btn {
-            padding: 10px;
-            background: #2c3e50;
-            color: white;
-            border: 1px solid #34495e;
-            cursor: pointer;
-            font-size: 1em;
-            border-radius: 5px;
-            transition: background 0.2s;
+        .panel-box {
+            background: #2a2a2a; border: 1px solid #444; padding: 10px; border-radius: 5px;
         }
-        
-        button.action-btn:hover { background: #34495e; }
-        button.action-btn:disabled { background: #555; color: #888; cursor: not-allowed; }
-        
-        .skill-btn { background: #2980b9 !important; }
-        .skill-btn:hover { background: #3498db !important; }
+        .panel-title { color: #ffcc00; border-bottom: 1px solid #555; padding-bottom: 5px; margin-bottom: 5px; font-size: 0.95em; }
 
-        #battle-log {
-            height: 150px;
-            overflow-y: auto;
-            font-size: 0.9em;
-            color: #ccc;
+        #action-menu { display: none; flex-direction: column; gap: 5px; }
+        button {
+            padding: 8px; cursor: pointer; background: #333; color: white; border: 1px solid #555; border-radius: 4px;
         }
-        .log-entry { margin-bottom: 5px; }
-        .log-damage { color: #ff4d4d; font-weight: bold; }
-        .log-skill { color: #00bfff; font-weight: bold; }
+        button:hover { background: #444; }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        .skill-btn { background: #1a3c5e; border-color: #4a90e2; }
+
+        #log-window {
+            height: 120px; overflow-y: auto; font-size: 0.85em; color: #ccc; background: #1a1a1a; padding: 5px; border: 1px solid #333;
+        }
+        .log-lvlup { color: #ffd700; font-weight: bold; }
+        .log-dmg { color: #ff4d4d; }
+        .log-stage { color: #00ff00; font-weight: bold; text-align: center; margin: 5px 0; border-top: 1px dashed #555; }
 
     </style>
 </head>
 <body>
 
-    <h1>鬼滅之刃：光明與黑暗戰記</h1>
-    <div style="margin-bottom: 10px; font-size: 0.9em; color: #aaa;">參考《光明與黑暗》戰棋系統的簡化原型</div>
+    <h1>鬼滅之刃：無限城決戰 RPG</h1>
+    <div class="sub-header" id="stage-indicator">第 1 關 - 那田蜘蛛山外圍</div>
 
-    <div id="game-container">
+    <div id="game-wrapper">
         <div id="grid-container"></div>
 
         <div id="ui-panel">
             <div class="panel-box">
-                <div class="panel-title">當前回合</div>
-                <div id="turn-indicator">準備中...</div>
+                <div class="panel-title">回合資訊</div>
+                <div id="turn-info">準備開始...</div>
             </div>
 
             <div class="panel-box">
-                <div class="panel-title">單位資訊</div>
-                <div id="unit-stats">請選擇一個單位</div>
+                <div class="panel-title">選中單位</div>
+                <div id="unit-stats" style="font-size: 0.9em; line-height: 1.4;">點擊單位查看數值</div>
             </div>
 
-            <div class="panel-box" id="action-menu-box">
-                <div class="panel-title">行動指令</div>
+            <div class="panel-box" id="action-box">
+                <div class="panel-title">指令</div>
                 <div id="action-menu">
-                    <button class="action-btn" id="btn-move">移動 (Move)</button>
-                    <button class="action-btn" id="btn-attack" disabled>攻擊 (Attack)</button>
-                    <button class="action-btn skill-btn" id="btn-skill" disabled>水之呼吸 (Skill)</button>
-                    <button class="action-btn" id="btn-wait">待機 (Wait)</button>
+                    <button id="btn-move">移動 (2格)</button>
+                    <button id="btn-attack">攻擊</button>
+                    <button id="btn-skill" class="skill-btn">戰技</button>
+                    <button id="btn-wait">待機</button>
                 </div>
+            </div>
+
+            <div class="panel-box">
+                <div class="panel-title">戰鬥紀錄</div>
+                <div id="log-window"></div>
             </div>
         </div>
     </div>
 
-    <div class="panel-box" style="width: 600px; margin-top: 20px;">
-        <div class="panel-title">戰鬥紀錄</div>
-        <div id="battle-log"></div>
-    </div>
-
 <script>
-    // --- 遊戲設定與資料 ---
-    const GRID_SIZE = 6;
-    let grid = []; // 存放地圖格子的 DOM 元素
-    let units = []; // 存放所有單位物件
-    let currentTurnIndex = 0; // 當前行動單位的索引
-    let selectedUnit = null; // 玩家當前選中的單位
-    let gameState = 'IDLE'; // IDLE, MOVING, ACTING, ENEMY_TURN
-
-    // 單位類別定義
+    // --- 遊戲常數 ---
+    const GRID_SIZE = 10;
+    const MAX_LEVEL = 9;
+    
+    // --- 類別定義 ---
     class Unit {
-        constructor(id, name, type, x, y, stats) {
+        constructor(id, name, type, role, x, y, stats) {
             this.id = id;
             this.name = name;
             this.type = type; // 'slayer' or 'demon'
+            this.role = role; // 'tanjiro', 'zenitsu', 'inosuke', 'grunt', 'boss'
             this.x = x;
             this.y = y;
+            
+            // 基礎數值
+            this.level = stats.level || 1;
             this.maxHp = stats.hp;
             this.hp = stats.hp;
             this.atk = stats.atk;
             this.def = stats.def;
-            this.moveRange = stats.move;
-            this.skillName = stats.skillName;
-            this.skillDmg = stats.skillDmg;
+            this.range = stats.range || 1; // 攻擊距離
+            this.isAoE = stats.isAoE || false; // 是否範圍攻擊
+            
+            // 成長系統
+            this.xp = 0;
+            this.maxXp = 100 * this.level;
+            
+            // 狀態旗標
             this.hasMoved = false;
             this.hasActed = false;
         }
+
+        // 獲得經驗值與升級邏輯
+        gainXp(amount) {
+            if (this.type !== 'slayer') return;
+            
+            this.xp += amount;
+            addLog(`${this.name} 獲得 ${amount} EXP`);
+
+            if (this.xp >= this.maxXp) {
+                this.levelUp();
+            }
+        }
+
+        levelUp() {
+            this.level++;
+            this.xp = 0;
+            this.maxXp = Math.floor(this.maxXp * 1.2);
+            
+            // 屬性成長 (約 15-20%)
+            this.maxHp = Math.floor(this.maxHp * 1.2);
+            this.atk = Math.floor(this.atk * 1.15);
+            this.def = Math.floor(this.def * 1.15);
+            
+            // 升級回滿血
+            this.hp = this.maxHp;
+            
+            addLog(`<div class="log-lvlup">✨ ${this.name} 升到了 Lv.${this.level}！能力提升，體力全滿！</div>`);
+            renderGrid(); // 更新血條與等級顯示
+        }
     }
 
-    // 初始化單位
-    function initUnits() {
-        units = [
-            new Unit(1, '炭治郎', 'slayer', 1, 4, { hp: 50, atk: 12, def: 5, move: 3, skillName: '水之呼吸・壹之型', skillDmg: 20 }),
-            new Unit(2, '下弦之陸', 'demon', 4, 1, { hp: 60, atk: 15, def: 3, move: 2, skillName: '血鬼術・斬擊', skillDmg: 18 }),
-            new Unit(3, '雜魚鬼A', 'demon', 3, 2, { hp: 30, atk: 10, def: 2, move: 2, skillName: '爪擊', skillDmg: 12 })
+    // --- 全局變數 ---
+    let gridElements = [];
+    let allies = []; // 我方隊伍 (永久保存)
+    let enemies = []; // 敵方隊伍 (每關重置)
+    let allUnits = []; // 當前場上所有單位
+    let currentLevel = 1;
+    let turnIndex = 0;
+    let gameState = 'IDLE'; // IDLE, MOVING, TARGETING, ENEMY_TURN
+    let selectedUnit = null;
+
+    // --- 初始化與關卡生成 ---
+
+    function initGame() {
+        createGrid();
+        // 初始化主角群 (只執行一次)
+        allies = [
+            new Unit(1, '炭治郎', 'slayer', 'tanjiro', 1, 4, { hp: 100, atk: 25, def: 8, range: 1 }),
+            new Unit(2, '善逸', 'slayer', 'zenitsu', 0, 3, { hp: 70, atk: 35, def: 5, range: 3 }), // 遠攻
+            new Unit(3, '伊之助', 'slayer', 'inosuke', 0, 5, { hp: 110, atk: 22, def: 10, range: 1, isAoE: true }) // 範圍
         ];
-        // 簡單依據 ID 排序行動順序 (實際遊戲會看速度屬性)
-        updateTurnIndicator();
+        loadLevel(1);
     }
 
-    // --- 地圖與渲染系統 ---
-    function initGrid() {
-        const gridContainer = document.getElementById('grid-container');
+    function createGrid() {
+        const container = document.getElementById('grid-container');
+        container.innerHTML = '';
+        gridElements = [];
         for (let y = 0; y < GRID_SIZE; y++) {
             let row = [];
             for (let x = 0; x < GRID_SIZE; x++) {
                 let tile = document.createElement('div');
-                tile.classList.add('tile');
-                tile.dataset.x = x;
-                tile.dataset.y = y;
-                tile.onclick = () => handleTileClick(x, y);
-                gridContainer.appendChild(tile);
+                tile.className = 'tile';
+                tile.onclick = () => onTileClick(x, y);
+                container.appendChild(tile);
                 row.push(tile);
             }
-            grid.push(row);
+            gridElements.push(row);
+        }
+    }
+
+    function loadLevel(levelNum) {
+        currentLevel = levelNum;
+        document.getElementById('stage-indicator').innerText = `第 ${levelNum} 關 / 共 ${MAX_LEVEL} 關`;
+        addLog(`<div class="log-stage">=== 第 ${levelNum} 關 開始 ===</div>`);
+
+        // 重置我方位置
+        allies[0].x = 1; allies[0].y = 4;
+        allies[1].x = 0; allies[1].y = 3;
+        allies[2].x = 0; allies[2].y = 5;
+        
+        // 生成敵人 (難度隨關卡提升)
+        enemies = [];
+        const difficultyMult = 1 + (levelNum * 0.15); // 每關強度增加 15%
+        
+        // 1. 生成雜魚 (3-5隻)
+        const gruntCount = 3 + Math.floor(Math.random() * 3); 
+        for(let i=0; i<gruntCount; i++) {
+            let ex = 6 + Math.floor(Math.random() * 4); // 右側
+            let ey = Math.floor(Math.random() * 10);
+            // 避免重疊簡單處理
+            if(enemies.some(u => u.x === ex && u.y === ey)) ey = (ey + 1) % 10;
+            
+            enemies.push(new Unit(100+i, `惡鬼`, 'demon', 'grunt', ex, ey, {
+                hp: Math.floor(40 * difficultyMult),
+                atk: Math.floor(12 * difficultyMult),
+                def: Math.floor(2 * difficultyMult),
+                level: levelNum
+            }));
+        }
+
+        // 2. 生成 Boss (12鬼月)
+        const bossName = getBossName(levelNum);
+        enemies.push(new Unit(200, bossName, 'demon', 'boss', 9, 4, {
+            hp: Math.floor(150 * difficultyMult),
+            atk: Math.floor(25 * difficultyMult),
+            def: Math.floor(8 * difficultyMult),
+            level: levelNum + 2
+        }));
+
+        // 合併單位列表
+        allUnits = [...allies, ...enemies];
+        
+        // 開始回合
+        startTurnSequence();
+    }
+
+    function getBossName(lvl) {
+        const names = ["下弦之陸", "下弦之伍", "下弦之壹", "上弦之陸·墮姬", "上弦之伍·玉壺", "上弦之肆·半天狗", "上弦之參·猗窩座", "上弦之貳·童磨", "上弦之壹·黑死牟"];
+        return names[lvl-1] || "鬼舞辻無慘";
+    }
+
+    // --- 核心循環與渲染 ---
+
+    function startTurnSequence() {
+        // 清理死亡單位
+        allUnits = allUnits.filter(u => u.hp > 0);
+        allies = allUnits.filter(u => u.type === 'slayer');
+        enemies = allUnits.filter(u => u.type === 'demon');
+
+        // 勝利/失敗判定
+        if (allies.length === 0) {
+            alert("全滅... 鬼殺隊的意志斷絕了。");
+            location.reload();
+            return;
+        }
+        if (enemies.length === 0) {
+            if (currentLevel < MAX_LEVEL) {
+                alert(`第 ${currentLevel} 關完成！準備進入下一層無限城。`);
+                loadLevel(currentLevel + 1);
+            } else {
+                alert("恭喜！你擊敗了所有惡鬼，迎來了黎明！");
+            }
+            return;
+        }
+
+        // 排序行動 (簡單輪流：所有我方 -> 所有敵方)
+        // 為了簡化，我們用 index 追蹤
+        if (turnIndex >= allUnits.length) turnIndex = 0;
+        
+        // 確保輪到的單位是活著的
+        let safety = 0;
+        while(allUnits[turnIndex].hp <= 0 && safety < 100) {
+            turnIndex = (turnIndex + 1) % allUnits.length;
+            safety++;
+        }
+
+        renderGrid();
+        updateTurnUI();
+
+        const current = allUnits[turnIndex];
+        
+        if (current.type === 'demon') {
+            gameState = 'ENEMY_TURN';
+            setTimeout(aiTurn, 600);
+        } else {
+            gameState = 'IDLE';
+            // 自動選中當前角色
+            onTileClick(current.x, current.y);
         }
     }
 
     function renderGrid() {
-        // 清除所有格子上的內容和狀態類別
+        // 清除格子樣式
         for (let y = 0; y < GRID_SIZE; y++) {
             for (let x = 0; x < GRID_SIZE; x++) {
-                grid[y][x].innerHTML = '';
-                grid[y][x].classList.remove('movable', 'attackable');
+                let cell = gridElements[y][x];
+                cell.innerHTML = '';
+                cell.className = 'tile'; // reset
             }
         }
 
         // 繪製單位
-        units.forEach(unit => {
-            if (unit.hp <= 0) return; // 死亡單位不繪製
-            const unitDiv = document.createElement('div');
-            unitDiv.classList.add('unit', unit.type);
-            unitDiv.innerText = unit.type === 'slayer' ? '滅' : '鬼';
+        allUnits.forEach(u => {
+            if (u.hp <= 0) return;
+            let div = document.createElement('div');
+            div.className = `unit ${u.role} ${u.type}`;
+            if (u === allUnits[turnIndex]) div.classList.add('active');
+            if (u.hasActed) div.classList.add('done');
             
-            // 加入血條
-            const hpBg = document.createElement('div');
+            // 顯示名字簡寫
+            div.innerText = u.name.substring(0, 1);
+
+            // 血條
+            let hpBg = document.createElement('div');
             hpBg.className = 'hp-bar-bg';
-            const hpFill = document.createElement('div');
+            let hpFill = document.createElement('div');
             hpFill.className = 'hp-bar-fill';
-            hpFill.style.width = (unit.hp / unit.maxHp * 100) + '%';
+            hpFill.style.width = (u.hp / u.maxHp * 100) + '%';
             hpBg.appendChild(hpFill);
-            unitDiv.appendChild(hpBg);
+            div.appendChild(hpBg);
 
-            if (unit === getCurrentUnit()) {
-                unitDiv.classList.add('active');
-            }
-            grid[unit.y][unit.x].appendChild(unitDiv);
+            // 等級標籤
+            let lvl = document.createElement('div');
+            lvl.className = 'lvl-badge';
+            lvl.innerText = u.level;
+            div.appendChild(lvl);
+
+            gridElements[u.y][u.x].appendChild(div);
         });
-
-        updateUIStats();
     }
 
-    // --- 遊戲核心邏輯 ---
+    // --- 玩家互動 ---
 
-    function getCurrentUnit() {
-        return units[currentTurnIndex];
-    }
-
-    function nextTurn() {
-        // 重置當前單位的狀態
-        let current = getCurrentUnit();
-        if (current) {
-            current.hasMoved = false;
-            current.hasActed = false;
-        }
-
-        // 尋找下一個活著的單位
-        let attempts = 0;
-        do {
-            currentTurnIndex = (currentTurnIndex + 1) % units.length;
-            attempts++;
-        } while (units[currentTurnIndex].hp <= 0 && attempts <= units.length);
-
-        // 檢查勝利條件
-        const slayersAlive = units.some(u => u.type === 'slayer' && u.hp > 0);
-        const demonsAlive = units.some(u => u.type === 'demon' && u.hp > 0);
-
-        if (!slayersAlive) {
-            alert("遊戲結束：惡鬼獲勝，世界陷入黑暗...");
-            location.reload();
-            return;
-        }
-        if (!demonsAlive) {
-            alert("遊戲結束：鬼殺隊獲勝，迎來了黎明！");
-            location.reload();
-            return;
-        }
-
-        updateTurnIndicator();
-        renderGrid();
-        
-        gameState = 'IDLE';
-        selectedUnit = null;
-        document.getElementById('action-menu').style.display = 'none';
-
-        const nextUnit = getCurrentUnit();
-        if (nextUnit.type === 'demon') {
-            gameState = 'ENEMY_TURN';
-            setTimeout(enemyAI, 1000); // 延遲執行 AI
-        } else {
-            // 玩家回合，自動選中
-            handleTileClick(nextUnit.x, nextUnit.y);
-        }
-    }
-
-    function handleTileClick(x, y) {
+    function onTileClick(x, y) {
         if (gameState === 'ENEMY_TURN') return;
 
-        const clickedUnit = units.find(u => u.x === x && u.y === y && u.hp > 0);
-        const currentUnit = getCurrentUnit();
+        const current = allUnits[turnIndex];
+        const clickedUnit = allUnits.find(u => u.x === x && u.y === y && u.hp > 0);
 
-        // 狀態 1: 選擇移動目的地
+        // 1. 移動階段
         if (gameState === 'MOVING') {
-            if (grid[y][x].classList.contains('movable') && !clickedUnit) {
-                // 執行移動
-                moveUnit(currentUnit, x, y);
-                gameState = 'ACTING';
-                renderGrid();
-                showActionMenu();
+            if (gridElements[y][x].classList.contains('movable') && !clickedUnit) {
+                moveUnit(current, x, y);
+                gameState = 'IDLE';
+                // 移動後重新選中自己以顯示菜單
+                onTileClick(x, y);
             } else {
                 // 取消移動
                 gameState = 'IDLE';
                 renderGrid();
-                document.getElementById('action-menu').style.display = 'none';
-            }
-            return;
-        }
-        
-        // 狀態 2: 選擇攻擊目標 (普通攻擊或技能)
-        if (gameState === 'ATTACKING' || gameState === 'SKILLING') {
-             if (grid[y][x].classList.contains('attackable') && clickedUnit && clickedUnit.type !== currentUnit.type) {
-                const isSkill = gameState === 'SKILLING';
-                executeAttack(currentUnit, clickedUnit, isSkill);
-                endAction();
-            } else {
-                // 取消攻擊選擇
-                gameState = 'ACTING';
-                renderGrid();
-                showActionMenu();
+                showActionMenu(false);
             }
             return;
         }
 
-        // 狀態 3: 閒置時點擊單位
-        if (gameState === 'IDLE' || gameState === 'ACTING') {
-            if (clickedUnit && clickedUnit === currentUnit && !currentUnit.hasMoved) {
-                selectedUnit = clickedUnit;
-                renderGrid(); // 清除舊的標記
-                showMoveRange(currentUnit);
-                gameState = 'MOVING';
-                document.getElementById('action-menu').style.display = 'none';
+        // 2. 攻擊階段
+        if (gameState === 'TARGETING') {
+            if (gridElements[y][x].classList.contains('attackable')) {
+                // 執行攻擊 (需判斷格子上有沒有人，伊之助可能是空地但有範圍傷害)
+                if (clickedUnit || current.isAoE) {
+                     executeAttack(current, x, y);
+                }
+            } else {
+                gameState = 'IDLE';
+                renderGrid();
+                onTileClick(current.x, current.y); // 回到選單
+            }
+            return;
+        }
+
+        // 3. 閒置/選單階段
+        if (current.type === 'slayer' && !current.hasActed) {
+            // 如果點擊的是當前行動角色
+            if (clickedUnit === current) {
+                selectedUnit = current;
+                showActionMenu(true);
+                updateStatsPanel(current);
             } else if (clickedUnit) {
-                // 僅查看其他單位資訊
-                selectedUnit = clickedUnit;
-                updateUIStats();
+                // 僅查看別人
+                updateStatsPanel(clickedUnit);
+                showActionMenu(false);
             }
         }
     }
 
-    // 顯示移動範圍 (使用簡單的曼哈頓距離，不考慮障礙物以簡化原型)
-    function showMoveRange(unit) {
+    // --- 行動邏輯 ---
+
+    function showMoveRange() {
+        if (allUnits[turnIndex].hasMoved) return;
+        
+        gameState = 'MOVING';
+        const u = allUnits[turnIndex];
+        const range = 2; // 固定移動 2 格
+
+        renderGrid(); // 清除舊高亮
+        
         for (let y = 0; y < GRID_SIZE; y++) {
             for (let x = 0; x < GRID_SIZE; x++) {
-                const distance = Math.abs(unit.x - x) + Math.abs(unit.y - y);
-                // 檢查是否有其他單位擋路
-                const isOccupied = units.some(u => u.x === x && u.y === y && u.hp > 0 && u !== unit);
-                if (distance <= unit.moveRange && !isOccupied) {
-                    grid[y][x].classList.add('movable');
+                const dist = Math.abs(x - u.x) + Math.abs(y - u.y);
+                const occupied = allUnits.some(unit => unit.x === x && unit.y === y && unit.hp > 0 && unit !== u);
+                if (dist <= range && !occupied) {
+                    gridElements[y][x].classList.add('movable');
                 }
             }
         }
-    }
-
-    // 顯示攻擊範圍 (僅相鄰四格)
-    function showAttackRange(unit) {
-        const adjacent = [
-            {x: unit.x+1, y: unit.y}, {x: unit.x-1, y: unit.y},
-            {x: unit.x, y: unit.y+1}, {x: unit.x, y: unit.y-1}
-        ];
-        adjacent.forEach(pos => {
-            if (pos.x >= 0 && pos.x < GRID_SIZE && pos.y >= 0 && pos.y < GRID_SIZE) {
-                grid[pos.y][pos.x].classList.add('attackable');
-            }
-        });
     }
 
     function moveUnit(unit, x, y) {
         unit.x = x;
         unit.y = y;
         unit.hasMoved = true;
-        addLog(`${unit.name} 移動到了 (${x}, ${y})`);
+        renderGrid();
     }
 
-    function executeAttack(attacker, defender, isSkill) {
-        let damage = 0;
-        let attackName = "普通攻擊";
+    function startAttackMode(isSkill) {
+        if (allUnits[turnIndex].hasActed) return;
+        
+        gameState = 'TARGETING';
+        const u = allUnits[turnIndex];
+        // 技能傷害倍率簡單處理: 技能 = 攻擊 * 1.5, 普攻 = 攻擊 * 1.0
+        u.tempDmgMult = isSkill ? 1.5 : 1.0; 
 
-        if (isSkill) {
-            // 技能傷害計算：技能基礎傷害 + 攻擊力 - 防禦力
-            damage = attacker.skillDmg + attacker.atk - defender.def;
-            attackName = attacker.skillName;
-            addLog(`<span class="log-skill">${attacker.name} 使用了 ${attackName}！</span>`);
-        } else {
-            // 普通攻擊傷害計算
-            damage = attacker.atk - defender.def;
+        renderGrid();
+
+        // 計算攻擊範圍
+        for (let y = 0; y < GRID_SIZE; y++) {
+            for (let x = 0; x < GRID_SIZE; x++) {
+                const dist = Math.abs(x - u.x) + Math.abs(y - u.y);
+                // 善逸 Range=3, 其他 Range=1
+                if (dist <= u.range && dist > 0) {
+                    // 如果有敵人，標記紅色
+                    const target = allUnits.find(t => t.x === x && t.y === y && t.hp > 0);
+                    if (target && target.type !== u.type) {
+                        gridElements[y][x].classList.add('attackable');
+                    }
+                    // 伊之助的範圍攻擊允許點空地嗎？ 這裡簡化為必須點擊敵人
+                }
+            }
+        }
+        addLog(isSkill ? "選擇戰技目標..." : "選擇攻擊目標...");
+    }
+
+    function executeAttack(attacker, targetX, targetY) {
+        const targets = [];
+        const mainTarget = allUnits.find(u => u.x === targetX && u.y === targetY && u.hp > 0);
+
+        if (mainTarget) targets.push(mainTarget);
+
+        // 伊之助的範圍攻擊 (獸之呼吸)：同時攻擊目標周圍九宮格
+        if (attacker.isAoE && mainTarget) {
+            for (let dx = -1; dx <= 1; dx++) {
+                for (let dy = -1; dy <= 1; dy++) {
+                    if (dx === 0 && dy === 0) continue;
+                    const subTarget = allUnits.find(u => u.x === mainTarget.x + dx && u.y === mainTarget.y + dy && u.hp > 0 && u.type !== attacker.type);
+                    if (subTarget) targets.push(subTarget);
+                }
+            }
+            addLog(`${attacker.name} 使用範圍獠牙斬！`);
         }
 
-        // 傷害浮動 (90% - 110%)
-        damage = Math.floor(damage * (0.9 + Math.random() * 0.2));
-        damage = Math.max(1, damage); // 至少造成 1 點傷害
+        if (targets.length === 0) return; // 無效攻擊
 
-        defender.hp -= damage;
-        addLog(`${attacker.name} 對 ${defender.name} 造成了 <span class="log-damage">${damage}</span> 點傷害。`);
+        targets.forEach(defender => {
+            // 傷害公式
+            let baseDmg = attacker.atk * (attacker.tempDmgMult || 1);
+            let dmg = Math.floor(baseDmg - (defender.def * 0.5));
+            // 浮動與最小傷害
+            dmg = Math.max(1, Math.floor(dmg * (0.9 + Math.random() * 0.2)));
+            
+            // 暴擊 (善逸高機率)
+            if (attacker.role === 'zenitsu' && Math.random() > 0.7) {
+                dmg = Math.floor(dmg * 1.5);
+                addLog(`⚡ 霹靂一閃！暴擊！`);
+            }
 
-        if (defender.hp <= 0) {
-            defender.hp = 0;
-            addLog(`<strong>${defender.name} 被擊敗了！</strong>`);
-        }
+            defender.hp -= dmg;
+            addLog(`${attacker.name} 對 ${defender.name} 造成 <span class="log-dmg">${dmg}</span> 傷害`);
+
+            if (defender.hp <= 0) {
+                defender.hp = 0;
+                addLog(`${defender.name} 被消滅了！`);
+                // 獲得經驗值 (基礎值 + 等級差加成)
+                let xpGain = 35 + (defender.level * 10);
+                if (defender.role === 'boss') xpGain *= 3;
+                attacker.gainXp(xpGain);
+            }
+        });
+
+        endAction();
     }
 
     function endAction() {
-        getCurrentUnit().hasActed = true;
-        nextTurn();
+        const u = allUnits[turnIndex];
+        u.hasActed = true;
+        u.hasMoved = true;
+        u.tempDmgMult = 1;
+        
+        showActionMenu(false);
+        gameState = 'IDLE';
+        
+        turnIndex = (turnIndex + 1) % allUnits.length;
+        startTurnSequence();
     }
 
-    // --- UI 介面控制 ---
-    function updateTurnIndicator() {
-        const current = getCurrentUnit();
-        const indicator = document.getElementById('turn-indicator');
-        indicator.innerText = `${current.name} (${current.type === 'slayer' ? '我方' : '敵方'}) 的回合`;
-        indicator.style.color = current.type === 'slayer' ? '#00bfff' : '#ff4d4d';
-    }
+    // --- AI ---
 
-    function updateUIStats() {
-        const statsBox = document.getElementById('unit-stats');
-        if (!selectedUnit) {
-            statsBox.innerText = "請選擇一個單位";
-            return;
-        }
-        statsBox.innerHTML = `
-            <strong>${selectedUnit.name}</strong><br>
-            類型: ${selectedUnit.type === 'slayer' ? '鬼殺隊' : '惡鬼'}<br>
-            HP: ${selectedUnit.hp} / ${selectedUnit.maxHp}<br>
-            攻擊: ${selectedUnit.atk}<br>
-            防禦: ${selectedUnit.def}<br>
-            移動: ${selectedUnit.moveRange}
-        `;
-    }
-
-    function showActionMenu() {
-        const menu = document.getElementById('action-menu');
-        menu.style.display = 'flex';
-        const current = getCurrentUnit();
-
-        // 檢查周圍是否有敵人可攻擊
-        const adjacentEnemies = units.some(u => 
-            u.type !== current.type && u.hp > 0 &&
-            (Math.abs(u.x - current.x) + Math.abs(u.y - current.y) === 1)
-        );
-
-        document.getElementById('btn-move').disabled = current.hasMoved;
-        document.getElementById('btn-attack').disabled = current.hasActed || !adjacentEnemies;
-        document.getElementById('btn-skill').disabled = current.hasActed || !adjacentEnemies;
-        document.getElementById('btn-skill').innerText = `${current.skillName} (Skill)`;
-    }
-
-    function addLog(message) {
-        const log = document.getElementById('battle-log');
-        const entry = document.createElement('div');
-        entry.className = 'log-entry';
-        entry.innerHTML = message;
-        log.appendChild(entry);
-        log.scrollTop = log.scrollHeight;
-    }
-
-    // --- 按鈕事件綁定 ---
-    document.getElementById('btn-move').onclick = () => {
-        if (getCurrentUnit().hasMoved) return;
-        renderGrid();
-        showMoveRange(getCurrentUnit());
-        gameState = 'MOVING';
-        document.getElementById('action-menu').style.display = 'none';
-    };
-
-    document.getElementById('btn-attack').onclick = () => {
-        renderGrid();
-        showAttackRange(getCurrentUnit());
-        gameState = 'ATTACKING';
-        document.getElementById('action-menu').style.display = 'none';
-        addLog("請選擇攻擊目標...");
-    };
-
-    document.getElementById('btn-skill').onclick = () => {
-        renderGrid();
-        showAttackRange(getCurrentUnit());
-        gameState = 'SKILLING';
-        document.getElementById('action-menu').style.display = 'none';
-        addLog(`請選擇 ${getCurrentUnit().skillName} 的目標...`);
-    };
-
-    document.getElementById('btn-wait').onclick = () => {
-        addLog(`${getCurrentUnit().name} 結束了行動。`);
-        endAction();
-    };
-
-    // --- 簡易敵人 AI ---
-    function enemyAI() {
-        const currentDemon = getCurrentUnit();
-        if (currentDemon.hp <= 0) { nextTurn(); return; }
-
-        addLog(`[AI] ${currentDemon.name} 正在思考...`);
-
-        // 1. 尋找最近的鬼殺隊隊員
+    function aiTurn() {
+        const demon = allUnits[turnIndex];
+        
+        // 尋找最近的我方
         let target = null;
-        let minDistance = 999;
-        units.forEach(u => {
-            if (u.type === 'slayer' && u.hp > 0) {
-                const dist = Math.abs(u.x - currentDemon.x) + Math.abs(u.y - currentDemon.y);
-                if (dist < minDistance) {
-                    minDistance = dist;
-                    target = u;
+        let minDist = 999;
+        
+        allies.forEach(a => {
+            if (a.hp > 0) {
+                const dist = Math.abs(a.x - demon.x) + Math.abs(a.y - demon.y);
+                if (dist < minDist) {
+                    minDist = dist;
+                    target = a;
                 }
             }
         });
 
-        if (!target) { endAction(); return; } // 沒有目標
+        if (!target) { endAction(); return; }
 
-        // 2. 移動邏輯 (簡化：向目標方向移動一步)
-        if (minDistance > 1) {
-            let newX = currentDemon.x;
-            let newY = currentDemon.y;
-            if (target.x > currentDemon.x) newX++;
-            else if (target.x < currentDemon.x) newX--;
+        // 移動邏輯 (AI 移動力也是 2)
+        if (minDist > 1) {
+            // 簡單逼近算法
+            let moves = 0;
+            let bestX = demon.x, bestY = demon.y;
             
-            if (target.y > currentDemon.y) newY++;
-            else if (target.y < currentDemon.y) newY--;
+            // 嘗試走 2 步
+            for(let i=0; i<2; i++) {
+                let dx = target.x - bestX;
+                let dy = target.y - bestY;
+                
+                let nextX = bestX, nextY = bestY;
+                if (Math.abs(dx) > Math.abs(dy)) {
+                    nextX += Math.sign(dx);
+                } else {
+                    nextY += Math.sign(dy);
+                }
 
-            // 確保沒人擋路且在移動範圍內 (這裡 AI 作弊一下，只做簡單檢查)
-            const isOccupied = units.some(u => u.x === newX && u.y === newY && u.hp > 0);
-            if (!isOccupied && (Math.abs(newX - currentDemon.x) + Math.abs(newY - currentDemon.y)) <= currentDemon.moveRange) {
-                 moveUnit(currentDemon, newX, newY);
-                 renderGrid();
+                // 檢查碰撞
+                const blocked = allUnits.some(u => u.x === nextX && u.y === nextY && u.hp > 0);
+                if (!blocked && (nextX !== target.x || nextY !== target.y)) {
+                    bestX = nextX;
+                    bestY = nextY;
+                }
             }
+            demon.x = bestX;
+            demon.y = bestY;
+            renderGrid();
         }
 
-        // 3. 攻擊邏輯
-        // 重新計算距離
-        const newDist = Math.abs(target.x - currentDemon.x) + Math.abs(target.y - currentDemon.y);
-        if (newDist === 1) {
-            // 50% 機率用技能，50% 用普攻
-            const useSkill = Math.random() > 0.5;
+        // 攻擊邏輯
+        const distAfterMove = Math.abs(target.x - demon.x) + Math.abs(target.y - demon.y);
+        if (distAfterMove === 1) {
             setTimeout(() => {
-                executeAttack(currentDemon, target, useSkill);
-                renderGrid();
-                endAction();
-            }, 800); // 攻擊延遲增加臨場感
+                // Boss 有機率用強力攻擊
+                demon.tempDmgMult = (demon.role === 'boss' && Math.random() > 0.6) ? 1.5 : 1.0;
+                executeAttack(demon, target.x, target.y);
+            }, 500);
         } else {
             setTimeout(endAction, 500);
         }
     }
 
-    // --- 遊戲啟動 ---
-    initGrid();
-    initUnits();
-    renderGrid();
-    addLog("戰鬥開始！那田蜘蛛山的遭遇戰。");
+    // --- UI 更新 ---
+
+    function updateTurnUI() {
+        const u = allUnits[turnIndex];
+        const info = document.getElementById('turn-info');
+        info.innerHTML = `<span style="color: ${u.type==='slayer'?'#00bfff':'#ff4d4d'}">${u.name} 的回合</span>`;
+    }
+
+    function updateStatsPanel(u) {
+        const stats = document.getElementById('unit-stats');
+        stats.innerHTML = `
+            <strong>${u.name} (Lv.${u.level})</strong><br>
+            HP: ${u.hp} / ${u.maxHp}<br>
+            攻: ${u.atk} | 防: ${u.def}<br>
+            EXP: ${u.xp} / ${u.maxXp}<br>
+            特性: ${u.role === 'zenitsu' ? '遠程(3格)' : (u.role === 'inosuke' ? '範圍攻擊' : '近戰')}
+        `;
+    }
+
+    function showActionMenu(show) {
+        const menu = document.getElementById('action-menu');
+        if (!show) {
+            menu.style.display = 'none';
+            return;
+        }
+        menu.style.display = 'flex';
+        const u = allUnits[turnIndex];
+        
+        document.getElementById('btn-move').disabled = u.hasMoved;
+        document.getElementById('btn-attack').disabled = u.hasActed;
+        
+        // 技能按鈕文字
+        const skillBtn = document.getElementById('btn-skill');
+        skillBtn.disabled = u.hasActed;
+        if(u.role === 'tanjiro') skillBtn.innerText = "水之呼吸 (強擊)";
+        if(u.role === 'zenitsu') skillBtn.innerText = "霹靂一閃 (遠程)";
+        if(u.role === 'inosuke') skillBtn.innerText = "空間感知 (範圍)";
+    }
+
+    function addLog(msg) {
+        const win = document.getElementById('log-window');
+        win.innerHTML += `<div>${msg}</div>`;
+        win.scrollTop = win.scrollHeight;
+    }
+
+    // --- 按鈕事件 ---
+    document.getElementById('btn-move').onclick = showMoveRange;
+    
+    document.getElementById('btn-attack').onclick = () => startAttackMode(false);
+    
+    document.getElementById('btn-skill').onclick = () => startAttackMode(true); // 技能視為高傷害/特殊攻擊
+
+    document.getElementById('btn-wait').onclick = () => {
+        addLog(`${allUnits[turnIndex].name} 待機`);
+        endAction();
+    };
+
+    // 啟動
+    initGame();
 
 </script>
 </body>
