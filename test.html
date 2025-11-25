@@ -3,698 +3,629 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>三國志：漢末霸業 (道路與戰鬥版)</title>
+    <title>三國志：漢末霸業 (戰鬥演示與流亡版)</title>
     <style>
         :root {
             --bg-color: #1a1815;
             --panel-bg: #2b2623;
             --text-color: #dcd6cc;
-            --accent-color: #8b0000;
             --gold-color: #d4af37;
             --map-bg: #2f353b;
+            --hp-green: #4caf50;
+            --hp-red: #f44336;
         }
         body {
             font-family: "PMingLiU", "KaiTi", serif;
             background-color: var(--bg-color);
-            background-image: linear-gradient(rgba(0,0,0,0.8), rgba(0,0,0,0.8)), url('https://www.transparenttextures.com/patterns/aged-paper.png');
+            background-image: linear-gradient(rgba(0,0,0,0.85), rgba(0,0,0,0.85)), url('https://www.transparenttextures.com/patterns/aged-paper.png');
             color: var(--text-color);
             margin: 0; padding: 0;
             display: flex; flex-direction: column; align-items: center;
             height: 100vh; overflow: hidden; user-select: none;
         }
+        
+        /* 通用元件 */
         h1 { margin: 6px 0; font-size: 1.4rem; text-shadow: 2px 2px 2px #000; letter-spacing: 4px; color: var(--gold-color); font-weight: bold; }
+        button { cursor: pointer; border: 1px solid #6d5e56; transition: 0.2s; font-family: inherit; }
+        button:hover { filter: brightness(1.2); }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.92); z-index: 200; justify-content: center; align-items: center; }
+        .modal-box { background: #2d2d2d; padding: 20px; border: 2px solid var(--gold-color); text-align: center; box-shadow: 0 0 30px #000; max-height: 95vh; overflow-y: auto; position: relative;}
 
+        /* 遊戲主容器 */
         #game-container { width: 100%; max-width: 1600px; display: none; height: 96vh; }
 
         /* 開始選單 */
-        #start-screen {
-            background: var(--panel-bg); padding: 40px; border: 2px solid #5d4037;
-            box-shadow: 0 0 50px rgba(0,0,0,1); text-align: center;
-            max-width: 1200px; width: 95%; margin-top: 40px; overflow-y: auto; max-height: 90vh;
-        }
-        .clan-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-top: 20px; }
-        .clan-btn {
-            padding: 15px; cursor: pointer; color: #ddd; border: 1px solid #444; transition: 0.2s;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            background: #3e3832; min-height: 80px; position: relative;
-        }
-        .clan-btn:hover { transform: translateY(-3px); border-color: var(--gold-color); filter: brightness(1.2); z-index: 10; }
-        .tier-badge { position: absolute; top: 0; left: 0; font-size: 0.7rem; padding: 2px 6px; background: rgba(0,0,0,0.6); color: var(--gold-color); }
+        #start-screen { background: var(--panel-bg); padding: 40px; border: 2px solid #5d4037; text-align: center; max-width: 1200px; margin-top: 40px; }
+        .clan-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-top: 20px; }
+        .clan-btn { padding: 10px; color: #ddd; border: 1px solid #444; background: #3e3832; min-height: 70px; position: relative; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+        .clan-btn:hover { border-color: var(--gold-color); background: #4e443e; }
 
-        /* 上方資訊列 */
-        .top-bar {
-            display: flex; gap: 15px; background: #201c1a; padding: 6px 20px;
-            border-bottom: 2px solid #5d4037; border-top: 2px solid #5d4037;
-            justify-content: space-between; align-items: center; font-size: 0.9rem;
-        }
+        /* 頂部資訊列 */
+        .top-bar { display: flex; gap: 15px; background: #201c1a; padding: 5px 20px; border-y: 2px solid #5d4037; justify-content: space-between; align-items: center; }
         .stat-box { text-align: center; min-width: 60px; }
-        .stat-label { font-size: 0.7rem; color: #a1887f; display: block; }
-        .stat-val { font-size: 1rem; font-weight: bold; color: var(--gold-color); font-family: "Georgia"; }
-        .ap-box { background: var(--accent-color); padding: 4px 12px; border-radius: 2px; font-weight: bold; color: white; border: 1px solid #ff5252; }
+        .stat-val { font-size: 1rem; font-weight: bold; color: var(--gold-color); }
+        .stat-label { font-size: 0.7rem; color: #aaa; }
 
-        /* 主遊戲區 */
-        .main-content { display: grid; grid-template-columns: 1fr 320px; gap: 0; height: 100%; }
+        /* 地圖區 */
+        .main-content { display: grid; grid-template-columns: 1fr 300px; gap: 0; height: 100%; }
+        .map-frame { background-color: var(--map-bg); position: relative; overflow: auto; cursor: grab; border-right: 2px solid #3e3832; }
         
-        /* 地圖區域 */
-        .map-frame {
-            background-color: var(--map-bg);
-            /* 模擬地形 */
-            background-image: radial-gradient(circle at 30% 60%, #3a3f44 0%, var(--map-bg) 60%);
-            border-right: 2px solid #3e3832; position: relative; overflow: auto; cursor: grab;
-        }
-        
-        /* 道路 SVG */
-        #road-layer { position: absolute; top: 0; left: 0; width: 1400px; height: 1200px; pointer-events: none; z-index: 0; }
-        .road-line { stroke: rgba(255, 255, 255, 0.15); stroke-width: 2; stroke-dasharray: 5,5; }
+        /* 道路連線層 */
+        #road-layer { position: absolute; top: 0; left: 0; width: 1500px; height: 1400px; pointer-events: none; z-index: 0; }
+        .road-line { stroke: rgba(255, 255, 255, 0.2); stroke-width: 2; stroke-dasharray: 4,4; }
 
-        .map-grid {
-            display: grid;
-            grid-template-columns: repeat(40, 32px); /* 固定寬度以便繪線 */
-            grid-template-rows: repeat(35, 32px);
-            gap: 4px; padding: 40px; width: 1400px; height: 1200px; position: relative; z-index: 1;
-        }
-        .province {
-            border: 1px solid rgba(255,255,255,0.15); background: #4a4a4a;
+        /* 城市網格 */
+        .map-grid { display: grid; grid-template-columns: repeat(42, 32px); grid-template-rows: repeat(40, 32px); width: 1500px; height: 1400px; padding: 40px; position: relative; z-index: 1; }
+        .province { 
+            border: 1px solid rgba(255,255,255,0.2); background: #333; color: #ccc;
             display: flex; flex-direction: column; justify-content: center; align-items: center;
-            cursor: pointer; position: relative; transition: 0.15s; 
-            box-shadow: 2px 2px 5px rgba(0,0,0,0.4); color: #ccc; border-radius: 2px;
+            cursor: pointer; position: relative; transition: 0.2s; box-shadow: 2px 2px 5px rgba(0,0,0,0.5); border-radius: 3px;
         }
-        .province:hover { border-color: #ffd700; z-index: 100; transform: scale(1.3); box-shadow: 0 0 15px #000; }
-        .prov-name { font-weight: bold; font-family: "KaiTi"; font-size: 0.9rem; text-shadow: 1px 1px 2px #000; pointer-events: none; white-space: nowrap; margin-bottom: 2px; z-index: 2;}
-        .prov-info { font-size: 0.6rem; pointer-events: none; color: #fff; z-index: 2; }
+        .province:hover { transform: scale(1.3); z-index: 100; border-color: #fff; box-shadow: 0 0 15px #000; }
+        .prov-name { font-size: 0.85rem; font-weight: bold; text-shadow: 1px 1px 2px #000; pointer-events: none; white-space: nowrap; z-index: 2; }
         
-        /* 狀態樣式 */
-        .status-direct { border: 2px solid #fff; box-shadow: inset 0 0 5px #fff; }
-        .status-auto { border: 2px double #66bb6a; }
-        .status-ally { border: 2px dashed #42a5f5; opacity: 0.9; }
-
-        /* 統計面板 */
-        .stats-overlay {
-            position: absolute; top: 10px; left: 10px; background: rgba(30, 25, 20, 0.95);
-            border: 1px solid #8d6e63; padding: 8px; width: 180px; max-height: 400px; overflow-y: auto;
-            z-index: 1000; font-size: 0.75rem; color: #ddd; box-shadow: 3px 3px 8px rgba(0,0,0,0.7);
-        }
-        .stats-table { border-collapse: collapse; width: 100%; }
-        .stats-table td { padding: 3px; border-bottom: 1px solid #3e3832; }
-
         /* 勢力顏色 */
-        .c-wei { background: #0d47a1; color: #fff; } 
-        .c-shu { background: #1b5e20; color: #fff; } 
-        .c-wu { background: #b71c1c; color: #fff; }  
-        .c-yuan { background: #fbc02d; color: #000; } 
-        .c-dong { background: #4a148c; color: #fff; } 
+        .c-wei { background: #1565c0; color: #fff; } 
+        .c-shu { background: #2e7d32; color: #fff; } 
+        .c-wu { background: #c62828; color: #fff; }  
+        .c-yuan { background: #f9a825; color: #000; } 
+        .c-dong { background: #6a1b9a; color: #fff; } 
         .c-lu { background: #212121; border: 1px solid #ff5252; } 
-        .c-ma { background: #006064; }
-        .c-liu_biao { background: #5d4037; }
-        .c-liu_zhang { background: #827717; }
-        .c-gongsun { background: #e65100; }
-        .c-yuan_shu { background: #f06292; color:#000; }
-        .c-neutral { background: #546e7a; opacity: 0.6; }
+        .c-others { background: #4e342e; color: #fff; }
+        .c-neutral { background: #546e7a; opacity: 0.5; }
+
+        /* 狀態標示 */
+        .status-direct { border: 2px solid #fff; box-shadow: inset 0 0 8px #fff; }
+        .status-auto { border: 2px double #66bb6a; }
 
         /* 控制面板 */
-        .control-panel { background: var(--panel-bg); padding: 15px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; box-shadow: -5px 0 15px rgba(0,0,0,0.5); z-index: 50; }
-        .panel-block { background: #352e2a; padding: 10px; border: 1px solid #5d4037; margin-bottom: 5px; }
-        .panel-header { color: var(--gold-color); font-size: 0.9rem; border-bottom: 1px solid #5d4037; margin-bottom: 8px; font-family: "KaiTi"; font-weight:bold; }
+        .control-panel { background: var(--panel-bg); padding: 15px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; z-index: 50; }
+        .panel-block { background: #352e2a; padding: 10px; border: 1px solid #5d4037; }
+        .action-btn { width: 100%; padding: 10px; margin-bottom: 5px; background: #4e443e; color: #e0e0e0; text-align: left; }
         
-        button { 
-            width: 100%; padding: 10px; margin-bottom: 6px; cursor: pointer; 
-            background: #4e443e; color: #e0e0e0; border: 1px solid #6d5e56; text-align: left; transition: 0.2s; font-size: 0.9rem;
-        }
-        button:hover { background: #6d5e56; border-color: #a1887f; color:#fff; }
-        select { width: 100%; padding: 8px; background: #26211e; color: #e0e0e0; border: 1px solid #5d4037; margin-bottom: 8px; }
-        
-        .btn-wait { background: #212121; color: #cfd8dc; border: 1px solid #455a64; text-align: center; height: 45px; margin-top: auto; font-size: 1rem; }
-        #log-box { height: 180px; background: #111; border: 1px solid #5d4037; padding: 8px; font-size: 0.8rem; overflow-y: auto; font-family: 'Consolas', monospace; color: #ccc; }
-        
-        /* Modals */
-        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 200; justify-content: center; align-items: center; }
-        .modal-box { background: #2d2d2d; padding: 20px; width: 500px; border: 2px solid var(--gold-color); text-align: center; box-shadow: 0 0 30px #000; max-height: 90vh; overflow-y: auto;}
-        
+        /* 戰鬥動畫介面 */
+        #battle-anim-ui { display: none; width: 600px; flex-direction: column; gap: 15px; }
+        .battle-stage { display: flex; justify-content: space-between; align-items: center; background: #111; padding: 20px; border-radius: 5px; position: relative; overflow: hidden; }
+        .battle-side { width: 45%; text-align: center; z-index: 2; }
+        .hp-bar-bg { width: 100%; height: 10px; background: #333; margin-top: 5px; border-radius: 5px; overflow: hidden; }
+        .hp-bar-fill { height: 100%; transition: width 0.3s ease-out; }
+        .dmg-text { position: absolute; font-size: 1.5rem; font-weight: bold; color: #ffeb3b; text-shadow: 2px 2px 0 #b71c1c; opacity: 0; transition: 0.5s; top: 40%; left: 50%; transform: translate(-50%, -50%); z-index: 10; }
+        .battle-log-live { height: 100px; background: #000; color: #0f0; font-family: monospace; overflow-y: auto; text-align: left; padding: 5px; font-size: 0.8rem; border: 1px solid #444; }
+
         /* 戰鬥準備介面 */
-        .battle-prep-container { display: flex; gap: 20px; text-align: left; margin-bottom: 20px; }
-        .battle-side { flex: 1; background: #222; padding: 10px; border: 1px solid #444; }
-        .gen-list-item { padding: 5px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; }
-        .gen-list-item:hover { background: #333; }
-        .gen-checkbox { transform: scale(1.2); cursor: pointer; }
-        .stat-badge { font-size: 0.75rem; padding: 1px 4px; border-radius: 3px; margin-left: 5px; }
+        #battle-prep-ui { display: block; width: 600px; }
+        .gen-list { height: 200px; overflow-y: auto; background: #222; border: 1px solid #444; text-align: left; }
+        .gen-item { padding: 5px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; }
         
-        .manage-grid { display: flex; gap: 15px; margin-top: 20px; }
-        .manage-card { flex: 1; padding: 15px; border: 1px solid #666; cursor: pointer; background: #333; transition:0.2s; }
-        .manage-card:hover { background: #444; border-color: var(--gold-color); }
-        .close-btn { background: #444; border: 1px solid #666; padding: 8px 25px; cursor: pointer; color:#fff; }
+        #log-box { height: 150px; background: #111; padding: 5px; font-size: 0.8rem; color: #ccc; overflow-y: auto; }
+        .close-btn { background: #444; color: #fff; padding: 5px 15px; margin-top: 10px; }
     </style>
 </head>
 <body>
 
     <div id="start-screen">
         <h1>三國志：漢末霸業</h1>
-        <p style="color:#a1887f; font-family:'KaiTi';">公元190年 - 群雄割據</p>
-        <div style="margin-bottom: 20px;">
-            <select id="difficulty" style="width: auto; padding: 5px;">
-                <option value="1">初級 (資源豐沛)</option>
-                <option value="2" selected>中級 (群雄並起)</option>
-                <option value="3">上級 (修羅之道)</option>
-            </select>
-        </div>
-        <div class="clan-grid" id="clan-select-area"></div>
+        <p>群雄割據 · 190年</p>
+        <div class="clan-grid" id="clan-area"></div>
     </div>
 
     <div id="game-container">
         <div class="top-bar">
-            <div class="stat-box"><span class="stat-label">時間</span><div class="stat-val" id="d-year">190年 春</div></div>
-            <div class="stat-box"><span class="stat-label">資金</span><div class="stat-val" id="d-gold">0</div></div>
-            <div class="stat-box"><span class="stat-label">軍糧</span><div class="stat-val" id="d-food">0</div></div>
-            <div class="stat-box"><span class="stat-label">總兵力</span><div class="stat-val"><span id="d-troops">0</span><span class="wounded-box">(<span id="d-wounded">0</span>)</span></div></div>
-            <div class="stat-box"><span class="stat-label">城池</span><div class="stat-val" id="d-lands">0</div></div>
-            <div class="ap-box">政令: <span id="d-ap">3</span></div>
+            <div class="stat-box"><span class="stat-label">年</span><div class="stat-val" id="d-year">190</div></div>
+            <div class="stat-box"><span class="stat-label">金</span><div class="stat-val" id="d-gold">0</div></div>
+            <div class="stat-box"><span class="stat-label">糧</span><div class="stat-val" id="d-food">0</div></div>
+            <div class="stat-box"><span class="stat-label">兵</span><div class="stat-val" id="d-troops">0</div></div>
+            <div class="stat-box"><span class="stat-label">城</span><div class="stat-val" id="d-lands">0</div></div>
+            <div style="background:#b71c1c; padding:2px 10px; color:white; font-size:0.9rem;">政令: <span id="d-ap">3</span></div>
         </div>
 
         <div class="main-content">
             <div class="map-frame" id="map-frame">
                 <svg id="road-layer"></svg>
-                <div id="stats-box" class="stats-overlay"></div>
                 <div class="map-grid" id="map-grid"></div>
             </div>
 
             <div class="control-panel">
                 <div class="panel-block">
-                    <div class="panel-header">內政指令</div>
-                    <select id="general-select"></select>
-                    <button onclick="doAction('commerce')">💰 商業開發 (金+)</button>
-                    <button onclick="doAction('agriculture')">🌾 農業開墾 (糧+)</button>
-                    <button onclick="doAction('recruit')">⚔️ 徵召義兵 (兵+)</button>
-                    <button onclick="doAction('fortify')">🔨 修築城防 (防+)</button>
+                    <div style="color:var(--gold-color); margin-bottom:5px; font-weight:bold;">內政</div>
+                    <select id="gen-select" style="width:100%; margin-bottom:5px; padding:5px; background:#222; color:#fff; border:1px solid #555;"></select>
+                    <button class="action-btn" onclick="doAction('comm')">💰 商業開發 (金+)</button>
+                    <button class="action-btn" onclick="doAction('agri')">🌾 農業開墾 (糧+)</button>
+                    <button class="action-btn" onclick="doAction('recruit')">⚔️ 徵召義兵 (兵+)</button>
                 </div>
                 <div class="panel-block">
-                    <div class="panel-header">外交</div>
-                    <select id="diplo-select"></select>
-                    <button onclick="doDiplomacy()">📜 締結同盟 (金-800)</button>
+                    <div style="color:var(--gold-color); margin-bottom:5px; font-weight:bold;">軍事</div>
+                    <div style="font-size:0.8rem; color:#aaa; margin-bottom:5px;">點擊相鄰敵城進行攻擊</div>
                 </div>
-                <button class="btn-wait" onclick="endTurn()">🌙 結束本月</button>
+                <button class="action-btn" style="text-align:center; margin-top:auto; background:#212121;" onclick="endTurn()">🌙 結束本月</button>
                 <div id="log-box"></div>
             </div>
         </div>
     </div>
 
-    <div id="manage-modal" class="modal">
+    <div id="battle-modal" class="modal">
         <div class="modal-box">
-            <h3 id="manage-title" style="color:var(--gold-color); margin-top:0;">太守任命</h3>
-            <p style="font-size:0.9rem; color:#aaa;">太守將自動管理內政與防禦。</p>
-            <select id="manage-gen-select" style="margin-bottom:20px;"></select>
-            <div class="manage-grid">
-                <div class="manage-card" onclick="setProvinceState('direct')">
-                    <strong style="color:#ef5350;">★ 直轄</strong><br><span style="font-size:0.8rem; color:#bbb;">兵力歸中央</span>
+            
+            <div id="battle-prep-ui">
+                <h2 style="color:#e57373; margin:0 0 10px 0;">出征準備</h2>
+                <div style="display:flex; gap:20px; text-align:left;">
+                    <div style="flex:1;">
+                        <h4 style="margin:5px 0; color:#64b5f6;">我軍出陣 (最多5人)</h4>
+                        <div class="gen-list" id="prep-gen-list"></div>
+                        <div style="margin-top:5px;">兵力: <span id="prep-troops">0</span></div>
+                    </div>
+                    <div style="flex:1; border-left:1px solid #444; padding-left:10px;">
+                        <h4 style="margin:5px 0; color:#e57373;">敵方情報</h4>
+                        <div id="prep-enemy-info" style="font-size:0.9rem; line-height:1.6;"></div>
+                    </div>
                 </div>
-                <div class="manage-card" onclick="setProvinceState('auto')">
-                    <strong style="color:#66bb6a;">♻ 委任</strong><br><span style="font-size:0.8rem; color:#bbb;">兵力獨立</span>
+                <div style="margin-top:20px;">
+                    <button style="background:#d32f2f; color:white; padding:10px 30px; font-size:1.1rem; border:none;" onclick="startBattleAnim()">開戰</button>
+                    <button class="close-btn" onclick="closeModal()">取消</button>
                 </div>
             </div>
-            <button class="close-btn" onclick="closeModal()">取消</button>
+
+            <div id="battle-anim-ui">
+                <h2 style="color:#ffeb3b; margin:0;">兩軍交戰</h2>
+                <div class="battle-stage">
+                    <div class="dmg-text" id="dmg-popup">-0</div>
+                    
+                    <div class="battle-side">
+                        <div style="color:#64b5f6; font-weight:bold; font-size:1.2rem;">我軍</div>
+                        <div style="font-size:0.9rem;" id="anim-p-name">曹操隊</div>
+                        <div class="hp-bar-bg"><div class="hp-bar-fill" id="p-hp-bar" style="width:100%; background:var(--hp-green);"></div></div>
+                        <div id="p-hp-text">5000</div>
+                    </div>
+                    
+                    <div style="color:#aaa; font-weight:bold; font-size:1.5rem;">VS</div>
+                    
+                    <div class="battle-side">
+                        <div style="color:#e57373; font-weight:bold; font-size:1.2rem;">敵軍</div>
+                        <div style="font-size:0.9rem;" id="anim-e-name">呂布隊</div>
+                        <div class="hp-bar-bg"><div class="hp-bar-fill" id="e-hp-bar" style="width:100%; background:var(--hp-red);"></div></div>
+                        <div id="e-hp-text">3000</div>
+                    </div>
+                </div>
+                <div class="battle-log-live" id="battle-live-log"></div>
+                <button id="battle-end-btn" style="display:none; width:100%; padding:10px;" onclick="finalizeBattle()">戰鬥結束 - 確認結果</button>
+            </div>
+
         </div>
     </div>
 
-    <div id="battle-modal" class="modal">
-        <div class="modal-box" style="width: 700px;">
-            <h2 style="color:#ff5252; margin-top:0;">軍事出征</h2>
-            <div class="battle-prep-container">
-                <div class="battle-side">
-                    <h4 style="color:#64b5f6; margin:0 0 10px 0;">我軍主將 (最多5人)</h4>
-                    <div id="battle-gen-list" style="height: 250px; overflow-y: auto;"></div>
-                    <div style="margin-top:10px; font-size:0.9rem;">
-                        預計兵力: <span id="battle-player-troops" style="color:#gold">0</span><br>
-                        平均統率: <span id="battle-avg-lead" style="color:#ccc">0</span>
-                    </div>
-                </div>
-                <div class="battle-side">
-                    <h4 style="color:#ef5350; margin:0 0 10px 0;">敵方情報</h4>
-                    <div id="battle-enemy-info" style="font-size:0.9rem; line-height:1.6;"></div>
-                </div>
-            </div>
-            <button style="background:#b71c1c; text-align:center; font-weight:bold; font-size:1.1rem;" onclick="executeBattle()">開戰</button>
-            <button class="close-btn" onclick="closeModal()">撤退</button>
-        </div>
-    </div>
-    
     <div id="end-modal" class="modal">
         <div class="modal-box">
-            <h2 id="end-title" style="color: var(--gold-color);"></h2>
+            <h2 id="end-title" style="color:var(--gold-color);"></h2>
             <p id="end-msg"></p>
-            <button class="close-btn" onclick="location.reload()">重返亂世</button>
+            <button class="close-btn" onclick="location.reload()">重新開始</button>
         </div>
     </div>
 
 <script>
-    // 座標定義
-    const PROVINCES_DATA = [
-        {id:1,n:"襄平",r:3,c:32}, {id:2,n:"北平",r:4,c:29}, {id:3,n:"薊",r:5,c:28},
-        {id:4,n:"南皮",r:7,c:28}, {id:5,n:"鄴",r:9,c:27}, {id:6,n:"晉陽",r:7,c:25}, {id:7,n:"平原",r:9,c:29},
-        {id:8,n:"北海",r:9,c:32}, {id:9,n:"濮陽",r:11,c:28}, {id:10,n:"陳留",r:12,c:27},
-        {id:11,n:"洛陽",r:12,c:24}, {id:12,n:"許昌",r:14,c:26}, {id:13,n:"汝南",r:16,c:27},
-        {id:14,n:"下邳",r:13,c:31}, {id:15,n:"小沛",r:12,c:30}, {id:16,n:"廣陵",r:15,c:33},
-        {id:17,n:"壽春",r:16,c:30}, {id:18,n:"宛",r:15,c:24},
-        {id:19,n:"長安",r:13,c:21}, {id:20,n:"天水",r:11,c:17}, {id:21,n:"安定",r:10,c:19},
-        {id:22,n:"武威",r:8,c:14}, {id:23,n:"西平",r:9,c:12},
-        {id:24,n:"漢中",r:15,c:19}, {id:25,n:"梓潼",r:17,c:17}, {id:26,n:"成都",r:19,c:16},
-        {id:27,n:"江州",r:20,c:19}, {id:28,n:"建寧",r:26,c:15}, {id:29,n:"雲南",r:28,c:13},
-        {id:30,n:"永安",r:19,c:21},
-        {id:31,n:"上庸",r:14,c:22}, {id:32,n:"襄陽",r:16,c:23}, {id:33,n:"江夏",r:18,c:26},
-        {id:34,n:"江陵",r:19,c:23}, {id:35,n:"長沙",r:22,c:25}, {id:36,n:"武陵",r:21,c:22},
-        {id:37,n:"零陵",r:25,c:23}, {id:38,n:"桂陽",r:25,c:26},
-        {id:39,n:"廬江",r:18,c:29}, {id:40,n:"建業",r:17,c:32}, {id:41,n:"吳",r:18,c:34},
-        {id:42,n:"會稽",r:20,c:35}, {id:43,n:"柴桑",r:21,c:28}, {id:44,n:"豫章",r:23,c:29},
-        {id:45,n:"南海",r:28,c:27}, {id:46,n:"交趾",r:30,c:24}
+    // --- 1. 資料設定 ---
+    
+    // 座標優化：確保地理位置合理且能連成網絡
+    // r: row (y), c: col (x)
+    const CITIES = [
+        {id:1,n:"襄平",r:3,c:34}, {id:2,n:"北平",r:4,c:30}, {id:3,n:"薊",r:5,c:29},
+        {id:4,n:"南皮",r:7,c:29}, {id:5,n:"鄴",r:9,c:28}, {id:6,n:"晉陽",r:7,c:26}, {id:7,n:"平原",r:9,c:30},
+        {id:8,n:"北海",r:9,c:33}, {id:9,n:"濮陽",r:11,c:29}, {id:10,n:"陳留",r:12,c:28},
+        {id:11,n:"洛陽",r:12,c:25}, {id:12,n:"許昌",r:14,c:27}, {id:13,n:"汝南",r:16,c:28},
+        {id:14,n:"下邳",r:13,c:32}, {id:15,n:"小沛",r:12,c:31}, {id:16,n:"廣陵",r:15,c:34},
+        {id:17,n:"壽春",r:16,c:31}, {id:18,n:"宛",r:15,c:25},
+        {id:19,n:"長安",r:13,c:22}, {id:20,n:"天水",r:11,c:18}, {id:21,n:"安定",r:10,c:20},
+        {id:22,n:"武威",r:8,c:15}, {id:23,n:"西平",r:9,c:13},
+        {id:24,n:"漢中",r:15,c:20}, {id:25,n:"梓潼",r:17,c:18}, {id:26,n:"成都",r:19,c:17},
+        {id:27,n:"江州",r:20,c:20}, {id:28,n:"建寧",r:26,c:16}, {id:29,n:"雲南",r:28,c:14},
+        {id:30,n:"永安",r:19,c:22},
+        {id:31,n:"上庸",r:14,c:23}, {id:32,n:"襄陽",r:17,c:24}, {id:33,n:"江夏",r:19,c:27},
+        {id:34,n:"江陵",r:20,c:24}, {id:35,n:"長沙",r:23,c:26}, {id:36,n:"武陵",r:22,c:23},
+        {id:37,n:"零陵",r:26,c:24}, {id:38,n:"桂陽",r:26,c:27},
+        {id:39,n:"廬江",r:18,c:30}, {id:40,n:"建業",r:18,c:33}, {id:41,n:"吳",r:19,c:35},
+        {id:42,n:"會稽",r:21,c:36}, {id:43,n:"柴桑",r:22,c:29}, {id:44,n:"豫章",r:24,c:30},
+        {id:45,n:"南海",r:29,c:28}, {id:46,n:"交趾",r:31,c:25},
+        // 增加中間節點以確保連線
+        {id:47,n:"新野",r:16,c:25}, {id:48,n:"虎牢",r:12,c:26}, {id:49,n:"葭萌",r:16,c:18} 
     ];
 
-    const CLANS = {
-        wei: { n: '曹操', c: 'c-wei', t: 1, startProvs: [10, 12] },
-        shu: { n: '劉備', c: 'c-shu', t: 1, startProvs: [7] },
-        wu: { n: '孫堅', c: 'c-wu', t: 1, startProvs: [35] },
-        yuan: { n: '袁紹', c: 'c-yuan', t: 1, startProvs: [4, 5, 2] },
-        dong: { n: '董卓', c: 'c-dong', t: 1, startProvs: [11, 19, 21] },
-        lu: { n: '呂布', c: 'c-lu', t: 2, startProvs: [9] },
-        ma: { n: '馬騰', c: 'c-ma', t: 2, startProvs: [22, 23] },
-        liu_biao: { n: '劉表', c: 'c-liu_biao', t: 2, startProvs: [32, 33] },
-        liu_zhang: { n: '劉璋', c: 'c-liu_zhang', t: 2, startProvs: [26, 25] },
-        yuan_shu: { n: '袁術', c: 'c-yuan_shu', t: 3, startProvs: [13, 17] },
-        gongsun: { n: '公孫瓚', c: 'c-gongsun', t: 3, startProvs: [3] },
-        neutral: { n: '在野', c: 'c-neutral', t: 0, startProvs: [] }
+    const LORDS = {
+        cao: { n: "曹操", c: "c-wei", cities: [10, 12, 48] },
+        liu: { n: "劉備", c: "c-shu", cities: [7] },
+        sun: { n: "孫堅", c: "c-wu", cities: [35] },
+        yuan: { n: "袁紹", c: "c-yuan", cities: [4, 5, 2] },
+        dong: { n: "董卓", c: "c-dong", cities: [11, 19, 21] },
+        lu: { n: "呂布", c: "c-lu", cities: [9] },
+        ma: { n: "馬騰", c: "c-others", cities: [22, 23] },
+        biao: { n: "劉表", c: "c-others", cities: [32, 33, 47] },
+        zhang: { n: "劉璋", c: "c-others", cities: [26, 25, 49] },
+        shu: { n: "袁術", c: "c-others", cities: [13, 17] },
+        gong: { n: "公孫瓚", c: "c-others", cities: [3] },
+        in野: { n: "在野", c: "c-neutral", cities: [] }
     };
 
-    const REAL_GENERALS = {
-        wei: [{n:'曹操',w:99,p:96}, {n:'夏侯惇',w:92,p:70}, {n:'夏侯淵',w:93,p:60}, {n:'曹仁',w:89,p:75}, {n:'張遼',w:95,p:78}, {n:'許褚',w:98,p:20}, {n:'司馬懿',w:98,p:98}, {n:'郭嘉',w:75,p:98}, {n:'荀彧',w:60,p:99}],
-        shu: [{n:'劉備',w:80,p:90}, {n:'關羽',w:98,p:75}, {n:'張飛',w:99,p:30}, {n:'趙雲',w:97,p:75}, {n:'馬超',w:98,p:45}, {n:'黃忠',w:94,p:60}, {n:'諸葛亮',w:95,p:100}, {n:'龐統',w:88,p:97}, {n:'法正',w:82,p:94}],
-        wu: [{n:'孫堅',w:94,p:78}, {n:'孫策',w:96,p:70}, {n:'孫權',w:78,p:88}, {n:'周瑜',w:97,p:96}, {n:'呂蒙',w:93,p:88}, {n:'陸遜',w:96,p:95}, {n:'甘寧',w:95,p:40}, {n:'太史慈',w:94,p:50}, {n:'周泰',w:90,p:30}],
-        yuan: [{n:'袁紹',w:82,p:75}, {n:'顏良',w:94,p:30}, {n:'文醜',w:95,p:25}, {n:'田豐',w:70,p:92}, {n:'張郃',w:91,p:68}],
-        dong: [{n:'董卓',w:88,p:60}, {n:'李儒',w:60,p:94}, {n:'華雄',w:92,p:20}, {n:'李傕',w:78,p:40}, {n:'郭汜',w:76,p:35}],
-        lu: [{n:'呂布',w:100,p:20}, {n:'陳宮',w:80,p:90}, {n:'高順',w:88,p:50}, {n:'張遼',w:95,p:75}],
-        ma: [{n:'馬騰',w:85,p:60}, {n:'馬超',w:98,p:45}, {n:'龐德',w:94,p:50}],
-        liu_biao: [{n:'劉表',w:65,p:80}, {n:'文聘',w:86,p:70}, {n:'蔡瑁',w:75,p:72}, {n:'黃祖',w:72,p:50}],
-        liu_zhang: [{n:'劉璋',w:40,p:65}, {n:'張任',w:89,p:70}, {n:'嚴顏',w:86,p:72}, {n:'法正',w:75,p:94}],
-        yuan_shu: [{n:'袁術',w:60,p:50}, {n:'紀靈',w:86,p:40}],
-        gongsun: [{n:'公孫瓚',w:85,p:60}, {n:'趙雲',w:97,p:75}, {n:'嚴綱',w:75,p:50}]
+    const GENS = [
+        {n:"曹操",w:99,o:"cao"}, {n:"夏侯惇",w:92,o:"cao"}, {n:"郭嘉",w:75,o:"cao"}, {n:"張遼",w:95,o:"cao"},
+        {n:"劉備",w:80,o:"liu"}, {n:"關羽",w:98,o:"liu"}, {n:"張飛",w:99,o:"liu"},
+        {n:"孫堅",w:94,o:"sun"}, {n:"孫策",w:96,o:"sun"}, {n:"周瑜",w:97,o:"sun"},
+        {n:"袁紹",w:82,o:"yuan"}, {n:"顏良",w:94,o:"yuan"}, {n:"文醜",w:95,o:"yuan"},
+        {n:"董卓",w:88,o:"dong"}, {n:"呂布",w:100,o:"lu"}, {n:"馬超",w:98,o:"ma"},
+        {n:"趙雲",w:97,o:"gong"}, {n:"黃忠",w:94,o:"biao"}, {n:"甘寧",w:95,o:"biao"},
+        {n:"張任",w:89,o:"zhang"}, {n:"紀靈",w:86,o:"shu"}
+    ];
+
+    // 遊戲狀態
+    let G = {
+        turn: 190, player: null, acts: 3, res: {g:2000, f:2000, t:5000},
+        map: {}, gens: [], battle: {}
     };
 
-    let state = {
-        turn: 1, year: 190, season: 0, player: null, difficulty: 2, actions: 3,
-        resources: { gold: 0, food: 0, troops: 0, wounded: 0 },
-        dev: { comm: 1, agri: 1 },
-        provinces: {}, generals: [], alliances: {}, selectedProv: -1,
-        battleTarget: -1
-    };
-
+    // --- 2. 初始化 ---
     window.onload = () => {
-        const area = document.getElementById('clan-select-area');
-        Object.keys(CLANS).forEach(key => {
-            if(key === 'neutral') return;
-            let div = document.createElement('div');
-            div.className = `clan-btn ${CLANS[key].c}`;
-            div.innerHTML = `<span class="tier-badge">${CLANS[key].t===1?'群雄':(CLANS[key].t===2?'諸侯':'割據')}</span><strong>${CLANS[key].n}</strong>`;
-            div.onclick = () => startGame(key);
-            area.appendChild(div);
-        });
+        const area = document.getElementById('clan-area');
+        for(let k in LORDS) {
+            if(k === 'in野') continue;
+            let d = document.createElement('div');
+            d.className = `clan-btn ${LORDS[k].c}`;
+            d.innerHTML = `<strong>${LORDS[k].n}</strong>`;
+            d.onclick = () => initGame(k);
+            area.appendChild(d);
+        }
     };
 
-    function startGame(clanKey) {
-        state.player = clanKey;
-        state.difficulty = parseInt(document.getElementById('difficulty').value);
-        let baseRes = state.difficulty === 1 ? 4000 : (state.difficulty === 3 ? 1000 : 2500);
-        state.resources = { gold: baseRes, food: baseRes, troops: 5000, wounded: 0 };
-        state.generals = [];
-
-        let gid = 0;
-        Object.keys(CLANS).forEach(k => {
-            if(k === 'neutral') return;
-            let gens = REAL_GENERALS[k] || [];
-            gens.forEach(g => {
-                state.generals.push({ id: gid++, name: g.n, w: g.w, p: g.p, owner: k, status: 'free', assignedTo: null });
-            });
+    function initGame(pid) {
+        G.player = pid;
+        // 地圖初始化
+        CITIES.forEach(c => {
+            G.map[c.id] = { ...c, owner: 'in野', troops: 2000, def: 100, gen: null };
         });
+        // 勢力分配
+        for(let k in LORDS) {
+            LORDS[k].cities.forEach(id => {
+                if(G.map[id]) {
+                    G.map[id].owner = k;
+                    G.map[id].troops = (k===G.player) ? 0 : 3000; // 玩家兵力統一
+                }
+            });
+        }
+        // 武將分配
+        let gid = 0;
+        GENS.forEach(g => {
+            G.gens.push({id: gid++, n: g.n, w: g.w, o: g.o, loc: null});
+        });
+        // 補一些大眾臉
+        for(let i=0; i<30; i++) {
+            let o = Object.keys(LORDS)[Math.floor(Math.random()*(Object.keys(LORDS).length-1))];
+            G.gens.push({id: gid++, n: `武將${i}`, w: 50+Math.floor(Math.random()*30), o: o, loc: null});
+        }
 
-        initMap();
-        drawRoads(); // 繪製道路
+        drawMap();
         updateUI();
         document.getElementById('start-screen').style.display = 'none';
         document.getElementById('game-container').style.display = 'block';
     }
 
-    function initMap() {
+    // --- 3. 地圖繪製 ---
+    function drawMap() {
         const grid = document.getElementById('map-grid');
-        state.provinces = {};
-        PROVINCES_DATA.forEach(p => {
-            state.provinces[p.id] = { 
-                id: p.id, name: p.n, owner: 'neutral', 
-                troops: 2000 + Math.floor(Math.random()*1000), 
-                status: 'direct', generalId: null, defense: 100, wounded: 0, pop: 20000
-            };
-        });
-        Object.keys(CLANS).forEach(k => {
-            if(k === 'neutral') return;
-            CLANS[k].startProvs.forEach(pid => {
-                if(state.provinces[pid]) {
-                    state.provinces[pid].owner = k;
-                    state.provinces[pid].troops = (k === state.player) ? 0 : (3000 + CLANS[k].t * 1000);
-                }
-            });
-        });
-        PROVINCES_DATA.forEach(p => {
-            let div = document.createElement('div');
-            let owner = state.provinces[p.id].owner;
-            div.className = `province ${CLANS[owner].c}`;
-            div.style.gridRow = p.r; div.style.gridColumn = p.c;
-            div.id = `prov-${p.id}`; div.onclick = () => clickProvince(p.id);
-            div.innerHTML = `<div class="prov-name">${p.n}</div><div class="prov-info" id="info-${p.id}"></div>`;
-            grid.appendChild(div);
-        });
-    }
+        const roadLayer = document.getElementById('road-layer');
+        grid.innerHTML = ''; roadLayer.innerHTML = '';
 
-    // 繪製道路 (SVG)
-    function drawRoads() {
-        const svg = document.getElementById('road-layer');
-        svg.innerHTML = '';
-        const gridStyle = 36; // 32px + 4px gap
-
-        PROVINCES_DATA.forEach(p1 => {
-            let neighbors = getNeighbors(p1.id);
-            neighbors.forEach(nid => {
-                // 為避免重複繪製，只畫 id 小連到大的
-                if (p1.id < nid) {
-                    let p2 = PROVINCES_DATA.find(x => x.id === nid);
-                    if (p2) {
-                        // 計算中心點座標
-                        let x1 = (p1.c - 1) * gridStyle + 56; // 40px padding + 16px half-width
-                        let y1 = (p1.r - 1) * gridStyle + 56;
-                        let x2 = (p2.c - 1) * gridStyle + 56;
-                        let y2 = (p2.r - 1) * gridStyle + 56;
-                        
+        // 繪製連線 (使用較寬鬆的距離判定)
+        CITIES.forEach(c1 => {
+            CITIES.forEach(c2 => {
+                if(c1.id < c2.id) {
+                    let dist = Math.sqrt(Math.pow(c1.r-c2.r, 2) + Math.pow(c1.c-c2.c, 2));
+                    // 距離閾值設為 3.5 格，確保葭萌關、新野等點能連起來
+                    if(dist < 3.8) {
                         let line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-                        line.setAttribute('x1', x1); line.setAttribute('y1', y1);
-                        line.setAttribute('x2', x2); line.setAttribute('y2', y2);
+                        line.setAttribute('x1', (c1.c-1)*32 + 40 + 16);
+                        line.setAttribute('y1', (c1.r-1)*32 + 40 + 16);
+                        line.setAttribute('x2', (c2.c-1)*32 + 40 + 16);
+                        line.setAttribute('y2', (c2.r-1)*32 + 40 + 16);
                         line.setAttribute('class', 'road-line');
-                        svg.appendChild(line);
+                        roadLayer.appendChild(line);
                     }
                 }
             });
         });
-    }
 
-    function getNeighbors(pid) {
-        let p1 = PROVINCES_DATA.find(x => x.id === pid);
-        let list = [];
-        PROVINCES_DATA.forEach(p2 => {
-            if(p1.id !== p2.id) {
-                let dr = Math.abs(p1.r - p2.r);
-                let dc = Math.abs(p1.c - p2.c);
-                if (dr <= 2 && dc <= 2 && (dr+dc <= 3)) list.push(p2.id);
+        // 繪製城市
+        for(let id in G.map) {
+            let c = G.map[id];
+            let d = document.createElement('div');
+            d.className = `province ${LORDS[c.owner].c}`;
+            if(c.owner === G.player) {
+                if(c.troops === 0) d.classList.add('status-direct');
+                else d.classList.add('status-auto');
             }
-        });
-        return list;
-    }
-
-    // 內政與外交邏輯 (簡化版)
-    function doAction(type) {
-        if(state.actions <= 0) return alert("政令次數耗盡");
-        const sel = document.getElementById('general-select');
-        if(!sel.value) return alert("無可用武將");
-        const gen = state.generals.find(g => g.id == sel.value);
-        let directs = Object.values(state.provinces).filter(p => p.owner === state.player && p.status === 'direct');
-        if(directs.length === 0 && type !== 'fortify') return alert("無直轄領地");
-        
-        let bonus = 1 + (gen.p/100);
-        let msg = "";
-        
-        if(type==='commerce') { 
-            state.resources.gold += Math.floor(400 * bonus); state.resources.food -= 100; state.dev.comm++; msg="商業開發成功";
-        } else if(type==='agriculture') {
-            state.resources.food += Math.floor(400 * bonus); state.resources.gold -= 100; state.dev.agri++; msg="農業開墾成功";
-        } else if(type==='recruit') {
-            if(state.resources.gold < 200) return alert("資金不足");
-            state.resources.troops += Math.floor(500 * (1+gen.w/100)); state.resources.gold -= 200; state.resources.food -= 200; msg="徵兵完成";
-        } else if(type==='fortify') {
-            let t = directs[Math.floor(Math.random()*directs.length)];
-            t.defense = Math.min(400, t.defense + 30); state.resources.gold -= 150; msg=`${t.name} 城防修築完成`;
+            d.style.gridRow = c.r; d.style.gridColumn = c.c;
+            d.innerHTML = `<div class="prov-name">${c.n}</div><div style="font-size:0.6rem; z-index:2;">${c.troops}</div>`;
+            d.onclick = () => clickCity(id);
+            grid.appendChild(d);
         }
-        state.actions--; log(`${gen.name}: ${msg}`); updateUI();
     }
 
-    function doDiplomacy() {
-        if(state.actions <= 0 || state.resources.gold < 800) return alert("條件不足");
-        const target = document.getElementById('diplo-select').value;
-        state.resources.gold -= 800; state.actions--;
-        if(Math.random() < 0.4) { state.alliances[target]=12; log(`與 ${CLANS[target].n} 結盟成功！`); }
-        else { log(`${CLANS[target].n} 拒絕了同盟。`); }
-        updateUI();
+    function getNeighbors(id) {
+        let n = [];
+        let c1 = G.map[id];
+        for(let k in G.map) {
+            let c2 = G.map[k];
+            if(c1.id !== c2.id) {
+                let dist = Math.sqrt(Math.pow(c1.r-c2.r, 2) + Math.pow(c1.c-c2.c, 2));
+                if(dist < 3.8) n.push(k);
+            }
+        }
+        return n;
     }
 
-    // --- 戰鬥系統 ---
+    // --- 4. 遊戲邏輯 ---
+    function clickCity(id) {
+        let c = G.map[id];
+        if(c.owner === G.player) {
+            // 管理 (太守任命簡化：直接切換直轄/委任)
+            if(c.troops === 0) {
+                c.troops = 1000; log(`委任 ${c.n} 自主防衛`);
+            } else {
+                c.troops = 0; log(`收回 ${c.n} 兵力至中央`);
+            }
+            drawMap();
+        } else {
+            // 攻擊判定
+            if(G.acts <= 0) return alert("政令不足");
+            let neighbors = getNeighbors(id);
+            let canAtk = neighbors.some(nid => G.map[nid].owner === G.player);
+            if(!canAtk) return alert("未與我方領土相連");
+            
+            prepBattle(id);
+        }
+    }
 
-    function clickProvince(pid) {
-        const p = state.provinces[pid];
-        if(p.owner === state.player) { openManage(pid); return; }
-        if(state.alliances[p.owner] > 0) return alert("同盟中");
-        if(state.actions <= 0) return alert("政令次數耗盡");
-        if(!isAdjacent(pid, state.player)) return alert("不相鄰");
+    function doAction(type) {
+        if(G.acts <= 0) return;
+        let genId = document.getElementById('gen-select').value;
+        if(!genId) return alert("無武將");
+        let g = G.gens.find(x=>x.id==genId);
         
-        // 開啟戰鬥準備
-        openBattlePrep(pid);
+        if(type==='comm') { G.res.g += 500; G.res.f -= 100; log(`${g.n} 商業開發 (金+500)`); }
+        if(type==='agri') { G.res.f += 500; G.res.g -= 100; log(`${g.n} 農業開墾 (糧+500)`); }
+        if(type==='recruit') { 
+            if(G.res.g < 200) return alert("金錢不足");
+            G.res.t += 1000; G.res.g -= 200; log(`${g.n} 徵兵 (兵+1000)`); 
+        }
+        G.acts--; updateUI();
     }
 
-    function openBattlePrep(pid) {
-        state.battleTarget = pid;
-        const p = state.provinces[pid];
-        const modal = document.getElementById('battle-modal');
-        const list = document.getElementById('battle-gen-list');
-        const enemyInfo = document.getElementById('battle-enemy-info');
+    // --- 5. 戰鬥系統 ---
+    function prepBattle(tid) {
+        let t = G.map[tid];
+        G.battle = { tid: tid, p_troops: G.res.t, e_troops: t.troops, p_gens: [], result: null };
+        
+        document.getElementById('battle-prep-ui').style.display = 'block';
+        document.getElementById('battle-anim-ui').style.display = 'none';
         
         // 敵人情報
-        let guardName = p.generalId ? state.generals.find(g=>g.id===p.generalId).name : "無太守";
-        let guardStat = p.generalId ? state.generals.find(g=>g.id===p.generalId).w : 50;
-        let defTroops = p.troops; 
-        if(p.owner===state.player) defTroops = 0; // 不應該發生
-        
-        enemyInfo.innerHTML = `
-            <strong>${p.name}</strong> (${CLANS[p.owner].n})<br>
-            <br>
-            守軍兵力: <span style="color:#ef5350">${defTroops}</span><br>
-            城防等級: ${p.defense}<br>
-            守將: ${guardName} (統武: ${guardStat})
+        let guard = t.gen ? G.gens.find(g=>g.id==t.gen).n : (t.owner==='in野'?'流寇':'守將');
+        document.getElementById('prep-enemy-info').innerHTML = `
+            <strong>${t.n}</strong> (${LORDS[t.owner].n})<br>
+            兵力: ${t.troops}<br>守將: ${guard}
         `;
+        document.getElementById('prep-troops').innerText = G.res.t;
 
-        // 我方武將列表
+        // 我方選將
+        let list = document.getElementById('prep-gen-list');
         list.innerHTML = '';
-        let freeGens = state.generals.filter(g => g.owner === state.player && g.status === 'free');
-        if(freeGens.length === 0) {
-            list.innerHTML = '<div style="color:gray">無閒置武將</div>';
-        } else {
-            freeGens.sort((a,b)=>b.w - a.w).forEach(g => {
-                let item = document.createElement('div');
-                item.className = 'gen-list-item';
-                item.innerHTML = `
-                    <label>
-                        <input type="checkbox" class="gen-checkbox" value="${g.id}" onchange="updateBattleStats()">
-                        <span style="font-size:1rem; margin-left:10px;">${g.name}</span>
-                    </label>
-                    <div>
-                        <span class="stat-badge" style="background:#b71c1c">統武 ${g.w}</span>
-                    </div>
-                `;
-                list.appendChild(item);
-            });
-        }
-        updateBattleStats();
-        modal.style.display = 'flex';
-    }
-
-    function updateBattleStats() {
-        const checkboxes = document.querySelectorAll('.gen-checkbox:checked');
-        // 限制選5人
-        if(checkboxes.length > 5) {
-            alert("最多派遣 5 名武將！");
-            event.target.checked = false;
-            return;
-        }
-
-        let totalLead = 0;
-        let count = checkboxes.length;
-        checkboxes.forEach(box => {
-            let g = state.generals.find(x => x.id == box.value);
-            totalLead += g.w;
+        G.gens.filter(g=>g.o===G.player).forEach(g => {
+            let row = document.createElement('div');
+            row.className = 'gen-item';
+            row.innerHTML = `<label><input type="checkbox" value="${g.id}"> ${g.n}</label><span>武${g.w}</span>`;
+            list.appendChild(row);
         });
         
-        let avg = count > 0 ? Math.floor(totalLead / count) : 0;
-        document.getElementById('battle-avg-lead').innerText = avg;
-        document.getElementById('battle-player-troops').innerText = state.resources.troops;
+        document.getElementById('battle-modal').style.display = 'flex';
     }
 
-    function executeBattle() {
-        const checkboxes = document.querySelectorAll('.gen-checkbox:checked');
-        if(checkboxes.length === 0) return alert("請至少派遣一名武將");
-        if(state.resources.food < 300 || state.resources.troops < 500) return alert("兵糧或兵力不足");
+    function startBattleAnim() {
+        // 獲取選中武將
+        let cbs = document.querySelectorAll('#prep-gen-list input:checked');
+        if(cbs.length === 0 || cbs.length > 5) return alert("請派遣 1-5 名武將");
+        if(G.res.t < 500) return alert("兵力不足");
 
-        let selectedGenIds = Array.from(checkboxes).map(c => parseInt(c.value));
-        let selectedGens = state.generals.filter(g => selectedGenIds.includes(g.id));
+        G.battle.p_gens = Array.from(cbs).map(c=>G.gens.find(g=>g.id==c.value));
+        G.acts--;
+
+        // 切換介面
+        document.getElementById('battle-prep-ui').style.display = 'none';
+        document.getElementById('battle-anim-ui').style.display = 'flex';
+        document.getElementById('battle-end-btn').style.display = 'none';
+        document.getElementById('battle-live-log').innerHTML = '';
+
+        // 初始化動畫數值
+        let p_name = G.battle.p_gens[0].n + (G.battle.p_gens.length>1?" 等":" 隊");
+        let t = G.map[G.battle.tid];
+        let e_name = t.gen ? G.gens.find(g=>g.id==t.gen).n : LORDS[t.owner].n + "軍";
         
-        const target = state.provinces[state.battleTarget];
+        document.getElementById('anim-p-name').innerText = p_name;
+        document.getElementById('anim-e-name').innerText = e_name;
+
+        // 開始回合運算
+        let p_max = G.battle.p_troops;
+        let e_max = G.battle.e_troops;
+        let p_curr = p_max;
+        let e_curr = e_max;
+
+        let p_war = G.battle.p_gens.reduce((a,b)=>a+b.w,0) / G.battle.p_gens.length;
+        let e_war = t.gen ? G.gens.find(g=>g.id==t.gen).w : 50;
+        if(t.owner !== 'in野') e_war += 10; // 勢力加成
+
+        let round = 1;
+        let timer = setInterval(() => {
+            if(p_curr <= 0 || e_curr <= 0 || round > 10) {
+                clearInterval(timer);
+                finishAnim(p_curr, e_curr, p_max, e_max);
+                return;
+            }
+
+            // 雙方互毆
+            let p_dmg = Math.floor(p_curr * (p_war/200) * (0.8+Math.random()*0.4)) + 50;
+            let e_dmg = Math.floor(e_curr * (e_war/200) * (0.8+Math.random()*0.4)) + 50;
+
+            // 城防減免
+            p_dmg = Math.floor(p_dmg * (1 - Math.min(0.5, t.def/200)));
+            e_curr -= p_dmg;
+            p_curr -= e_dmg;
+
+            if(p_curr < 0) p_curr = 0;
+            if(e_curr < 0) e_curr = 0;
+
+            // 更新畫面
+            updateBattleAnimUI(p_curr, p_max, e_curr, e_max, p_dmg, e_dmg);
+            logBattle(`第${round}回合：我軍傷${e_dmg}，敵軍傷${p_dmg}`);
+            round++;
+        }, 1000);
+    }
+
+    function updateBattleAnimUI(p, pMax, e, eMax, pDmg, eDmg) {
+        let pPct = (p / pMax) * 100;
+        let ePct = (e / eMax) * 100;
+        document.getElementById('p-hp-bar').style.width = pPct + "%";
+        document.getElementById('e-hp-bar').style.width = ePct + "%";
+        document.getElementById('p-hp-text').innerText = Math.floor(p);
+        document.getElementById('e-hp-text').innerText = Math.floor(e);
         
-        // 消耗
-        state.actions--;
-        state.resources.gold -= 100;
-        state.resources.food -= 300;
-        closeModal();
+        let pop = document.getElementById('dmg-popup');
+        pop.innerText = `⚔️ -${eDmg} / -${pDmg}`;
+        pop.style.opacity = 1;
+        setTimeout(() => pop.style.opacity = 0, 800);
+    }
 
-        // --- 戰鬥計算核心 ---
-        
-        // 1. 攻擊方數值
-        let avgLead = selectedGens.reduce((sum, g) => sum + g.w, 0) / selectedGens.length;
-        // 攻擊力 = 總兵力 * (平均統武/100) * 隨機係數
-        let atkPower = state.resources.troops * (avgLead / 100) * (0.8 + Math.random() * 0.4);
+    function logBattle(msg) {
+        let b = document.getElementById('battle-live-log');
+        b.innerHTML += `<div>${msg}</div>`;
+        b.scrollTop = b.scrollHeight;
+    }
 
-        // 2. 防禦方數值
-        let defGenStat = 50; // 預設雜兵
-        if (target.generalId) {
-            let dg = state.generals.find(g => g.id === target.generalId);
-            defGenStat = dg.w;
-        }
-        // 防禦力 = (敵兵力 * 統武係數) + (城防 * 10)
-        let defPower = (target.troops * (defGenStat / 100)) + (target.defense * 15);
-        if (target.owner !== 'neutral') defPower *= 1.2; // 勢力加成
+    function finishAnim(p, e, pMax, eMax) {
+        let win = e <= 0;
+        // 寫入結果
+        G.battle.result = { win: win, p_left: Math.floor(p), e_left: Math.floor(e) };
+        let btn = document.getElementById('battle-end-btn');
+        btn.style.display = 'block';
+        btn.innerText = win ? "大獲全勝 - 佔領城池" : "戰敗撤退";
+        btn.style.background = win ? "#2e7d32" : "#c62828";
+        btn.style.color = "white";
+    }
 
-        // 3. 判定勝負
-        let win = atkPower > defPower;
-        
-        // 4. 戰損計算 (防禦越高，攻擊方損失越大；統率越高，己方損失越小)
-        let dmgReduction = Math.min(0.8, avgLead / 200); // 統率減傷
-        let baseLoss = win ? target.troops * 0.4 : state.resources.troops * 0.3;
-        let atkLoss = Math.floor(baseLoss * (1 - dmgReduction));
-        // 城防造成的額外傷害
-        atkLoss += Math.floor(target.defense * 2);
-        
-        let defLoss = win ? target.troops : Math.floor(state.resources.troops * 0.2);
+    function finalizeBattle() {
+        let r = G.battle.result;
+        let t = G.map[G.battle.tid];
+        let oldOwner = t.owner;
 
-        // 5. 結算
-        state.resources.troops = Math.max(0, state.resources.troops - atkLoss);
-        state.resources.wounded += Math.floor(atkLoss * 0.6); // 傷兵
+        G.res.t = r.p_left;
+        t.troops = r.e_left;
 
-        if (win) {
-            target.troops = 0;
-            captureProv(target, state.player);
-            log(`<span class="log-good">大捷！${selectedGens[0].name} 率軍攻陷 ${target.name}！</span>`);
+        if(r.win) {
+            t.troops = 0;
+            t.def = Math.max(0, t.def - 30);
+            
+            // 檢查原擁有者是否滅亡 (流亡邏輯)
+            if(oldOwner !== 'in野') {
+                checkRetreatOrDie(oldOwner, t.id);
+            }
+            
+            t.owner = G.player;
+            log(`攻佔 ${t.n}！`);
         } else {
-            target.troops = Math.max(0, target.troops - defLoss);
-            log(`<span class="log-bad">戰敗！攻打 ${target.name} 失利，損失 ${atkLoss} 兵馬。</span>`);
+            log(`進攻 ${t.n} 失敗...`);
         }
         
-        if(win && target.owner !== 'neutral') checkDestruction(target.owner, state.player);
+        closeModal();
+        drawMap();
         updateUI();
     }
 
-    function captureProv(p, newOwner) {
-        if(p.generalId !== null) {
-            let gen = state.generals.find(g=>g.id===p.generalId);
-            if(Math.random() < 0.3) { 
-                gen.owner = newOwner; gen.status = 'free'; gen.assignedTo = null; 
-                if(newOwner === state.player) log(`<span class="log-sys">${gen.name} 歸降！</span>`); 
-            } else { gen.status='free'; gen.assignedTo=null; }
-        }
-        p.owner = newOwner; p.status = (newOwner === state.player) ? 'direct' : 'auto'; 
-        p.generalId = null; p.troops = 0; p.defense = Math.max(50, p.defense - 50);
-    }
-
-    function checkDestruction(loser, winner) {
-        if(Object.values(state.provinces).filter(p=>p.owner===loser).length === 0) {
-            log(`【${CLANS[loser].n}】滅亡。`);
-            state.generals.forEach(g => { if(g.owner===loser) { g.owner=winner; g.status='free'; g.assignedTo=null; }});
-        }
-    }
-
-    // UI 與通用
-    function updateUI() {
-        const s = ['春','夏','秋','冬'];
-        document.getElementById('d-year').innerText = `${state.year}年 ${s[state.season]}`;
-        document.getElementById('d-gold').innerText = state.resources.gold;
-        document.getElementById('d-food').innerText = state.resources.food;
-        document.getElementById('d-troops').innerText = state.resources.troops;
-        document.getElementById('d-wounded').innerText = state.resources.wounded;
-        document.getElementById('d-ap').innerText = state.actions;
-        document.getElementById('d-lands').innerText = Object.values(state.provinces).filter(p=>p.owner===state.player).length;
-
-        Object.values(state.provinces).forEach(p => {
-            const el = document.getElementById(`prov-${p.id}`);
-            el.className = `province ${CLANS[p.owner].c}`;
-            el.classList.remove('status-direct','status-auto','status-ally');
-            let info = p.troops;
-            if(p.owner === state.player) {
-                if(p.status === 'direct') { el.classList.add('status-direct'); info = `★ ${p.defense}`; }
-                else { el.classList.add('status-auto'); let gn = p.generalId ? state.generals.find(g=>g.id===p.generalId).name[0] : "無"; info = `♻${gn}`; }
-            } else if(state.alliances[p.owner]) { el.classList.add('status-ally'); }
-            document.getElementById(`info-${p.id}`).innerText = info;
-        });
-
-        // 下拉選單更新
-        const ms = document.getElementById('general-select'); ms.innerHTML = '';
-        state.generals.filter(g=>g.owner===state.player && g.status==='free').forEach(g => {
-            let o = document.createElement('option'); o.value = g.id; o.innerText = `${g.name} (統${g.w})`; ms.appendChild(o);
-        });
-        const ds = document.getElementById('diplo-select'); ds.innerHTML = '';
-        [...new Set(Object.values(state.provinces).map(p=>p.owner))].forEach(c => {
-            if(c!==state.player && c!=='neutral' && !state.alliances[c]) {
-                let o = document.createElement('option'); o.value = c; o.innerText = CLANS[c].n; ds.appendChild(o);
+    // --- 6. 流亡與滅亡邏輯 ---
+    function checkRetreatOrDie(loserId, lostCityId) {
+        // 檢查該勢力是否還有其他城池
+        let hasCity = false;
+        for(let id in G.map) {
+            if(G.map[id].owner === loserId && id != lostCityId) {
+                hasCity = true;
+                break;
             }
+        }
+
+        if(!hasCity) {
+            // 無城可守，嘗試流亡
+            let retreatCity = null;
+            let neighbors = getNeighbors(lostCityId);
+            
+            // 尋找相鄰的空地
+            for(let nid of neighbors) {
+                if(G.map[nid].owner === 'in野') {
+                    retreatCity = nid;
+                    break;
+                }
+            }
+
+            if(retreatCity) {
+                // 流亡成功
+                G.map[retreatCity].owner = loserId;
+                G.map[retreatCity].troops = 1000; // 殘兵
+                log(`【${LORDS[loserId].n}】失去最後據點，流亡至 ${G.map[retreatCity].n}！`);
+            } else {
+                // 滅亡，武將投降
+                log(`【${LORDS[loserId].n}】無路可退，勢力滅亡！武將歸降。`);
+                G.gens.forEach(g => {
+                    if(g.o === loserId) {
+                        g.o = G.player;
+                        log(`${g.n} 加入我軍`);
+                    }
+                });
+            }
+        }
+    }
+
+    // --- UI 更新 ---
+    function updateUI() {
+        document.getElementById('d-year').innerText = G.turn;
+        document.getElementById('d-gold').innerText = G.res.g;
+        document.getElementById('d-food').innerText = G.res.f;
+        document.getElementById('d-troops').innerText = G.res.t;
+        document.getElementById('d-lands').innerText = Object.values(G.map).filter(c=>c.owner===G.player).length;
+        document.getElementById('d-ap').innerText = G.acts;
+
+        let sel = document.getElementById('gen-select');
+        sel.innerHTML = '';
+        G.gens.filter(g=>g.o===G.player).forEach(g => {
+            let opt = document.createElement('option');
+            opt.value = g.id;
+            opt.innerText = `${g.n} (武${g.w})`;
+            sel.appendChild(opt);
         });
     }
 
     function endTurn() {
-        state.actions = 3; state.season++;
-        // 簡單 AI 與 資源結算
-        if(state.resources.wounded>0) { state.resources.wounded -= Math.ceil(state.resources.wounded*0.3); state.resources.troops += Math.ceil(state.resources.wounded*0.3); }
-        state.resources.food = Math.max(0, state.resources.food - Math.floor(state.resources.troops/15));
+        G.acts = 3;
+        G.res.g += 500; G.res.f += 500;
         
-        if(state.season > 3) { state.season=0; state.year++; state.resources.gold+=2000; state.resources.food+=2000; log("新年稅收"); }
-
-        // AI 擴張 (簡化)
-        let ais = [...new Set(Object.values(state.provinces).map(p=>p.owner))].filter(o=>o!=='neutral'&&o!==state.player);
-        ais.forEach(ai => {
-            Object.values(state.provinces).filter(p=>p.owner===ai).forEach(p => {
-                p.troops += 200; 
-                if(p.troops > 4000 && Math.random() < 0.2) {
-                    let targets = getNeighbors(p.id).filter(n => state.provinces[n].owner !== ai);
-                    if(targets.length > 0) {
-                        let t = state.provinces[targets[0]];
-                        if(t.owner !== state.player) { // AI 互打
-                            if(p.troops > t.troops * 1.2) { p.troops -= 1000; captureProv(t, ai); }
-                        }
-                    }
-                }
-            });
-        });
-        updateUI();
-    }
-
-    function isAdjacent(pid, owner) { return getNeighbors(pid).some(nid => state.provinces[nid].owner === owner); }
-    function openManage(pid) {
-        state.selectedProv = pid;
-        const p = state.provinces[pid];
-        document.getElementById('manage-title').innerText = `太守任命：${p.name}`;
-        const sel = document.getElementById('manage-gen-select'); sel.innerHTML = '<option value="-1">-- 解任 --</option>';
-        if(p.generalId !== null) {
-            let g = state.generals.find(x=>x.id===p.generalId);
-            let o = document.createElement('option'); o.value=g.id; o.innerText=`${g.name} (現任)`; o.selected=true; sel.appendChild(o);
+        // 簡單AI增兵
+        for(let id in G.map) {
+            let c = G.map[id];
+            if(c.owner !== 'in野' && c.owner !== G.player) {
+                c.troops += 200;
+            }
         }
-        state.generals.filter(g=>g.owner===state.player && g.status==='free').forEach(g => {
-            let o = document.createElement('option'); o.value=g.id; o.innerText=`${g.name} (統${g.w})`; sel.appendChild(o);
-        });
-        document.getElementById('manage-modal').style.display = 'flex';
+        log("進入下個月");
+        updateUI();
+        drawMap();
     }
-    function setProvinceState(type) {
-        const pid = state.selectedProv, p = state.provinces[pid], gid = parseInt(document.getElementById('manage-gen-select').value);
-        if(p.generalId !== null && p.generalId !== gid) { let g = state.generals.find(x=>x.id===p.generalId); g.status='free'; g.assignedTo=null; }
-        if(gid !== -1) { let g = state.generals.find(x=>x.id===gid); g.status='assigned'; g.assignedTo=pid; p.generalId=gid; } else { p.generalId=null; }
-        p.status = type; 
-        if(type==='direct') { p.troops=0; if(p.generalId) { let g=state.generals.find(x=>x.id===p.generalId); g.status='free'; g.assignedTo=null; p.generalId=null; } }
-        else if(p.troops===0) p.troops=1000;
-        closeModal(); updateUI();
+
+    function closeModal() { document.getElementById('battle-modal').style.display='none'; }
+    function log(msg) { 
+        let b = document.getElementById('log-box'); 
+        b.innerHTML += `<div>> ${msg}</div>`; 
+        b.scrollTop = b.scrollHeight; 
     }
-    function closeModal() { document.querySelectorAll('.modal').forEach(m=>m.style.display='none'); }
-    function log(t) { const b = document.getElementById('log-box'); b.innerHTML += `<div>${t}</div>`; b.scrollTop = b.scrollHeight; }
 
 </script>
 </body>
