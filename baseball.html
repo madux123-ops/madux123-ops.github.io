@@ -605,13 +605,13 @@
         // 1. Walk Rate (Fixed around 10%)
         const walkThreshold = 10; // 0-10 on a d100
         
-        // 2. Batting Average Logic (0.200 to 0.450)
+        // 2. Batting Average Logic (0.200 to 0.410)
         // Formula: 0.20 + (Contact / MAX_STAT) * 0.25
         // This is the probability of a HIT occurring given a non-walk.
         // To simplify, we map this to d100.
         // Total Hit Chance = (100 - walkThreshold) * (calculatedAvg)
         
-        const rawHitProb = 0.20 + (GameState.stats.contact / MAX_STAT) * 0.25;
+        const rawHitProb = 0.20 + (GameState.stats.contact / MAX_STAT) * 0.21;
         const hitThreshold = walkThreshold + (90 * rawHitProb); 
         
         // 3. Strikeout Logic (Affected by Contact)
@@ -643,7 +643,7 @@
 
     function determineHitType() {
         // --- HIT TYPE DISTRIBUTION ---
-        // Constraint: Reduce HR rate by 30%, give to 2B.
+        // Constraint: Reduce HR rate by 10%, give to 2B.
         
         // Base Weights
         let wSingle = 60;
@@ -657,9 +657,9 @@
         wDouble += (GameState.stats.power / MAX_STAT) * 10; // Power also helps doubles (gaps)
         
         // --- APPLY CONSTRAINT ---
-        // Reduce calculated HR weight by 30% and move it to Double
-        const reducedAmount = wHR * 0.30;
-        wHR = wHR * 0.70;
+        // Reduce calculated HR weight by 10% and move it to Double
+        const reducedAmount = wHR * 0.10;
+        wHR = wHR * 0.90;
         wDouble += reducedAmount;
 
         // Normalize
@@ -738,4 +738,5 @@
 </script>
 
 </body>
+
 </html>
