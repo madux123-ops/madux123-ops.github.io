@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>忍者卷軸：忍界大戰 (Lv7解放)</title>
+    <style>
+        body {
+            background-color: #222;
+            color: white;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+            touch-action: none;
+            padding-top: 10px;
+        }
+
+        canvas {
+            background-color: #000;
+            border: 2px solid #555;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            max-width: 100%; 
+            max-height: 65vh;
+            width: auto;
+            height: auto;
+            object-fit: contain;
+        }
+
+        #ui-layer {
+            width: 100%;
+            max-width: 480px;
+            display: flex;
+            justify-content: space-between;
+            pointer-events: none;
+            font-weight: bold;
+            text-shadow: 1px 1px 2px black;
+            margin-bottom: 5px;
+            padding: 0 10px;
+            box-sizing: border-box;
+        }
+
+        #controls-area {
+            position: fixed;
+            bottom: 10px;
+            left: 0;
+            width: 100%;
+            height: 160px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            padding: 0 20px;
+            box-sizing: border-box;
+            pointer-events: none;
+        }
+
+        .action-pad {
+            pointer-events: auto;
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .d-pad {
+            pointer-events: auto;
+            display: grid;
+            grid-template-columns: 60px 60px 60px;
+            grid-template-rows: 50px 50px 50px;
+            gap: 5px;
+            margin-bottom: 10px;
+        }
+
+        .btn {
+            background: rgba(255, 255, 255, 0.15);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            color: rgba(255, 255, 255, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            font-weight: bold;
+            user-select: none;
+            cursor: pointer;
+            transition: background 0.1s;
+        }
+        
+        .btn:active, .btn.active {
+            background: rgba(255, 255, 255, 0.5);
+            color: #000;
+        }
+
+        .btn-action {
+            width: 70px;
+            height: 70px;
+            background: rgba(255, 50, 50, 0.2);
+        }
+
+        .btn-arrow {
+            width: 60px;
+            height: 50px;
+            border-radius: 10px;
+            background: rgba(50, 150, 255, 0.2);
+        }
+        
+        .up { grid-column: 2; grid-row: 1; }
+        .left { grid-column: 1; grid-row: 2; }
+        .down { grid-column: 2; grid-row: 3; }
+        .right { grid-column: 3; grid-row: 2; }
+    </style>
+</head>
+<body>
+
+    <div id="ui-layer">
+        <div id="score">分數: 0</div>
+        <div id="lives">生命: 3</div>
+        <div id="bombs">炸彈: 5</div>
+        <div id="weapon">武器: Lv1</div>
+    </div>
+
+    <canvas id="gameCanvas" width="480" height="640"></canvas>
+
+    <div id="controls-area">
+        <div class="action-pad">
+            <div class="btn btn-action" id="btn-x" data-key="x">X<br><span style="font-size:10px">炸彈</span></div>
+            <div class="btn btn-action" id="btn-z" data-key="z">Z<br><span style="font-size:10px">攻擊</span></div>
+        </div>
+
+        <div class="d-pad">
+            <div class="btn btn-arrow up" id="btn-up" data-key="ArrowUp">▲</div>
+            <div class="btn btn-arrow left" id="btn-left" data-key="ArrowLeft">◀</div>
+            <div class="btn btn-arrow right" id="btn-right" data-key="ArrowRight">▶</div>
+            <div class="btn btn-arrow down" id="btn-down" data-key="ArrowDown">▼</div>
+        </div>
+    </div>
+
+<script>
+/** 遊戲核心設定 */
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+// 遊戲狀態
+let gameState = 'MENU';
+let frameCount = 0;
+let score = 0;
+let level = 1;
+let killCount = 0;
+const KILLS_TO_BOSS = 30;
+
+// 輸入控制
+const keys = {
+    ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false,
+    z: false, x: false
+};
+
+// 實體列表
+let player;
+let bullets = [];
+let enemyBullets = [];
+let enemies = [];
+let items = [];
+let particles = [];
+let bosses = [];
+let warningZones = [];
+
+// --- 輸入處理 ---
+function handleKey(key, isPressed) {
+    if (keys.hasOwnProperty(key)) keys[key] = isPressed;
+
+    if (isPressed) {
+        if (gameState === 'MENU' && key === 'z') {
+            initGame();
+        } else if (gameState === 'GAMEOVER') {
+            if (key === 'z') { 
+                 player.lives = 3; 
+                 player.hp = 100;
+                 score = 0; 
+                 resetLevel();
+            } else if (key === 'x') { 
+                 initGame();
+            }
+        } else if (gameState === 'LEVEL_CLEAR' && key === 'z') {
+            nextLevel();
+        }
+    }
+
+    if (!isPressed) {
+        if (key === 'z' && player) player.canShoot = true;
+        if (key === 'x' && player) player.canBomb = true;
+    }
+}
+
+window.addEventListener('keydown', e => handleKey(e.key, true));
+window.addEventListener('keyup', e => handleKey(e.key, false));
+
+const touchButtons = document.querySelectorAll('.btn');
+touchButtons.forEach(btn => {
+    const key = btn.dataset.key;
+    const pressHandler = (e) => { e.preventDefault(); handleKey(key, true); btn.classList.add('active'); };
+    const releaseHandler = (e) => { e.preventDefault(); handleKey(key, false); btn.classList.remove('active'); };
+    btn.addEventListener('mousedown', pressHandler);
+    btn.addEventListener('touchstart', pressHandler);
+    btn.addEventListener('mouseup', releaseHandler);
+    btn.addEventListener('touchend', releaseHandler);
+    btn.addEventListener('mouseleave', releaseHandler);
+});
+
+/** 類別定義 */
+
+class Player {
+    constructor() {
+        this.w = 30;
+        this.h = 30;
+        this.x = canvas.width / 2 - this.w / 2;
+        this.y = canvas.height - 100;
+        this.speed = 5;
+        this.color = '#00ff00';
+        this.lives = 3;
+        this.hp = 100;
+        this.weaponLevel = 1;
+        this.bombs = 5;
+        this.canShoot = true;
+        this.canBomb = true;
+        this.invincibleTimer = 0;
+    }
+
+    update() {
+        if (keys.ArrowUp && this.y > 0) this.y -= this.speed;
+        if (keys.ArrowDown && this.y < canvas.height - this.h) this.y += this.speed;
+        if (keys.ArrowLeft && this.x > 0) this.x -= this.speed;
+        if (keys.ArrowRight && this.x < canvas.width - this.w) this.x += this.speed;
+
+        if (keys.z && this.canShoot) {
+            this.shoot();
+            // 武器等級越高，按住連發越順暢
+            let delay = 8;
+            if (this.weaponLevel >= 4) delay = 6;
+            if (this.weaponLevel >= 6) delay = 5;
+
+            if (this.weaponLevel < 2) this.canShoot = false; 
+            if (this.weaponLevel >= 2 && frameCount % delay !== 0) return; 
+        }
+
+        if (keys.x && this.canBomb && this.bombs > 0) {
+            this.useBomb();
+            this.canBomb = false;
+        }
+
+        if (this.invincibleTimer > 0) this.invincibleTimer--;
+    }
+
+    draw() {
+        if (this.invincibleTimer > 0 && Math.floor(frameCount / 4) % 2 === 0) return;
+        ctx.fillStyle = this.color;
+        ctx.fillRect(this.x, this.y, this.w, this.h);
+        // 頭帶
+        ctx.fillStyle = 'red';
+        ctx.fillRect(this.x, this.y + 5, this.w, 5);
+        // 血條
+        ctx.fillStyle = 'red';
+        ctx.fillRect(this.x, this.y + this.h + 5, this.w, 4);
+        ctx.fillStyle = '#0f0';
+        ctx.fillRect(this.x, this.y + this.h + 5, this.w * (this.hp / 100), 4);
+    }
+
+    shoot() {
+        let speed = 10;
+        let cx = this.x + this.w/2;
+        
+        // --- 武器等級邏輯 (Lv1 ~ Lv7) ---
+        if (this.weaponLevel === 1) {
+            bullets.push(new Bullet(cx, this.y, 0, -speed, 'player'));
+        }
+        else if (this.weaponLevel === 2) {
+             bullets.push(new Bullet(cx, this.y, 0, -12, 'player'));
+        }
+        else if (this.weaponLevel === 3) {
+            bullets.push(new Bullet(this.x + 5, this.y, 0, -speed, 'player'));
+            bullets.push(new Bullet(this.x + this.w - 5, this.y, 0, -speed, 'player'));
+        }
+        else if (this.weaponLevel === 4) {
+            bullets.push(new Bullet(cx, this.y, 0, -speed, 'player'));
+            bullets.push(new Bullet(cx, this.y, -3, -speed * 0.9, 'player'));
+            bullets.push(new Bullet(cx, this.y, 3, -speed * 0.9, 'player'));
+        }
+        else if (this.weaponLevel === 5) {
+            // 五向
+            [-5, -2.5, 0, 2.5, 5].forEach(ang => {
+                bullets.push(new Bullet(cx, this.y, ang, -speed * (1 - Math.abs(ang)/20), 'player'));
+            });
+        }
+        else if (this.weaponLevel === 6) {
+            // 七向 (更廣)
+            [-7, -5, -2.5, 0, 2.5, 5, 7].forEach(ang => {
+                bullets.push(new Bullet(cx, this.y, ang, -speed * (1 - Math.abs(ang)/20), 'player'));
+            });
+        }
+        else if (this.weaponLevel >= 7) {
+            // Lv7: 七向 + 中央高速連射 (影之奧義)
+            [-7, -5, -2.5, 2.5, 5, 7].forEach(ang => {
+                bullets.push(new Bullet(cx, this.y, ang, -speed * (1 - Math.abs(ang)/20), 'player'));
+            });
+            // 中央強化彈
+            bullets.push(new Bullet(cx - 5, this.y, 0, -14, 'player'));
+            bullets.push(new Bullet(cx + 5, this.y, 0, -14, 'player'));
+        }
+    }
+
+    useBomb() {
+        this.bombs--;
+        updateUI();
+        createExplosion(canvas.width/2, canvas.height/2, 500, '#FFF', 20);
+        enemyBullets = [];
+        enemies.forEach(e => {
+            e.takeDamage(50);
+            createExplosion(e.x + e.w/2, e.y + e.h/2, 50, '#FFA500', 10);
+        });
+        bosses.forEach(b => {
+            b.takeDamage(100);
+            createExplosion(b.x + b.w/2, b.y + b.h/2, 100, '#FFA500', 20);
+        });
+    }
+
+    takeDamage(amount) {
+        if (this.invincibleTimer > 0) return;
+        this.hp -= amount;
+        if (this.hp <= 0) {
+            this.lives--;
+            updateUI();
+            createExplosion(this.x + this.w/2, this.y + this.h/2, 50, '#0f0', 20);
+            
+            if (this.lives < 0) {
+                gameState = 'GAMEOVER';
+            } else {
+                this.hp = 100;
+                this.x = canvas.width / 2 - this.w / 2;
+                this.y = canvas.height - 100;
+                this.invincibleTimer = 120;
+                // 死亡懲罰：武器降1級 (最低Lv1)
+                this.weaponLevel = Math.max(1, this.weaponLevel - 1);
+                updateUI();
+            }
+        } else {
+            this.invincibleTimer = 30;
+        }
+    }
+}
+
+class Bullet {
+    constructor(x, y, vx, vy, owner, size) {
+        this.x = x; this.y = y; this.vx = vx; this.vy = vy; this.owner = owner;
+        this.r = size || 4; // 預設半徑
+        this.markedForDeletion = false;
+    }
+    update() {
+        this.x += this.vx; this.y += this.vy;
+        if (this.x < 0 - 50 || this.x > canvas.width + 50 || this.y < 0 - 50 || this.y > canvas.height + 50) this.markedForDeletion = true;
+    }
+    draw() {
+        ctx.beginPath();
+        if (this.owner === 'player') {
+            // 玩家子彈特效
+            if (this.r > 4) ctx.fillStyle = '#00FFFF'; // 高等級子彈變色
+            else ctx.fillStyle = this.vx === 0 ? '#FFFF00' : '#FFAA00';
+            
+            ctx.moveTo(this.x, this.y - this.r - 2);
+            ctx.lineTo(this.x + this.r, this.y);
+            ctx.lineTo(this.x, this.y + this.r + 2);
+            ctx.lineTo(this.x - this.r, this.y);
+        } else {
+            // 敵人子彈特效
+            if (this.r > 6) ctx.fillStyle = '#800080'; // 巨型彈 (紫)
+            else if (this.r < 4) ctx.fillStyle = '#FF00FF'; // 高速針彈 (亮紫)
+            else ctx.fillStyle = '#FF4444'; // 普通彈 (紅)
+            
+            ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+        }
+        ctx.fill();
+        
+        // 巨型彈加外框
+        if (this.r > 6) {
+            ctx.strokeStyle = '#FFF';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+        }
+    }
+}
+
+class Enemy {
+    constructor(spawnType) {
+        this.w = 30; this.h = 30;
+        this.hp = 3 + Math.floor(level / 2); // 隨著關卡稍微變硬
+        this.type = Math.random() > 0.7 ? 'shooter' : 'normal';
+        this.markedForDeletion = false;
+        this.shootTimer = Math.random() * 60;
+
+        if (spawnType === 'left') {
+            this.x = -this.w;
+            this.y = Math.random() * (canvas.height / 2); 
+            this.vx = 2 + Math.random() * 2;
+            this.vy = 1 + Math.random(); 
+        } else if (spawnType === 'right') {
+            this.x = canvas.width;
+            this.y = Math.random() * (canvas.height / 2);
+            this.vx = -(2 + Math.random() * 2);
+            this.vy = 1 + Math.random();
+        } else {
+            this.x = Math.random() * (canvas.width - this.w);
+            this.y = -40;
+            this.vx = (Math.random() - 0.5) * 1.5;
+            this.vy = 2 + Math.random() * 3;
+        }
+    }
+    update() {
+        this.y += this.vy; this.x += this.vx;
+        
+        if (this.vy > 0 && this.x > 0 && this.x < canvas.width - this.w) {
+             if (this.x <= 0 || this.x >= canvas.width - this.w) this.vx *= -1;
+        }
+
+        if (this.y > canvas.height || this.x < -100 || this.x > canvas.width + 100) this.markedForDeletion = true;
+
+        this.shootTimer--;
+        if (this.shootTimer <= 0) {
+            if (this.type === 'shooter') {
+                let dx = player.x - this.x;
+                let dy = player.y - this.y;
+                let angle = Math.atan2(dy, dx);
+                
+                // --- 隨機決定子彈類型 (大小/快慢) ---
+                let rng = Math.random();
+                if (rng < 0.2) {
+                    // 巨型光球 (慢速，大)
+                    enemyBullets.push(new Bullet(this.x + this.w/2, this.y + this.h, Math.cos(angle)*2.5, Math.sin(angle)*2.5, 'enemy', 9));
+                } else if (rng < 0.5) {
+                    // 高速針彈 (快速，小)
+                    enemyBullets.push(new Bullet(this.x + this.w/2, this.y + this.h, Math.cos(angle)*7, Math.sin(angle)*7, 'enemy', 3));
+                } else {
+                    // 普通彈
+                    enemyBullets.push(new Bullet(this.x + this.w/2, this.y + this.h, Math.cos(angle)*5, Math.sin(angle)*5, 'enemy', 5));
+                }
+                this.shootTimer = 100;
+            } else if (this.type === 'normal' && Math.random() < 0.2) {
+                enemyBullets.push(new Bullet(this.x + this.w/2, this.y + this.h, 0, 4, 'enemy', 5));
+                this.shootTimer = 150;
+            }
+        }
+    }
+    draw() {
+        ctx.fillStyle = this.type === 'shooter' ? '#c0392b' : '#d35400';
+        ctx.fillRect(this.x, this.y, this.w, this.h);
+        ctx.fillStyle = '#fff';
+        let dir = this.vx > 0 ? 4 : -4;
+        ctx.fillRect(this.x + 5 + dir, this.y + 10, 8, 5);
+        ctx.fillRect(this.x + 18 + dir, this.y + 10, 8, 5);
+    }
+    takeDamage(amount) {
+        this.hp -= amount;
+        if (this.hp <= 0) {
+            this.markedForDeletion = true;
+            score += 100;
+            killCount++;
+            if (Math.random() < 0.15) { 
+                let itemType = Math.random() < 0.8 ? 'power' : 'bomb';
+                items.push(new Item(this.x, this.y, itemType));
+            }
+            createExplosion(this.x + this.w/2, this.y + this.h/2, 20, '#FFA500', 5);
+            updateUI();
+        }
+    }
+}
+
+class Boss {
+    constructor(startX) {
+        this.w = 80; this.h = 60;
+        this.x = startX - 40;
+        this.y = -100;
+        this.maxHp = 400 * level; 
+        this.hp = this.maxHp;
+        this.state = 'enter';
+        this.timer = Math.floor(Math.random() * 100); 
+        this.moveDir = Math.random() > 0.5 ? 1 : -1;
+        this.markedForDeletion = false;
+    }
+    update() {
+        this.timer++;
+        if (this.state === 'enter') {
+            this.y += 2;
+            if (this.y >= 50) this.state = 'idle';
+        } else if (this.state === 'idle') {
+            this.x += 1.5 * this.moveDir;
+            if (this.x <= 0 || this.x >= canvas.width - this.w) this.moveDir *= -1;
+            if (this.timer % 100 === 0 && Math.random() < 0.5) this.moveDir *= -1;
+
+            if (this.timer % 150 === 0) {
+                let rand = Math.random();
+                if (rand < 0.4) this.state = 'prepare_laser';
+                else if (rand < 0.7) this.state = 'summon';
+                else this.state = 'spread_shot';
+            }
+        } else if (this.state === 'prepare_laser') {
+            // Boss 攻擊範圍變大: 寬度從 80 增加到 140
+            warningZones.push(new WarningZone(player.x - 40, 0, 140, canvas.height, 70));
+            this.state = 'idle';
+        } else if (this.state === 'summon') {
+            enemies.push(new Enemy(Math.random() > 0.5 ? 'left' : 'right'));
+            this.state = 'idle';
+        } else if (this.state === 'spread_shot') {
+            // 散彈模式也混入不同大小的子彈
+            for(let i=-2; i<=2; i++) {
+                let size = (i === 0) ? 8 : 5; // 中間那發特別大
+                let speed = (i === 0) ? 3 : 4;
+                enemyBullets.push(new Bullet(this.x + this.w/2, this.y + this.h, i*1.8, speed, 'enemy', size));
+            }
+            this.state = 'idle';
+        }
+    }
+    draw() {
+        ctx.fillStyle = '#8e44ad';
+        ctx.fillRect(this.x, this.y, this.w, this.h);
+        ctx.fillStyle = '#f1c40f';
+        ctx.fillRect(this.x + 10, this.y + 10, this.w - 20, 10);
+        ctx.fillStyle = '#555';
+        ctx.fillRect(this.x, this.y - 10, this.w, 5);
+        ctx.fillStyle = '#e74c3c';
+        ctx.fillRect(this.x, this.y - 10, this.w * (this.hp / this.maxHp), 5);
+    }
+    takeDamage(amount) {
+        this.hp -= amount;
+        if (this.hp <= 0) {
+            score += 5000;
+            createExplosion(this.x + this.w/2, this.y + this.h/2, 200, '#FFF', 50);
+            this.markedForDeletion = true;
+        }
+    }
+}
+
+class WarningZone {
+    constructor(x, y, w, h, duration) {
+        this.x = x; this.y = y; this.w = w; this.h = h;
+        this.timer = duration; this.maxTimer = duration; this.active = true;
+    }
+    update() {
+        this.timer--;
+        if (this.timer <= 0) {
+            if (rectIntersect(this.x, this.y, this.w, this.h, player.x, player.y, player.w, player.h)) {
+                player.takeDamage(30);
+            }
+            createExplosion(this.x + this.w/2, player.y, 50, '#FF4444', 10);
+            this.active = false;
+        }
+    }
+    draw() {
+        ctx.save();
+        let alpha = (this.timer / this.maxTimer) * 0.5 + 0.2;
+        ctx.fillStyle = `rgba(255, 0, 0, ${alpha})`;
+        ctx.fillRect(this.x, this.y, this.w, this.h);
+        ctx.strokeStyle = 'red';
+        ctx.strokeRect(this.x, this.y, this.w, this.h);
+        ctx.restore();
+    }
+}
+
+class Item {
+    constructor(x, y, type) {
+        this.x = x; this.y = y; this.type = type;
+        this.w = 20; this.h = 20; this.vy = 2; this.markedForDeletion = false;
+    }
+    update() {
+        this.y += this.vy;
+        if (this.y > canvas.height) this.markedForDeletion = true;
+        if (rectIntersect(this.x, this.y, this.w, this.h, player.x, player.y, player.w, player.h)) {
+            if (this.type === 'power') {
+                // 升級上限提高至 7
+                player.weaponLevel = Math.min(player.weaponLevel + 1, 7);
+                score += 200;
+            } else if (this.type === 'bomb') {
+                player.bombs++;
+            }
+            updateUI();
+            this.markedForDeletion = true;
+        }
+    }
+    draw() {
+        ctx.font = '20px Arial';
+        if (this.type === 'power') {
+            ctx.fillStyle = 'red';
+            ctx.fillText('P', this.x, this.y + 20);
+        } else {
+            ctx.fillStyle = 'blue';
+            ctx.fillText('B', this.x, this.y + 20);
+        }
+    }
+}
+
+class Particle {
+    constructor(x, y, color) {
+        this.x = x; this.y = y;
+        this.vx = (Math.random() - 0.5) * 6; this.vy = (Math.random() - 0.5) * 6;
+        this.life = 30; this.color = color;
+    }
+    update() { this.x += this.vx; this.y += this.vy; this.life--; }
+    draw() { ctx.fillStyle = this.color; ctx.globalAlpha = this.life / 30; ctx.fillRect(this.x, this.y, 4, 4); ctx.globalAlpha = 1; }
+}
+
+function createExplosion(x, y, count, color, range) {
+    for(let i=0; i<count; i++) particles.push(new Particle(x + (Math.random()-0.5)*range, y + (Math.random()-0.5)*range, color));
+}
+function rectIntersect(x1, y1, w1, h1, x2, y2, w2, h2) {
+    return x2 < x1 + w1 && x2 + w2 > x1 && y2 < y1 + h1 && y2 + h2 > y1;
+}
+function updateUI() {
+    document.getElementById('score').innerText = `分數: ${score}`;
+    document.getElementById('lives').innerText = `生命: ${player.lives}`;
+    document.getElementById('bombs').innerText = `炸彈: ${player.bombs}`;
+    if(player) document.getElementById('weapon').innerText = `武器: Lv${player.weaponLevel}`;
+}
+function initGame() {
+    score = 0; level = 1; killCount = 0;
+    player = new Player();
+    resetLevel();
+}
+function resetLevel() {
+    bullets = []; enemyBullets = []; enemies = []; items = []; particles = []; warningZones = [];
+    bosses = []; 
+    gameState = 'PLAYING';
+    updateUI();
+}
+function nextLevel() {
+    level++; killCount = 0; player.hp = 100; resetLevel();
+}
+
+function gameLoop() {
+    ctx.fillStyle = '#222';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    if (gameState === 'MENU') {
+        ctx.fillStyle = 'white';
+        ctx.font = '30px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('忍者卷軸：忍界大戰', canvas.width/2, canvas.height/2 - 40);
+        ctx.font = '20px sans-serif';
+        ctx.fillText('點擊 Z 鍵開始', canvas.width/2, canvas.height/2 + 20);
+    } 
+    else if (gameState === 'PLAYING') {
+        frameCount++;
+        
+        if (bosses.length === 0 && enemies.length < 8 + level && Math.random() < 0.04) {
+            let spawnType = 'top';
+            let r = Math.random();
+            if (r < 0.15) spawnType = 'left';
+            else if (r < 0.3) spawnType = 'right';
+            
+            enemies.push(new Enemy(spawnType));
+        }
+
+        if (bosses.length === 0 && killCount >= KILLS_TO_BOSS * level) {
+            bosses.push(new Boss(canvas.width * 0.25)); 
+            bosses.push(new Boss(canvas.width * 0.75)); 
+        }
+
+        player.update(); player.draw();
+
+        bosses.forEach((boss, i) => {
+            boss.update();
+            boss.draw();
+            if (boss.markedForDeletion) {
+                bosses.splice(i, 1);
+                if (bosses.length === 0) gameState = 'LEVEL_CLEAR';
+            }
+        });
+
+        warningZones.forEach((z, i) => { z.update(); z.draw(); if (!z.active) warningZones.splice(i, 1); });
+        bullets.forEach((b, i) => { b.update(); b.draw(); if (b.markedForDeletion) bullets.splice(i, 1); });
+        
+        // 子彈判定 (考慮半徑)
+        enemyBullets.forEach((b, i) => { 
+            b.update(); b.draw(); 
+            if (b.markedForDeletion) {
+                enemyBullets.splice(i, 1);
+            }
+            // 這裡使用 b.r * 2 作為寬高進行判定
+            else if (rectIntersect(b.x - b.r, b.y - b.r, b.r*2, b.r*2, player.x, player.y, player.w, player.h)) {
+                player.takeDamage(10); 
+                b.markedForDeletion = true;
+            }
+        });
+        
+        enemies.forEach((e, i) => {
+            e.update(); e.draw();
+            if (e.markedForDeletion) enemies.splice(i, 1);
+            else if (rectIntersect(e.x, e.y, e.w, e.h, player.x, player.y, player.w, player.h)) {
+                player.takeDamage(20); e.takeDamage(10);
+            }
+        });
+        
+        items.forEach((item, i) => { item.update(); item.draw(); if (item.markedForDeletion) items.splice(i, 1); });
+        particles.forEach((p, i) => { p.update(); p.draw(); if (p.life <= 0) particles.splice(i, 1); });
+
+        bullets.forEach(b => {
+            enemies.forEach(e => {
+                if (rectIntersect(b.x, b.y, 4, 10, e.x, e.y, e.w, e.h)) {
+                    e.takeDamage(1); b.markedForDeletion = true;
+                    createExplosion(b.x, b.y, 2, '#fff', 5);
+                }
+            });
+            bosses.forEach(boss => {
+                if (rectIntersect(b.x, b.y, 4, 10, boss.x, boss.y, boss.w, boss.h)) {
+                     boss.takeDamage(1); b.markedForDeletion = true;
+                     createExplosion(b.x, b.y, 2, '#fff', 5);
+                }
+            });
+        });
+    } 
+    else if (gameState === 'GAMEOVER') {
+        ctx.fillStyle = 'red';
+        ctx.font = '40px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('任務失敗', canvas.width/2, canvas.height/2 - 20);
+        ctx.fillStyle = 'white';
+        ctx.font = '20px sans-serif';
+        ctx.fillText('Z: 復活 | X: 重頭開始', canvas.width/2, canvas.height/2 + 40);
+    }
+    else if (gameState === 'LEVEL_CLEAR') {
+        ctx.fillStyle = '#2ecc71';
+        ctx.font = '40px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(`第 ${level} 關 討伐成功!`, canvas.width/2, canvas.height/2 - 20);
+        ctx.font = '20px sans-serif';
+        ctx.fillText('按 Z 進入下一關', canvas.width/2, canvas.height/2 + 40);
+    }
+
+    requestAnimationFrame(gameLoop);
+}
+
+requestAnimationFrame(gameLoop);
+
+</script>
+</body>
+</html>
