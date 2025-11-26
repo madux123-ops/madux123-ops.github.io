@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>忍者卷軸：影之戰 (觸控版)</title>
+    <title>忍者卷軸：雙鬼之亂</title>
     <style>
         body {
             background-color: #222;
@@ -12,22 +12,20 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: flex-start; /* 改為靠上對齊 */
+            justify-content: flex-start;
             height: 100vh;
             margin: 0;
             overflow: hidden;
-            touch-action: none; /* 禁止手機預設滑動行為 */
-            padding-top: 10px; /* 僅保留少許頂部空間 */
+            touch-action: none;
+            padding-top: 10px;
         }
 
-        /* 遊戲畫面設定 */
         canvas {
             background-color: #000;
             border: 2px solid #555;
             box-shadow: 0 0 20px rgba(0,0,0,0.5);
-            /* 讓 Canvas 在小螢幕自動縮放，但保持比例 */
             max-width: 100%; 
-            max-height: 65vh; /* 留空間給下方按鈕 */
+            max-height: 65vh;
             width: auto;
             height: auto;
             object-fit: contain;
@@ -46,7 +44,6 @@
             box-sizing: border-box;
         }
 
-        /* 控制器區域容器 */
         #controls-area {
             position: fixed;
             bottom: 10px;
@@ -58,10 +55,9 @@
             align-items: flex-end;
             padding: 0 20px;
             box-sizing: border-box;
-            pointer-events: none; /* 讓點擊穿透空白處 */
+            pointer-events: none;
         }
 
-        /* 左側動作按鈕區 (Z, X) */
         .action-pad {
             pointer-events: auto;
             display: flex;
@@ -69,7 +65,6 @@
             margin-bottom: 20px;
         }
 
-        /* 右側方向鍵區 */
         .d-pad {
             pointer-events: auto;
             display: grid;
@@ -79,7 +74,6 @@
             margin-bottom: 10px;
         }
 
-        /* 按鈕共用樣式 */
         .btn {
             background: rgba(255, 255, 255, 0.15);
             border: 2px solid rgba(255, 255, 255, 0.3);
@@ -100,22 +94,19 @@
             color: #000;
         }
 
-        /* 動作按鈕大小 */
         .btn-action {
             width: 70px;
             height: 70px;
-            background: rgba(255, 50, 50, 0.2); /* 微紅 */
+            background: rgba(255, 50, 50, 0.2);
         }
 
-        /* 方向鍵特定位置與樣式 */
         .btn-arrow {
             width: 60px;
             height: 50px;
             border-radius: 10px;
-            background: rgba(50, 150, 255, 0.2); /* 微藍 */
+            background: rgba(50, 150, 255, 0.2);
         }
         
-        /* Grid定位 */
         .up { grid-column: 2; grid-row: 1; }
         .left { grid-column: 1; grid-row: 2; }
         .down { grid-column: 2; grid-row: 3; }
@@ -173,15 +164,13 @@ let enemyBullets = [];
 let enemies = [];
 let items = [];
 let particles = [];
-let boss = null;
+let bosses = []; // 修改：改為陣列支援多Boss
 let warningZones = [];
 
-// --- 輸入處理 (整合鍵盤與觸控) ---
-
+// --- 輸入處理 ---
 function handleKey(key, isPressed) {
     if (keys.hasOwnProperty(key)) keys[key] = isPressed;
 
-    // 狀態切換邏輯
     if (isPressed) {
         if (gameState === 'MENU' && key === 'z') {
             initGame();
@@ -199,47 +188,28 @@ function handleKey(key, isPressed) {
         }
     }
 
-    // 射擊與炸彈重置邏輯
     if (!isPressed) {
         if (key === 'z' && player) player.canShoot = true;
         if (key === 'x' && player) player.canBomb = true;
     }
 }
 
-// 1. 鍵盤監聽
 window.addEventListener('keydown', e => handleKey(e.key, true));
 window.addEventListener('keyup', e => handleKey(e.key, false));
 
-// 2. 觸控按鈕綁定
 const touchButtons = document.querySelectorAll('.btn');
-
 touchButtons.forEach(btn => {
     const key = btn.dataset.key;
-    
-    // 滑鼠/手指按下
-    const pressHandler = (e) => {
-        e.preventDefault(); // 防止長按跳出選單
-        handleKey(key, true);
-        btn.classList.add('active');
-    };
-
-    // 滑鼠/手指放開
-    const releaseHandler = (e) => {
-        e.preventDefault();
-        handleKey(key, false);
-        btn.classList.remove('active');
-    };
-
+    const pressHandler = (e) => { e.preventDefault(); handleKey(key, true); btn.classList.add('active'); };
+    const releaseHandler = (e) => { e.preventDefault(); handleKey(key, false); btn.classList.remove('active'); };
     btn.addEventListener('mousedown', pressHandler);
     btn.addEventListener('touchstart', pressHandler);
-
     btn.addEventListener('mouseup', releaseHandler);
     btn.addEventListener('touchend', releaseHandler);
-    btn.addEventListener('mouseleave', releaseHandler); // 滑出按鈕範圍視為放開
+    btn.addEventListener('mouseleave', releaseHandler);
 });
 
-
-/** 類別定義 (與之前相同，略做視覺調整) */
+/** 類別定義 */
 
 class Player {
     constructor() {
@@ -259,20 +229,17 @@ class Player {
     }
 
     update() {
-        // 移動
         if (keys.ArrowUp && this.y > 0) this.y -= this.speed;
         if (keys.ArrowDown && this.y < canvas.height - this.h) this.y += this.speed;
         if (keys.ArrowLeft && this.x > 0) this.x -= this.speed;
         if (keys.ArrowRight && this.x < canvas.width - this.w) this.x += this.speed;
 
-        // 射擊 (Z)
         if (keys.z && this.canShoot) {
             this.shoot();
             if (this.weaponLevel < 2) this.canShoot = false; 
             if (this.weaponLevel >= 2 && frameCount % 8 !== 0) return; 
         }
 
-        // 炸彈 (X)
         if (keys.x && this.canBomb && this.bombs > 0) {
             this.useBomb();
             this.canBomb = false;
@@ -283,13 +250,10 @@ class Player {
 
     draw() {
         if (this.invincibleTimer > 0 && Math.floor(frameCount / 4) % 2 === 0) return;
-        
         ctx.fillStyle = this.color;
         ctx.fillRect(this.x, this.y, this.w, this.h);
         ctx.fillStyle = 'red';
         ctx.fillRect(this.x, this.y + 5, this.w, 5);
-        
-        // 血條
         ctx.fillStyle = 'red';
         ctx.fillRect(this.x, this.y + this.h + 5, this.w, 4);
         ctx.fillStyle = '#0f0';
@@ -298,20 +262,33 @@ class Player {
 
     shoot() {
         let speed = 10;
+        // Lv 1: 單發
         if (this.weaponLevel === 1) {
             bullets.push(new Bullet(this.x + this.w/2, this.y, 0, -speed, 'player'));
         }
+        // Lv 2: 加速
         else if (this.weaponLevel === 2) {
              bullets.push(new Bullet(this.x + this.w/2, this.y, 0, -12, 'player'));
         }
+        // Lv 3: 二連並排
         else if (this.weaponLevel === 3) {
             bullets.push(new Bullet(this.x + 5, this.y, 0, -speed, 'player'));
             bullets.push(new Bullet(this.x + this.w - 5, this.y, 0, -speed, 'player'));
         }
-        else {
+        // Lv 4: 三向散射
+        else if (this.weaponLevel === 4) {
             bullets.push(new Bullet(this.x + this.w/2, this.y, 0, -speed, 'player'));
             bullets.push(new Bullet(this.x + this.w/2, this.y, -3, -speed * 0.9, 'player'));
             bullets.push(new Bullet(this.x + this.w/2, this.y, 3, -speed * 0.9, 'player'));
+        }
+        // Lv 5: 五向廣角散射 (新增)
+        else {
+            let cx = this.x + this.w/2;
+            bullets.push(new Bullet(cx, this.y, 0, -speed, 'player'));
+            bullets.push(new Bullet(cx, this.y, -2.5, -speed * 0.95, 'player'));
+            bullets.push(new Bullet(cx, this.y, 2.5, -speed * 0.95, 'player'));
+            bullets.push(new Bullet(cx, this.y, -5, -speed * 0.85, 'player'));
+            bullets.push(new Bullet(cx, this.y, 5, -speed * 0.85, 'player'));
         }
     }
 
@@ -324,10 +301,11 @@ class Player {
             e.takeDamage(50);
             createExplosion(e.x + e.w/2, e.y + e.h/2, 50, '#FFA500', 10);
         });
-        if(boss) {
-            boss.takeDamage(100);
-            createExplosion(boss.x + boss.w/2, boss.y + boss.h/2, 100, '#FFA500', 20);
-        }
+        // 對所有 Boss 造成傷害
+        bosses.forEach(b => {
+            b.takeDamage(100);
+            createExplosion(b.x + b.w/2, b.y + b.h/2, 100, '#FFA500', 20);
+        });
     }
 
     takeDamage(amount) {
@@ -365,7 +343,7 @@ class Bullet {
     draw() {
         ctx.beginPath();
         if (this.owner === 'player') {
-            ctx.fillStyle = '#FFFF00';
+            ctx.fillStyle = this.vx === 0 ? '#FFFF00' : '#FFAA00'; // 散射飛鏢變色
             ctx.moveTo(this.x, this.y - 5);
             ctx.lineTo(this.x + 5, this.y);
             ctx.lineTo(this.x, this.y + 5);
@@ -379,28 +357,54 @@ class Bullet {
 }
 
 class Enemy {
-    constructor(type) {
+    constructor(spawnType) {
         this.w = 30; this.h = 30;
-        this.x = Math.random() * (canvas.width - this.w);
-        this.y = -40;
         this.hp = 3;
-        this.type = type || 'normal';
-        this.vy = 2 + Math.random() * 2;
-        this.vx = (Math.random() - 0.5) * 1;
+        this.type = Math.random() > 0.7 ? 'shooter' : 'normal';
         this.markedForDeletion = false;
         this.shootTimer = Math.random() * 60;
+
+        // 設定出生點與移動方向 (新增左右生成)
+        if (spawnType === 'left') {
+            this.x = -this.w;
+            this.y = Math.random() * (canvas.height / 2); // 上半部
+            this.vx = 2 + Math.random() * 2;
+            this.vy = 1 + Math.random(); 
+        } else if (spawnType === 'right') {
+            this.x = canvas.width;
+            this.y = Math.random() * (canvas.height / 2);
+            this.vx = -(2 + Math.random() * 2);
+            this.vy = 1 + Math.random();
+        } else {
+            // Top (預設)
+            this.x = Math.random() * (canvas.width - this.w);
+            this.y = -40;
+            this.vx = (Math.random() - 0.5) * 1.5;
+            this.vy = 2 + Math.random() * 3;
+        }
     }
     update() {
         this.y += this.vy; this.x += this.vx;
-        if (this.x <= 0 || this.x >= canvas.width - this.w) this.vx *= -1;
-        if (this.y > canvas.height) this.markedForDeletion = true;
+        
+        // 只有從上方出現的需要左右反彈，側面的就讓它飛過去
+        if (this.vy > 0 && this.x > 0 && this.x < canvas.width - this.w) {
+             // 進入畫面後才考慮邊界反彈
+             if (this.x <= 0 || this.x >= canvas.width - this.w) this.vx *= -1;
+        }
+
+        if (this.y > canvas.height || this.x < -100 || this.x > canvas.width + 100) this.markedForDeletion = true;
 
         this.shootTimer--;
         if (this.shootTimer <= 0) {
             if (this.type === 'shooter') {
-                enemyBullets.push(new Bullet(this.x + this.w/2, this.y + this.h, 0, 5, 'enemy'));
+                // 瞄準玩家射擊
+                let dx = player.x - this.x;
+                let dy = player.y - this.y;
+                let angle = Math.atan2(dy, dx);
+                let speed = 5;
+                enemyBullets.push(new Bullet(this.x + this.w/2, this.y + this.h, Math.cos(angle)*speed, Math.sin(angle)*speed, 'enemy'));
                 this.shootTimer = 100;
-            } else if (this.type === 'normal' && Math.random() < 0.3) {
+            } else if (this.type === 'normal' && Math.random() < 0.2) {
                 enemyBullets.push(new Bullet(this.x + this.w/2, this.y + this.h, 0, 4, 'enemy'));
                 this.shootTimer = 150;
             }
@@ -410,8 +414,10 @@ class Enemy {
         ctx.fillStyle = this.type === 'shooter' ? '#c0392b' : '#d35400';
         ctx.fillRect(this.x, this.y, this.w, this.h);
         ctx.fillStyle = '#fff';
-        ctx.fillRect(this.x + 5, this.y + 10, 8, 5);
-        ctx.fillRect(this.x + 18, this.y + 10, 8, 5);
+        // 根據移動方向畫眼睛
+        let dir = this.vx > 0 ? 4 : -4;
+        ctx.fillRect(this.x + 5 + dir, this.y + 10, 8, 5);
+        ctx.fillRect(this.x + 18 + dir, this.y + 10, 8, 5);
     }
     takeDamage(amount) {
         this.hp -= amount;
@@ -419,8 +425,8 @@ class Enemy {
             this.markedForDeletion = true;
             score += 100;
             killCount++;
-            if (Math.random() < 0.1) {
-                let itemType = Math.random() < 0.7 ? 'power' : 'bomb';
+            if (Math.random() < 0.15) { // 稍微提高掉寶率
+                let itemType = Math.random() < 0.8 ? 'power' : 'bomb';
                 items.push(new Item(this.x, this.y, itemType));
             }
             createExplosion(this.x + this.w/2, this.y + this.h/2, 20, '#FFA500', 5);
@@ -430,15 +436,16 @@ class Enemy {
 }
 
 class Boss {
-    constructor() {
+    constructor(startX) {
         this.w = 80; this.h = 60;
-        this.x = canvas.width / 2 - this.w / 2;
+        this.x = startX - 40; // 根據傳入的中心點位置調整
         this.y = -100;
-        this.maxHp = 500 * level;
+        this.maxHp = 400 * level; // 因為有兩隻，血量稍微調低一點
         this.hp = this.maxHp;
         this.state = 'enter';
-        this.timer = 0;
-        this.moveDir = 1;
+        this.timer = Math.floor(Math.random() * 100); // 讓兩隻 Boss 動作錯開
+        this.moveDir = Math.random() > 0.5 ? 1 : -1;
+        this.markedForDeletion = false;
     }
     update() {
         this.timer++;
@@ -446,24 +453,29 @@ class Boss {
             this.y += 2;
             if (this.y >= 50) this.state = 'idle';
         } else if (this.state === 'idle') {
-            this.x += 2 * this.moveDir;
+            this.x += 1.5 * this.moveDir;
             if (this.x <= 0 || this.x >= canvas.width - this.w) this.moveDir *= -1;
-            if (this.timer % 120 === 0) {
+            
+            // 隨機移動反轉，避免太單調
+            if (this.timer % 100 === 0 && Math.random() < 0.5) this.moveDir *= -1;
+
+            if (this.timer % 150 === 0) {
                 let rand = Math.random();
                 if (rand < 0.4) this.state = 'prepare_laser';
                 else if (rand < 0.7) this.state = 'summon';
                 else this.state = 'spread_shot';
             }
         } else if (this.state === 'prepare_laser') {
-            warningZones.push(new WarningZone(player.x - 20, 0, 70, canvas.height, 60));
+            // 兩隻 Boss 可能同時放雷射，非常危險
+            warningZones.push(new WarningZone(player.x - 25, 0, 80, canvas.height, 70));
             this.state = 'idle';
         } else if (this.state === 'summon') {
-            enemies.push(new Enemy('shooter'));
-            enemies.push(new Enemy('normal'));
+            // 召喚從旁邊衝出來的小兵
+            enemies.push(new Enemy(Math.random() > 0.5 ? 'left' : 'right'));
             this.state = 'idle';
         } else if (this.state === 'spread_shot') {
             for(let i=-2; i<=2; i++) {
-                enemyBullets.push(new Bullet(this.x + this.w/2, this.y + this.h, i, 4, 'enemy'));
+                enemyBullets.push(new Bullet(this.x + this.w/2, this.y + this.h, i*1.5, 4, 'enemy'));
             }
             this.state = 'idle';
         }
@@ -474,17 +486,16 @@ class Boss {
         ctx.fillStyle = '#f1c40f';
         ctx.fillRect(this.x + 10, this.y + 10, this.w - 20, 10);
         ctx.fillStyle = '#555';
-        ctx.fillRect(0, 0, canvas.width, 10);
+        ctx.fillRect(this.x, this.y - 10, this.w, 5);
         ctx.fillStyle = '#e74c3c';
-        ctx.fillRect(0, 0, canvas.width * (this.hp / this.maxHp), 10);
+        ctx.fillRect(this.x, this.y - 10, this.w * (this.hp / this.maxHp), 5);
     }
     takeDamage(amount) {
         this.hp -= amount;
         if (this.hp <= 0) {
             score += 5000;
             createExplosion(this.x + this.w/2, this.y + this.h/2, 200, '#FFF', 50);
-            boss = null;
-            gameState = 'LEVEL_CLEAR';
+            this.markedForDeletion = true;
         }
     }
 }
@@ -525,7 +536,8 @@ class Item {
         if (this.y > canvas.height) this.markedForDeletion = true;
         if (rectIntersect(this.x, this.y, this.w, this.h, player.x, player.y, player.w, player.h)) {
             if (this.type === 'power') {
-                player.weaponLevel = Math.min(player.weaponLevel + 1, 4);
+                // 修改：最高等級改為 5
+                player.weaponLevel = Math.min(player.weaponLevel + 1, 5);
                 score += 200;
             } else if (this.type === 'bomb') {
                 player.bombs++;
@@ -574,7 +586,7 @@ function initGame() {
 }
 function resetLevel() {
     bullets = []; enemyBullets = []; enemies = []; items = []; particles = []; warningZones = [];
-    boss = null;
+    bosses = []; // 重置 Boss 陣列
     gameState = 'PLAYING';
     updateUI();
 }
@@ -590,23 +602,47 @@ function gameLoop() {
         ctx.fillStyle = 'white';
         ctx.font = '30px sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText('忍者卷軸：影之戰', canvas.width/2, canvas.height/2 - 40);
+        ctx.fillText('忍者卷軸：雙鬼之亂', canvas.width/2, canvas.height/2 - 40);
         ctx.font = '20px sans-serif';
         ctx.fillText('點擊下方 Z 鍵開始', canvas.width/2, canvas.height/2 + 20);
     } 
     else if (gameState === 'PLAYING') {
         frameCount++;
-        if (!boss && enemies.length < 5 + level && Math.random() < 0.02) {
-            let type = Math.random() > 0.8 ? 'shooter' : 'normal';
-            enemies.push(new Enemy(type));
+        
+        // 敵人生成邏輯：機率提高 (0.02 -> 0.04)，並加入側邊生成
+        if (bosses.length === 0 && enemies.length < 8 + level && Math.random() < 0.04) {
+            let spawnType = 'top';
+            let r = Math.random();
+            if (r < 0.15) spawnType = 'left';
+            else if (r < 0.3) spawnType = 'right';
+            
+            enemies.push(new Enemy(spawnType));
         }
-        if (!boss && killCount >= KILLS_TO_BOSS * level) boss = new Boss();
+
+        // Boss 生成邏輯：同時生成兩隻
+        if (bosses.length === 0 && killCount >= KILLS_TO_BOSS * level) {
+            bosses.push(new Boss(canvas.width * 0.25)); // 左邊那隻
+            bosses.push(new Boss(canvas.width * 0.75)); // 右邊那隻
+        }
 
         player.update(); player.draw();
-        if (boss) { boss.update(); boss.draw(); }
+
+        // 更新 Bosses
+        bosses.forEach((boss, i) => {
+            boss.update();
+            boss.draw();
+            if (boss.markedForDeletion) {
+                bosses.splice(i, 1);
+                // 檢查是否全部 Boss 都死了
+                if (bosses.length === 0) {
+                    gameState = 'LEVEL_CLEAR';
+                }
+            }
+        });
 
         warningZones.forEach((z, i) => { z.update(); z.draw(); if (!z.active) warningZones.splice(i, 1); });
         bullets.forEach((b, i) => { b.update(); b.draw(); if (b.markedForDeletion) bullets.splice(i, 1); });
+        
         enemyBullets.forEach((b, i) => { 
             b.update(); b.draw(); 
             if (b.markedForDeletion) enemyBullets.splice(i, 1);
@@ -614,16 +650,19 @@ function gameLoop() {
                 player.takeDamage(10); b.markedForDeletion = true;
             }
         });
+        
         enemies.forEach((e, i) => {
             e.update(); e.draw();
             if (e.markedForDeletion) enemies.splice(i, 1);
-            if (rectIntersect(e.x, e.y, e.w, e.h, player.x, player.y, player.w, player.h)) {
+            else if (rectIntersect(e.x, e.y, e.w, e.h, player.x, player.y, player.w, player.h)) {
                 player.takeDamage(20); e.takeDamage(10);
             }
         });
+        
         items.forEach((item, i) => { item.update(); item.draw(); if (item.markedForDeletion) items.splice(i, 1); });
         particles.forEach((p, i) => { p.update(); p.draw(); if (p.life <= 0) particles.splice(i, 1); });
 
+        // 碰撞檢測：子彈 vs 敵人
         bullets.forEach(b => {
             enemies.forEach(e => {
                 if (rectIntersect(b.x, b.y, 4, 10, e.x, e.y, e.w, e.h)) {
@@ -631,10 +670,13 @@ function gameLoop() {
                     createExplosion(b.x, b.y, 2, '#fff', 5);
                 }
             });
-            if (boss && rectIntersect(b.x, b.y, 4, 10, boss.x, boss.y, boss.w, boss.h)) {
-                 boss.takeDamage(1); b.markedForDeletion = true;
-                 createExplosion(b.x, b.y, 2, '#fff', 5);
-            }
+            // 子彈 vs 所有 Boss
+            bosses.forEach(boss => {
+                if (rectIntersect(b.x, b.y, 4, 10, boss.x, boss.y, boss.w, boss.h)) {
+                     boss.takeDamage(1); b.markedForDeletion = true;
+                     createExplosion(b.x, b.y, 2, '#fff', 5);
+                }
+            });
         });
     } 
     else if (gameState === 'GAMEOVER') {
@@ -650,7 +692,7 @@ function gameLoop() {
         ctx.fillStyle = '#2ecc71';
         ctx.font = '40px sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText(`第 ${level} 關 通過!`, canvas.width/2, canvas.height/2 - 20);
+        ctx.fillText(`第 ${level} 關 鬼退治!`, canvas.width/2, canvas.height/2 - 20);
         ctx.font = '20px sans-serif';
         ctx.fillText('按 Z 進入下一關', canvas.width/2, canvas.height/2 + 40);
     }
