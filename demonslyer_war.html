@@ -180,7 +180,7 @@
             { name: "水之呼吸·壹之型", reqLv: 1, range: 1, val: 1.2, cost: 0, aoe: false },
             { name: "火之神神樂", reqLv: 3, range: 1, val: 1.6, cost: 0, aoe: false },
             { name: "日之呼吸·陽華突", reqLv: 6, range: 2, val: 2.2, cost: 0, aoe: false },
-            { name: "奧義·第十三型", reqLv: 9, range: 3, val: 3.5, cost: 0, aoe: false, ult: true }
+            { name: "奧義·第十三型", reqLv: 9, range: 3, val: 3.5, cost: 0, aoe: true, ult: true }
         ],
         zenitsu: [
             { name: "霹靂一閃", reqLv: 1, range: 3, val: 1.1, cost: 0, aoe: false },
@@ -797,7 +797,7 @@
             1: ["下弦之陸"], 2: ["下弦之伍", "下弦之壹"], 3: ["墮姬"], 4: ["墮姬", "妓夫太郎"],
             5: ["玉壺"], 6: ["半天狗", "憎珀天"], 7: ["猗窩座"], 8: ["童磨", "猗窩座"], 9: ["黑死牟", "鬼舞辻無慘"]
         };
-        const list = bossMap[l] || ["無慘"];
+        const list = bossMap[l] || ["鬼舞辻無慘 分身"];
         return list[index - 1] || list[0];
     }
 
