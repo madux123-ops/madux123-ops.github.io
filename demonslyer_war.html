@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>鬼滅之刃：無限城決戰 RPG (經驗值優化版)</title>
+    <title>鬼滅之刃：無限城決戰 RPG (雙王激鬥版)</title>
     <style>
         /* --- 全局設定 --- */
         body {
@@ -76,6 +76,7 @@
         .unit.nezuko  { background: radial-gradient(#ff99cc, #cc0055); border-color: #ff3366; color: #fff; }
 
         .unit.demon { background: radial-gradient(#444, #111); border-color: #f00; color: #bbb; font-size: 10px; }
+        .unit.demon-range { background: radial-gradient(#4a2c5a, #200020); border-color: #a0f; color: #eef; font-size: 10px; } /* 遠程鬼配色 */
         .unit.boss { background: radial-gradient(#a00, #300); border-color: #ff0000; color: #fff; font-size: 14px; box-shadow: 0 0 6px #f00; }
 
         .unit.done { filter: grayscale(100%) brightness(0.5); transform: scale(0.9); }
@@ -84,7 +85,7 @@
         /* 血條與等級 */
         .hp-bar-bg { position: absolute; bottom: -3px; width: 100%; height: 3px; background: #000; border-radius: 2px; }
         .hp-bar-fill { height: 100%; background: #0f0; transition: width 0.3s; }
-        .unit.demon .hp-bar-fill { background: #f00; }
+        .unit.demon .hp-bar-fill, .unit.demon-range .hp-bar-fill { background: #f00; }
         .lvl-tag { position: absolute; top: -5px; right: -5px; font-size: 8px; background: #000; padding: 0 1px; border-radius: 2px; color: #fff; border: 1px solid #666; transform: scale(0.9); }
 
         /* --- UI 面板 --- */
@@ -115,6 +116,7 @@
         .log-heal { color: #4cd137; font-weight: bold; }
         .log-sys { color: #ffd700; }
         .log-xp { color: #00bfff; font-style: italic; }
+        .log-danger { color: #ff0000; font-weight: bold; background: #330000; padding: 2px; }
 
         #btn-end-turn {
             width: 100%; padding: 10px; background: #8b0000; color: #fff; font-weight: bold; 
@@ -166,21 +168,21 @@
     const SKILL_DB = {
         tanjiro: [
             { name: "水之呼吸·壹之型", reqLv: 1, range: 1, val: 1.2, cost: 0, aoe: false },
-            { name: "火之神神樂", reqLv: 3, range: 1, val: 1.6, cost: 0, aoe: false },
+            { name: "火之神神樂.圓舞", reqLv: 3, range: 1, val: 1.6, cost: 0, aoe: false },
             { name: "日之呼吸·陽華突", reqLv: 6, range: 2, val: 2.2, cost: 0, aoe: false }
         ],
         zenitsu: [
             { name: "霹靂一閃", reqLv: 1, range: 3, val: 1.1, cost: 0, aoe: false },
             { name: "霹靂一閃·六連", reqLv: 3, range: 4, val: 1.4, cost: 0, aoe: false },
-            { name: "神速", reqLv: 6, range: 5, val: 2.0, cost: 0, aoe: false }
+            { name: "霹靂一閃·神速", reqLv: 6, range: 5, val: 2.0, cost: 0, aoe: false }
         ],
         inosuke: [
             { name: "獸之呼吸·獠牙", reqLv: 1, range: 1, val: 1.0, cost: 0, aoe: true },
             { name: "空間感知·殺", reqLv: 3, range: 1, val: 1.5, cost: 0, aoe: true },
-            { name: "爆裂猛進", reqLv: 6, range: 1, val: 2.5, cost: 0, aoe: true }
+            { name: "爆裂猛進", reqLv: 6, range: 2, val: 2.5, cost: 0, aoe: true }
         ],
         nezuko: [
-            { name: "再生回復", reqLv: 1, range: 2, val: 50, cost: 0, aoe: false, isHeal: true }, 
+            { name: "再生回復", reqLv: 1, range: 2, val: 60, cost: 0, aoe: false, isHeal: true }, 
             { name: "爆血·廣域治癒", reqLv: 3, range: 0, val: 40, cost: 0, aoe: true, isHeal: true, global: true },
             { name: "爆血·燒灼", reqLv: 6, range: 2, val: 2.5, cost: 0, aoe: false, isHeal: false } 
         ]
@@ -203,6 +205,10 @@
             this.def = stats.def;
             this.moveRange = 2; 
             
+            // 敵方 AI 參數
+            this.range = stats.range || 1; // 攻擊距離
+            this.aoeRange = stats.aoeRange || 0; // Boss 範圍攻擊半徑
+            
             this.hasActed = false;
             this.xp = 0;
             this.maxXp = 100 * this.level;
@@ -218,7 +224,6 @@
         gainXp(amount) {
             if (this.type !== 'slayer') return;
             this.xp += amount;
-            // log(`${this.name} 獲得 ${amount} EXP`, 'log-xp'); // 防止洗版，在外部統一顯示
             if (this.xp >= this.maxXp) this.levelUp();
         }
 
@@ -254,7 +259,7 @@
 
         createGrid();
         
-        // 初始建立 (位置稍後重置)
+        // 初始建立 (等級繼承，位置重置)
         allies = [
             new Unit(1, '炭治郎', 'slayer', 'tanjiro', 0, 0, { hp: 120, atk: 28, def: 10 }),
             new Unit(2, '善逸', 'slayer', 'zenitsu', 0, 0, { hp: 90, atk: 35, def: 6 }),
@@ -303,28 +308,62 @@
         // 生成敵人
         enemies = [];
         let difficulty = 1 + (lvl * 0.15);
-        let count = 8 + Math.floor(Math.random() * 3); 
         
-        for(let i=0; i<count; i++) {
-            let ex = 6 + Math.floor(Math.random() * (COLS - 6));
+        // 1. 雜魚生成邏輯 (數量隨關卡增加 1-2 隻)
+        // 基礎 8 隻 + 每關 1.5 隻 (四捨五入) -> Lv1: 9隻, Lv9: 21隻
+        let gruntCount = 8 + Math.floor(lvl * 1.5);
+        
+        for(let i=0; i<gruntCount; i++) {
+            let ex = 5 + Math.floor(Math.random() * (COLS - 5));
             let ey = Math.floor(Math.random() * ROWS);
+            
+            // 30% 機率是遠程鬼
+            let isRanged = Math.random() < 0.3;
+            let name = isRanged ? '蜘蛛鬼' : '雜魚鬼';
+            let role = isRanged ? 'demon-range' : 'demon';
+            let range = isRanged ? 3 : 1; // 遠程鬼 3格
+            let hpMult = isRanged ? 0.8 : 1.0; // 遠程血少一點
+
             if(!isOccupied(ex, ey)) {
-                enemies.push(new Unit(100+i, '雜魚鬼', 'demon', 'grunt', ex, ey, {
-                    hp: Math.floor(40*difficulty), atk: Math.floor(12*difficulty), def: Math.floor(2*difficulty), level: lvl
+                enemies.push(new Unit(100+i, name, role, 'grunt', ex, ey, {
+                    hp: Math.floor(40 * difficulty * hpMult), 
+                    atk: Math.floor(12 * difficulty), 
+                    def: Math.floor(2 * difficulty), 
+                    level: lvl,
+                    range: range
                 }));
             }
         }
         
-        // BOSS
-        let bossName = getBossName(lvl);
-        let bx = COLS - 2;
-        let by = Math.floor(ROWS / 2);
-        enemies.push(new Unit(200, bossName, 'demon', 'boss', bx, by, {
-            hp: Math.floor(150 * difficulty * 3),
-            atk: Math.floor(25 * difficulty), 
-            def: Math.floor(8 * difficulty), 
-            level: lvl+2
-        }));
+        // 2. BOSS 生成邏輯 (雙王機制)
+        // 定義雙王關卡
+        const doubleBossLevels = [2, 4, 6, 8, 9];
+        let bossesToSpawn = [];
+        
+        // 取得單王名字
+        let bossName1 = getBossName(lvl, 1);
+        bossesToSpawn.push(bossName1);
+
+        if (doubleBossLevels.includes(lvl)) {
+            let bossName2 = getBossName(lvl, 2);
+            bossesToSpawn.push(bossName2);
+            log("⚠️ 警告：本關卡偵測到雙重鬼月反應！", 'log-danger');
+        }
+
+        bossesToSpawn.forEach((bName, idx) => {
+            let bx = COLS - 2 - idx; // 稍微錯開位置
+            let by = Math.floor(ROWS / 2) + (idx === 0 ? -1 : 1);
+            if (isOccupied(bx, by)) bx--; // 防重疊
+
+            enemies.push(new Unit(200+idx, bName, 'demon', 'boss', bx, by, {
+                hp: Math.floor(150 * difficulty * 3),
+                atk: Math.floor(30 * difficulty), // 攻擊力提升
+                def: Math.floor(8 * difficulty), 
+                level: lvl+2,
+                range: 1, // Boss 普攻距離
+                aoeRange: (lvl >= 7 ? 3 : 2) // 後期 Boss 範圍 3，前期 2
+            }));
+        });
 
         startPlayerPhase();
     }
@@ -366,7 +405,8 @@
 
         for (const demon of enemies) {
             if (demon.hp > 0) {
-                await new Promise(r => setTimeout(r, 300));
+                // 移動鏡頭或高亮當前敵人? 暫時省略
+                await new Promise(r => setTimeout(r, 200)); // 加快節奏
                 runEnemyAI(demon);
                 renderMap();
             }
@@ -376,8 +416,8 @@
         startPlayerPhase();
     }
 
-    // --- 玩家操作邏輯 ---
-
+    // --- 玩家操作邏輯 (保持不變) ---
+    // (省略細節，功能與上一版相同)
     function onTileClick(x, y) {
         if (phase !== 'PLAYER') return;
         const targetUnit = getUnitAt(x, y);
@@ -472,10 +512,8 @@
             let btn = document.createElement('button');
             btn.className = 'skill-item';
             if(skill.isHeal) btn.classList.add('skill-heal');
-            
             let rangeTxt = skill.global ? "全體" : `距${skill.range}`;
             if(skill.aoe && !skill.global) rangeTxt += "/範圍";
-            
             btn.innerHTML = `${skill.name} <small>(${rangeTxt})</small>`;
             btn.onclick = () => { activeSkill = skill; prepAttack(true); };
             list.appendChild(btn);
@@ -518,11 +556,10 @@
         log(isHeal ? "選擇治療對象..." : "選擇攻擊目標...", 'log-sys');
     }
 
-    // --- 核心 XP 邏輯更新 ---
     function executeSkillAction(attacker, targetObj, skill) {
         let targets = [];
         const isHeal = skill && skill.isHeal;
-        let totalXpGain = 0; // 本次行動總獲得經驗
+        let totalXpGain = 0;
 
         if (skill && skill.global && isHeal) {
             targets = allies.filter(a => a.hp > 0);
@@ -545,39 +582,26 @@
         } else {
             targets.forEach(t => {
                 let val = 0;
-                
                 if (isHeal) {
-                    // 治療邏輯
                     val = skill.val + (attacker.atk * 0.5); 
                     val = Math.floor(val);
                     t.hp = Math.min(t.maxHp, t.hp + val);
                     log(`${t.name} 回復了 <span class="log-heal">${val}</span> HP`, 'log-heal');
-                    
-                    // 1. 治療獲得 XP (每補一人 +15)
                     totalXpGain += 15;
-                    
                 } else {
-                    // 攻擊邏輯
                     let mult = skill ? skill.val : 1.0;
                     let raw = attacker.atk * mult - (t.def * 0.5);
                     val = Math.max(1, Math.floor(raw * (0.9 + Math.random()*0.2)));
-                    
                     t.hp -= val;
                     log(`${attacker.name} 攻擊 ${t.name}，傷害 <span class="log-dmg">${val}</span>`, 'log-dmg');
-                    
-                    // 2. 攻擊命中獲得 XP (每打中一人 +10)
                     totalXpGain += 10;
-                    
                     if (t.hp <= 0) {
                         t.hp = 0;
                         log(`${t.name} 被消滅！`, 'log-sys');
-                        // 3. 擊殺額外 XP
                         totalXpGain += (35 + t.level*5 + (t.role==='boss'?80:0));
                     }
                 }
             });
-            
-            // 結算並顯示總經驗值
             if (totalXpGain > 0) {
                 log(`${attacker.name} 獲得 ${totalXpGain} EXP`, 'log-xp');
                 attacker.gainXp(totalXpGain);
@@ -604,7 +628,9 @@
         document.querySelectorAll('.tile').forEach(t => t.classList.remove('movable', 'attackable', 'healable'));
     }
 
+    // --- AI 邏輯更新 (支援遠程與 Boss AOE) ---
     function runEnemyAI(demon) {
+        // 1. 找最近目標
         let target = null;
         let minDist = 999;
         allies.forEach(a => {
@@ -613,32 +639,76 @@
                 if (d < minDist) { minDist = d; target = a; }
             }
         });
-        if (!target) return;
+        if (!target) return; // 無目標
 
-        let moves = 2; 
-        let bestX = demon.x, bestY = demon.y;
-        for(let m=0; m<moves; m++) {
-            let dx = target.x - bestX;
-            let dy = target.y - bestY;
-            if (Math.abs(dx) + Math.abs(dy) <= 1) break; 
-            let tryX = bestX + Math.sign(dx);
-            let tryY = bestY + (dx === 0 ? Math.sign(dy) : 0); 
-            if (!isOccupied(tryX, tryY)) {
-                bestX = tryX; bestY = tryY;
-            } else if (!isOccupied(bestX, bestY + Math.sign(dy))) {
-                bestY += Math.sign(dy); 
+        let dist = Math.abs(target.x - demon.x) + Math.abs(target.y - demon.y);
+        let attackRange = demon.range;
+
+        // 2. 移動邏輯
+        // 如果距離大於射程，則移動接近；如果距離太近(遠程怪)，也許可以不動? 
+        // 這裡簡化：只要在射程外就移動
+        if (dist > attackRange) {
+            let moves = 2; 
+            let bestX = demon.x, bestY = demon.y;
+            let currentBestDist = dist;
+
+            // 簡單路徑尋找：嘗試靠近目標
+            for(let m=0; m<moves; m++) {
+                let dx = target.x - bestX;
+                let dy = target.y - bestY;
+                
+                // 決定下一步
+                let tryX = bestX + Math.sign(dx);
+                let tryY = bestY + (dx === 0 ? Math.sign(dy) : 0); 
+                
+                // 檢查是否可走
+                if (!isOccupied(tryX, tryY)) {
+                    bestX = tryX; bestY = tryY;
+                } else if (!isOccupied(bestX, bestY + Math.sign(dy))) {
+                    bestY += Math.sign(dy); // 繞路
+                }
+                
+                // 重新計算與目標距離，如果在射程內就停下，不再移動
+                let newDist = Math.abs(target.x - bestX) + Math.abs(target.y - bestY);
+                if (newDist <= attackRange) {
+                    break;
+                }
             }
+            demon.x = bestX; demon.y = bestY;
+            dist = Math.abs(target.x - demon.x) + Math.abs(target.y - demon.y); // 更新距離
         }
-        demon.x = bestX; demon.y = bestY;
 
-        let d = Math.abs(target.x - demon.x) + Math.abs(target.y - demon.y);
-        if (d === 1) {
-            let dmg = Math.max(1, Math.floor((demon.atk - target.def*0.5) * 0.9));
-            target.hp -= dmg;
-            log(`${demon.name} 攻擊 ${target.name}，傷害 <span class="log-dmg">${dmg}</span>`, 'log-dmg');
-            if (target.hp <= 0) {
-                target.hp = 0;
-                log(`${target.name} 倒下了...`, 'log-dmg');
+        // 3. 攻擊邏輯
+        if (dist <= attackRange) {
+            // 計算傷害
+            let baseDmg = Math.max(1, Math.floor((demon.atk - target.def*0.5) * 0.9));
+            
+            // BOSS 的 AOE 判定
+            if (demon.role === 'boss' && demon.aoeRange > 0) {
+                log(`⚠️ ${demon.name} 發動血鬼術 (範圍${demon.aoeRange})！`, 'log-danger');
+                // 攻擊目標周圍範圍
+                allies.forEach(a => {
+                    if (a.hp > 0) {
+                        let dToTarget = Math.abs(a.x - target.x) + Math.abs(a.y - target.y);
+                        if (dToTarget <= demon.aoeRange) { // 範圍內所有人都被打
+                            // 距離中心越遠傷害略減? 這裡簡化全傷
+                            a.hp -= baseDmg;
+                            log(`${a.name} 受到波及，傷害 <span class="log-dmg">${baseDmg}</span>`, 'log-dmg');
+                            if (a.hp <= 0) {
+                                a.hp = 0;
+                                log(`${a.name} 倒下了...`, 'log-dmg');
+                            }
+                        }
+                    }
+                });
+            } else {
+                // 普通單體攻擊 (近戰或遠程)
+                target.hp -= baseDmg;
+                log(`${demon.name} 攻擊 ${target.name}，傷害 <span class="log-dmg">${baseDmg}</span>`, 'log-dmg');
+                if (target.hp <= 0) {
+                    target.hp = 0;
+                    log(`${target.name} 倒下了...`, 'log-dmg');
+                }
             }
         }
     }
@@ -653,7 +723,9 @@
         [...enemies, ...allies].forEach(u => {
             if (u.hp <= 0) return;
             let div = document.createElement('div');
-            div.className = `unit ${u.role} ${u.type}`;
+            div.className = `unit ${u.role}`;
+            if (u.type === 'demon' && u.range > 1 && u.role !== 'boss') div.classList.add('demon-range'); // 樣式區分
+            
             if (u.hasActed && u.type === 'slayer') div.classList.add('done');
             if (u === selectedUnit) div.classList.add('selected');
 
@@ -712,9 +784,20 @@
         return false;
     }
 
-    function getBossName(l) {
-        const n = ["下弦之陸", "下弦之壹", "墮姬", "妓夫太郎", "玉壺", "半天狗", "猗窩座", "童磨", "黑死牟"];
-        return n[l-1] || "無慘";
+    function getBossName(l, index) {
+        const bossMap = {
+            1: ["下弦之陸"],
+            2: ["下弦之伍", "下弦之壹"],
+            3: ["墮姬"],
+            4: ["墮姬", "妓夫太郎"],
+            5: ["玉壺"],
+            6: ["半天狗", "憎珀天"],
+            7: ["猗窩座"],
+            8: ["童磨", "猗窩座"],
+            9: ["黑死牟", "鬼舞辻無慘"]
+        };
+        const list = bossMap[l] || ["無慘"];
+        return list[index - 1] || list[0];
     }
 
     initGame();
