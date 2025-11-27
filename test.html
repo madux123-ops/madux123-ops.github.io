@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>實況野球風格 - 傳奇野手養成 Ver.3.5 (變速球挑戰版)</title>
+    <title>實況野球風格 - 傳奇野手養成 Ver.4.0 (光速球 & 選球眼)</title>
     <style>
         :root {
             --primary: #2c3e50;
@@ -36,7 +36,6 @@
             position: relative;
         }
         
-        /* Overlays */
         .overlay {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(44, 62, 80, 0.98); z-index: 100;
@@ -44,7 +43,6 @@
         }
         .hidden { display: none !important; }
 
-        /* Start Screen */
         #input-name { padding: 15px; font-size: 1.5em; margin: 20px 0; border-radius: 5px; border: none; text-align: center; }
         
         /* Interactive Stadium Overlay */
@@ -54,38 +52,46 @@
             z-index: 50; display: none; flex-direction: column; align-items: center; justify-content: flex-start;
         }
         
-        /* Stadium UI */
         .match-info-bar {
             background: rgba(0,0,0,0.7); color: #fff; width: 100%; padding: 10px;
             display: flex; justify-content: space-around; font-size: 1.2em; font-weight: bold;
         }
 
-        /* The Field View */
         .field-area {
             position: relative; width: 400px; height: 500px; margin-top: 20px;
             border: 2px solid rgba(255,255,255,0.3); background: rgba(0,0,0,0.1);
+            overflow: hidden; /* Hide balls flying out */
         }
         
         .mound {
             position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
             width: 40px; height: 40px; background: white; border-radius: 50%;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3); z-index: 5;
         }
 
+        /* The Strike Zone */
         .home-plate-area {
             position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
-            width: 120px; height: 100px; 
-            border: 3px solid rgba(255,255,255,0.5); background: rgba(255,255,255,0.1);
+            width: 100px; height: 120px; 
+            border: 4px solid rgba(255, 255, 255, 0.8); 
+            background: rgba(255,255,255,0.1);
+            z-index: 5;
         }
         .home-plate-area::after {
-            content: "擊球區"; color: rgba(255,255,255,0.5);
-            position: absolute; width: 100%; text-align: center; top: 40%; font-size: 0.8em;
+            content: "好球帶"; color: rgba(255,255,255,0.7);
+            position: absolute; width: 100%; text-align: center; top: 40%; font-size: 0.9em; font-weight: bold;
         }
         
         #baseball {
-            width: 20px; height: 20px; background: white; border-radius: 50%;
+            width: 24px; height: 24px; background: white; border-radius: 50%;
             position: absolute; left: 50%; top: 40px; transform: translate(-50%, -50%);
-            box-shadow: 0 0 5px rgba(0,0,0,0.5); display: none; z-index: 10;
+            box-shadow: 0 0 8px rgba(0,0,0,0.6); border: 1px solid #ccc;
+            display: none; z-index: 10;
+        }
+        /* Red stitches simulation */
+        #baseball::before {
+            content: ''; position: absolute; left: 4px; top: 0; width: 16px; height: 24px;
+            border-left: 2px dashed #c0392b; border-right: 2px dashed #c0392b; border-radius: 50%; opacity: 0.7;
         }
 
         #match-result-text {
@@ -100,7 +106,12 @@
             text-shadow: 1px 1px 2px black; display: none;
         }
 
-        /* Swing Button */
+        #ball-type-indicator {
+            position: absolute; top: 10px; left: 10px;
+            font-size: 1.2em; color: #e74c3c; font-weight: bold; 
+            text-shadow: 1px 1px 2px black; display: none;
+        }
+
         #btn-swing {
             margin-top: 20px; padding: 20px 80px; font-size: 2em;
             background: var(--accent); color: white; border: 5px solid white;
@@ -144,6 +155,7 @@
         .log-entry { margin-bottom: 8px; border-bottom: 1px dashed #eee; padding-bottom: 4px; }
         .log-highlight { color: var(--accent); font-weight: bold; }
         .log-success { color: var(--stadium-green); font-weight: bold; }
+        .log-fail { color: #7f8c8d; }
         
         .season-stats-grid {
             background: #333; color: #fff; padding: 10px; border-radius: 5px;
@@ -191,6 +203,7 @@
         </div>
         
         <div class="field-area">
+            <div id="ball-type-indicator"></div>
             <div id="speed-indicator"></div>
             <div class="mound"></div>
             <div id="baseball"></div>
@@ -199,7 +212,7 @@
         </div>
 
         <button id="btn-swing" onmousedown="attemptSwing()">揮 棒 !</button>
-        <div style="margin-top:10px; color: white; font-size:0.8em;">(亦可按空白鍵揮擊)</div>
+        <div style="margin-top:10px; color: white; font-size:0.8em;">(看到壞球請勿揮棒，可獲得保送)</div>
         
         <button id="btn-next-ab" class="hidden" style="margin-top:20px; background:var(--highlight); color:#333;" onclick="nextAtBat()">下一打席</button>
         <button id="btn-end-match" class="hidden" style="margin-top:20px; background:var(--accent); color:white;" onclick="endMatch()">結束比賽</button>
@@ -248,13 +261,27 @@
 
 <script>
     const MAX_STAT = 255;
+    const FIELD_WIDTH = 400;
+    const ZONE_CENTER_X = 200; // 50% of 400
+    const ZONE_WIDTH = 100;
+    
     const GameState = {
         playerName: "Player", round: 1, day: 1, phase: 'training', subCycleDay: 1,
         stats: { power: 10, contact: 10, defense: 10, run: 10 },
         records: { gamesPlayed: 0, ab: 0, h: 0, hr: 0, tb: 0, rbi: 0, bb: 0, so: 0 },
         lastTraining: null, warningActive: false,
         matchConfig: { 1: 20, 2: 30, 3: 60 }, matchesLeft: 0,
-        batting: { active: false, ballY: 0, ballSpeed: 0, isPitched: false, swung: false, atBatCount: 0, currentPitchType: '' }
+        batting: { 
+            active: false, 
+            ballY: 0, 
+            ballX: 0,
+            ballSpeed: 0, 
+            isPitched: false, 
+            swung: false, 
+            atBatCount: 0, 
+            currentPitchType: '',
+            isBall: false
+        }
     };
 
     const elLog = document.getElementById('game-log');
@@ -264,6 +291,7 @@
     const elResultText = document.getElementById('match-result-text');
     const elBtnSwing = document.getElementById('btn-swing');
     const elSpeedInd = document.getElementById('speed-indicator');
+    const elBallTypeInd = document.getElementById('ball-type-indicator');
 
     function startGame() {
         const input = document.getElementById('input-name');
@@ -274,6 +302,7 @@
         updateStatsUI();
         setPhase('training');
         log(`歡迎 ${name} 加入職棒養成計畫！`, "log-highlight");
+        log("新增光速球與選球機制：面對壞球請勿揮棒。", "");
     }
 
     function log(msg, type='') {
@@ -346,7 +375,7 @@
         } else if (GameState.phase === 'match') {
             const btn = document.createElement('button');
             btn.className = 'btn-next';
-            btn.textContent = '進入比賽現場 (打擊模式)';
+            btn.textContent = '進入比賽現場 (一球決勝)';
             btn.onclick = () => startMatchMode();
             elControls.appendChild(btn);
         } else if (GameState.phase === 'post-season') {
@@ -369,7 +398,7 @@
             if (!GameState.warningActive) {
                 GameState.warningActive = true;
                 document.getElementById('warning-msg').style.visibility = 'visible';
-                log("教練：效率在降低，建議換個項目訓練！(再次點擊將強制訓練並扣數值)", "log-highlight");
+                log("教練：效率在降低，建議換個項目訓練！", "log-highlight");
                 return;
             } else {
                 GameState.stats[type] = Math.max(0, GameState.stats[type] - 5);
@@ -447,6 +476,7 @@
         document.getElementById('ab-counter').textContent = `第 ${GameState.batting.atBatCount} 打席`;
         elResultText.style.display = 'none';
         elSpeedInd.style.display = 'none';
+        elBallTypeInd.style.display = 'none';
         document.getElementById('btn-next-ab').classList.add('hidden');
         elBtnSwing.classList.remove('hidden');
         elBtnSwing.disabled = false;
@@ -459,8 +489,32 @@
         GameState.batting.isPitched = false;
         GameState.batting.swung = false;
         GameState.batting.ballY = 40;
+        
+        // --- Ball / Strike Logic ---
+        const badBallChance = 0.25; // 25% Chance for Ball
+        GameState.batting.isBall = Math.random() < badBallChance;
+        
+        // --- Trajectory Logic ---
+        if (GameState.batting.isBall) {
+            // Randomize Bad Ball Direction (Left, Right, Wide)
+            const dir = Math.random();
+            if (dir < 0.5) {
+                // Left Ball
+                GameState.batting.ballX = ZONE_CENTER_X - (ZONE_WIDTH/2) - 40 - Math.random() * 60;
+            } else {
+                // Right Ball
+                GameState.batting.ballX = ZONE_CENTER_X + (ZONE_WIDTH/2) + 40 + Math.random() * 60;
+            }
+        } else {
+            // Strike (Center-ish)
+            GameState.batting.ballX = ZONE_CENTER_X; 
+        }
+
         elBall.style.top = '40px';
+        elBall.style.left = GameState.batting.ballX + 'px';
         elBall.style.display = 'block';
+        elBall.style.opacity = '1';
+
         setTimeout(pitchBall, 1000 + Math.random() * 1000);
     }
 
@@ -468,27 +522,35 @@
         if (!GameState.batting.active) return;
         GameState.batting.isPitched = true;
         
-        // --- Speed Variation Logic ---
+        // --- Speed Variation Logic (Updated) ---
         const r = Math.random();
         let speed = 5;
         let label = "直球";
+        let color = "#f1c40f";
 
-        if (r < 0.5) {
-            // Normal (50%)
-            speed = 5 + Math.random();
+        if (r < 0.4) {
+            speed = 5 + Math.random(); // Normal
             label = "直球";
-        } else if (r < 0.8) {
-            // Fast (30%)
-            speed = 8 + Math.random() * 2;
+        } else if (r < 0.7) {
+            speed = 9 + Math.random() * 2; // Fast
             label = "快速球";
-        } else {
-            // Super Fast (20%)
-            speed = 13 + Math.random() * 2;
+            color = "#e67e22";
+        } else if (r < 0.9) {
+            speed = 13 + Math.random() * 2; // Super Fast
             label = "剛速球";
+            color = "#e74c3c";
+        } else {
+            // Ultra Fast (New)
+            speed = 22; 
+            label = "光速球";
+            color = "#8e44ad";
         }
         
         GameState.batting.ballSpeed = speed;
         GameState.batting.currentPitchType = label;
+        
+        // Visual indicator update
+        elSpeedInd.style.color = color;
 
         requestAnimationFrame(gameLoop);
     }
@@ -498,8 +560,12 @@
         GameState.batting.ballY += GameState.batting.ballSpeed;
         elBall.style.top = GameState.batting.ballY + 'px';
 
-        if (GameState.batting.ballY > 500) { handleSwingResult("MISS"); }
-        else { requestAnimationFrame(gameLoop); }
+        if (GameState.batting.ballY > 520) { 
+            // Ball passed player without swing
+            handleNoSwingResult();
+        } else { 
+            requestAnimationFrame(gameLoop); 
+        }
     }
 
     document.addEventListener('keydown', (e) => {
@@ -513,6 +579,12 @@
         GameState.batting.swung = true;
         elBtnSwing.disabled = true;
         
+        // Check if swinging at a Ball (Bad Eye)
+        if (GameState.batting.isBall) {
+            handleSwingResult("CHASE"); // Chased a bad ball
+            return;
+        }
+
         const ballPos = GameState.batting.ballY;
         const contactBonus = (GameState.stats.contact / MAX_STAT) * 30;
         const sweetCenter = 430;
@@ -524,41 +596,77 @@
         else { handleSwingResult("MISS"); }
     }
 
+    function handleNoSwingResult() {
+        GameState.batting.active = false;
+        let text = "", color = "white", logText = "";
+        
+        if (GameState.batting.isBall) {
+            // Good Eye! Walk.
+            GameState.records.bb++;
+            text = "選球成功!";
+            color = "#2ecc71"; // Green
+            logText = `冷靜選掉了偏離好球帶的<b>${GameState.batting.currentPitchType}</b>，獲得保送。`;
+            // Note: BB does not count to AB
+        } else {
+            // Strikeout looking
+            GameState.records.ab++;
+            GameState.records.so++;
+            text = "見逃三振";
+            color = "#7f8c8d";
+            logText = `面對好球帶的<b>${GameState.batting.currentPitchType}</b>沒有揮棒，三振出局。`;
+        }
+        
+        finalizeResult(text, color, logText, GameState.batting.isBall);
+    }
+
     function handleSwingResult(resultType) {
         GameState.batting.active = false;
         GameState.records.ab++;
         let text = "", color = "white", logText = "";
         const pitchName = GameState.batting.currentPitchType;
+        let isSuccess = false;
 
-        if (resultType === "MISS") {
+        if (resultType === "CHASE") {
             GameState.records.so++;
-            text = "三振"; color = "#bdc3c7";
-            logText = `面對${pitchName}揮棒落空，三振出局。`;
+            text = "追打壞球"; color = "#95a5a6";
+            logText = `被騙了！追打好球帶外的<b>${pitchName}</b>，揮空三振。`;
+        } else if (resultType === "MISS") {
+            GameState.records.so++;
+            text = "揮棒落空"; color = "#bdc3c7";
+            logText = `面對<b>${pitchName}</b>揮棒落空，三振出局。`;
         } else if (resultType === "EARLY") {
-            text = "滾地出局 (太早)"; color = "#f39c12";
-            logText = `面對${pitchName}太早出棒，滾地球出局。`;
+            text = "滾地出局"; color = "#f39c12";
+            logText = `面對<b>${pitchName}</b>太早出棒，滾地球出局。`;
         } else if (resultType === "LATE") {
-            text = "接殺出局 (太晚)"; color = "#f39c12";
-            logText = `面對${pitchName}太晚出棒，無力飛球被接殺。`;
+            text = "接殺出局"; color = "#f39c12";
+            logText = `面對<b>${pitchName}</b>太晚出棒，無力飛球被接殺。`;
         } else if (resultType === "HIT") {
             GameState.records.h++;
             color = "#e74c3c";
             const outcome = calculateHitOutcome();
             text = outcome.label;
             logText = `面對<b>${pitchName}</b>，${outcome.logMsg}`;
+            isSuccess = true;
         }
 
+        finalizeResult(text, color, logText, isSuccess);
+    }
+
+    function finalizeResult(text, color, logText, isSuccess) {
         elResultText.textContent = text;
         elResultText.style.color = color;
         elResultText.style.display = 'block';
         elBall.style.display = 'none';
         
-        // Show what pitch it was
-        elSpeedInd.textContent = pitchName;
+        // Show pitch info
+        elSpeedInd.textContent = GameState.batting.currentPitchType;
         elSpeedInd.style.display = 'block';
+        
+        // Show if it was ball or strike
+        elBallTypeInd.textContent = GameState.batting.isBall ? "壞球" : "好球";
+        elBallTypeInd.style.display = 'block';
 
-        if(resultType === "HIT") log(logText, "log-success");
-        else log(logText);
+        log(logText, isSuccess ? "log-success" : (text.includes("三振") || text.includes("出局") ? "log-fail" : ""));
 
         elBtnSwing.classList.add('hidden');
         if (GameState.batting.atBatCount < 3) document.getElementById('btn-next-ab').classList.remove('hidden');
