@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>實況野球風格 - 傳奇野手養成 Ver.3 (互動打擊版)</title>
+    <title>實況野球風格 - 傳奇野手養成 Ver.3.5 (變速球挑戰版)</title>
     <style>
         :root {
             --primary: #2c3e50;
@@ -23,7 +23,7 @@
             justify-content: center;
             align-items: center;
             min-height: 100vh;
-            user-select: none; /* Prevent selection during spam clicking */
+            user-select: none;
         }
         .game-container {
             width: 900px;
@@ -38,157 +38,100 @@
         
         /* Overlays */
         .overlay {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(44, 62, 80, 0.98);
-            z-index: 100;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            color: white;
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(44, 62, 80, 0.98); z-index: 100;
+            display: flex; flex-direction: column; justify-content: center; align-items: center; color: white;
         }
         .hidden { display: none !important; }
 
         /* Start Screen */
-        #input-name {
-            padding: 15px; font-size: 1.5em; margin: 20px 0;
-            border-radius: 5px; border: none; text-align: center;
-        }
+        #input-name { padding: 15px; font-size: 1.5em; margin: 20px 0; border-radius: 5px; border: none; text-align: center; }
         
         /* Interactive Stadium Overlay */
         #stadium-screen {
             background: radial-gradient(circle at 50% 100%, var(--dirt) 20%, var(--stadium-green) 21%);
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 50;
-            display: none; /* Hidden by default */
-            flex-direction: column;
-            align-items: center;
-            justify-content: flex-start;
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 50; display: none; flex-direction: column; align-items: center; justify-content: flex-start;
         }
         
         /* Stadium UI */
         .match-info-bar {
-            background: rgba(0,0,0,0.7);
-            color: #fff;
-            width: 100%;
-            padding: 10px;
-            display: flex;
-            justify-content: space-around;
-            font-size: 1.2em;
-            font-weight: bold;
+            background: rgba(0,0,0,0.7); color: #fff; width: 100%; padding: 10px;
+            display: flex; justify-content: space-around; font-size: 1.2em; font-weight: bold;
         }
 
         /* The Field View */
         .field-area {
-            position: relative;
-            width: 400px;
-            height: 500px;
-            margin-top: 20px;
-            border: 2px solid rgba(255,255,255,0.3);
-            background: rgba(0,0,0,0.1);
+            position: relative; width: 400px; height: 500px; margin-top: 20px;
+            border: 2px solid rgba(255,255,255,0.3); background: rgba(0,0,0,0.1);
         }
         
-        /* Pitcher Mound */
         .mound {
-            position: absolute; top: 20px; left: 50%;
-            transform: translateX(-50%);
-            width: 40px; height: 40px;
-            background: white; border-radius: 50%;
+            position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+            width: 40px; height: 40px; background: white; border-radius: 50%;
             box-shadow: 0 2px 5px rgba(0,0,0,0.3);
         }
 
-        /* Home Plate (Strike Zone Area) */
         .home-plate-area {
-            position: absolute; bottom: 20px; left: 50%;
-            transform: translateX(-50%);
-            width: 120px; height: 100px; /* The Zone */
-            border: 3px solid rgba(255,255,255,0.5);
-            background: rgba(255,255,255,0.1);
+            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+            width: 120px; height: 100px; 
+            border: 3px solid rgba(255,255,255,0.5); background: rgba(255,255,255,0.1);
         }
         .home-plate-area::after {
-            content: "擊球區";
-            color: rgba(255,255,255,0.5);
-            position: absolute; width: 100%; text-align: center; top: 40%;
-            font-size: 0.8em;
+            content: "擊球區"; color: rgba(255,255,255,0.5);
+            position: absolute; width: 100%; text-align: center; top: 40%; font-size: 0.8em;
         }
         
-        /* The Ball */
         #baseball {
-            width: 20px; height: 20px;
-            background: white;
-            border-radius: 50%;
-            position: absolute;
-            left: 50%; top: 40px; /* Start at mound */
-            transform: translate(-50%, -50%);
-            box-shadow: 0 0 5px rgba(0,0,0,0.5);
-            display: none;
-            z-index: 10;
+            width: 20px; height: 20px; background: white; border-radius: 50%;
+            position: absolute; left: 50%; top: 40px; transform: translate(-50%, -50%);
+            box-shadow: 0 0 5px rgba(0,0,0,0.5); display: none; z-index: 10;
         }
-        /* Red stitches styling optional, keeping simple for performance */
 
-        /* Result Popup inside Stadium */
         #match-result-text {
-            position: absolute; top: 40%; left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 3em; font-weight: bold;
-            text-shadow: 0 0 10px black;
-            color: #fff;
-            display: none;
-            z-index: 20;
-            white-space: nowrap;
+            position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%);
+            font-size: 3em; font-weight: bold; text-shadow: 0 0 10px black;
+            color: #fff; display: none; z-index: 20; white-space: nowrap;
+        }
+        
+        #speed-indicator {
+            position: absolute; top: 10px; right: 10px;
+            font-size: 1.2em; color: #f1c40f; font-weight: bold; 
+            text-shadow: 1px 1px 2px black; display: none;
         }
 
         /* Swing Button */
         #btn-swing {
-            margin-top: 20px;
-            padding: 20px 80px;
-            font-size: 2em;
-            background: var(--accent);
-            color: white;
-            border: 5px solid white;
-            border-radius: 50px;
-            cursor: pointer;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+            margin-top: 20px; padding: 20px 80px; font-size: 2em;
+            background: var(--accent); color: white; border: 5px solid white;
+            border-radius: 50px; cursor: pointer; box-shadow: 0 5px 15px rgba(0,0,0,0.5);
             transition: transform 0.1s;
         }
         #btn-swing:active { transform: scale(0.95); background: #c0392b; }
         #btn-swing:disabled { background: #7f8c8d; opacity: 0.5; cursor: default; }
 
-        /* Header */
+        /* General Layout */
         header {
-            background: var(--primary);
-            color: white;
-            padding: 0 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-weight: bold;
-            border-bottom: 4px solid var(--highlight);
+            background: var(--primary); color: white; padding: 0 20px;
+            display: flex; justify-content: space-between; align-items: center;
+            font-weight: bold; border-bottom: 4px solid var(--highlight);
         }
         .player-name { font-size: 1.2em; color: var(--highlight); margin-right: 10px; }
         .status-badge { background: var(--accent); padding: 5px 10px; border-radius: 5px; font-size: 0.9em; }
 
-        /* Main Content */
         main { padding: 20px; display: grid; grid-template-columns: 280px 1fr; gap: 20px; }
         
-        /* Stats Panel */
         .stats-panel {
             background: var(--panel-bg); padding: 15px; border-radius: 10px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-            display: flex; flex-direction: column; gap: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1); display: flex; flex-direction: column; gap: 10px;
         }
         .stat-row { margin-bottom: 5px; }
         .stat-label { display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 3px; font-size: 0.9em; }
         .stat-bar-bg { background: #ddd; height: 8px; border-radius: 4px; overflow: hidden; }
         .stat-bar-fill { height: 100%; width: 0%; transition: width 0.3s; }
-        .fill-power { background: #e74c3c; }
-        .fill-contact { background: #f39c12; }
-        .fill-defense { background: #3498db; }
-        .fill-run { background: #9b59b6; }
+        .fill-power { background: #e74c3c; } .fill-contact { background: #f39c12; }
+        .fill-defense { background: #3498db; } .fill-run { background: #9b59b6; }
 
-        /* Game Screen (Text Mode) */
         .game-screen {
             background: var(--panel-bg); border-radius: 10px; padding: 15px;
             display: flex; flex-direction: column; position: relative;
@@ -202,7 +145,6 @@
         .log-highlight { color: var(--accent); font-weight: bold; }
         .log-success { color: var(--stadium-green); font-weight: bold; }
         
-        /* Stats Grid */
         .season-stats-grid {
             background: #333; color: #fff; padding: 10px; border-radius: 5px;
             font-family: monospace; font-size: 0.85em; display: grid;
@@ -212,7 +154,6 @@
         .stat-title { color: #aaa; font-size: 0.8em; }
         .stat-val { font-size: 1.1em; font-weight: bold; }
 
-        /* Controls */
         .controls {
             background: #dcdcdc; padding: 15px; display: flex; gap: 10px;
             justify-content: center; align-items: center; border-top: 1px solid #bbb;
@@ -250,12 +191,10 @@
         </div>
         
         <div class="field-area">
+            <div id="speed-indicator"></div>
             <div class="mound"></div>
-            
             <div id="baseball"></div>
-
             <div class="home-plate-area" id="strike-zone"></div>
-            
             <div id="match-result-text">安打!</div>
         </div>
 
@@ -278,116 +217,63 @@
     <main>
         <div class="stats-panel">
             <h3 style="margin:0;">球員能力</h3>
-            <div class="stat-row">
-                <div class="stat-label"><span>Power (力量)</span> <span id="val-power">10</span></div>
-                <div class="stat-bar-bg"><div class="stat-bar-fill fill-power" id="bar-power"></div></div>
-            </div>
-            <div class="stat-row">
-                <div class="stat-label"><span>Contact (技巧)</span> <span id="val-contact">10</span></div>
-                <div class="stat-bar-bg"><div class="stat-bar-fill fill-contact" id="bar-contact"></div></div>
-            </div>
-            <div class="stat-row">
-                <div class="stat-label"><span>Defense (守備)</span> <span id="val-defense">10</span></div>
-                <div class="stat-bar-bg"><div class="stat-bar-fill fill-defense" id="bar-defense"></div></div>
-            </div>
-            <div class="stat-row">
-                <div class="stat-label"><span>Run (跑壘)</span> <span id="val-run">10</span></div>
-                <div class="stat-bar-bg"><div class="stat-bar-fill fill-run" id="bar-run"></div></div>
-            </div>
-            
+            <div class="stat-row"><div class="stat-label"><span>Power</span> <span id="val-power">10</span></div><div class="stat-bar-bg"><div class="stat-bar-fill fill-power" id="bar-power"></div></div></div>
+            <div class="stat-row"><div class="stat-label"><span>Contact</span> <span id="val-contact">10</span></div><div class="stat-bar-bg"><div class="stat-bar-fill fill-contact" id="bar-contact"></div></div></div>
+            <div class="stat-row"><div class="stat-label"><span>Defense</span> <span id="val-defense">10</span></div><div class="stat-bar-bg"><div class="stat-bar-fill fill-defense" id="bar-defense"></div></div></div>
+            <div class="stat-row"><div class="stat-label"><span>Run</span> <span id="val-run">10</span></div><div class="stat-bar-bg"><div class="stat-bar-fill fill-run" id="bar-run"></div></div></div>
             <hr style="width:100%; margin: 5px 0;">
-            
             <h3 style="margin:0;">本季成績</h3>
             <div class="season-stats-grid">
                 <div class="stat-box"><span class="stat-title">打擊率</span><span class="stat-val" id="stat-avg">.000</span></div>
                 <div class="stat-box"><span class="stat-title">全壘打</span><span class="stat-val" id="stat-hr">0</span></div>
                 <div class="stat-box"><span class="stat-title">打點</span><span class="stat-val" id="stat-rbi">0</span></div>
                 <div class="stat-box"><span class="stat-title">OPS</span><span class="stat-val" id="stat-ops">.000</span></div>
-                
                 <div class="stat-box"><span class="stat-title">上壘率</span><span class="stat-val" id="stat-obp">.000</span></div>
                 <div class="stat-box"><span class="stat-title">長打率</span><span class="stat-val" id="stat-slg">.000</span></div>
                 <div class="stat-box"><span class="stat-title">安打</span><span class="stat-val" id="stat-h">0</span></div>
                 <div class="stat-box"><span class="stat-title">保送</span><span class="stat-val" id="stat-bb">0</span></div>
-                
                 <div class="stat-box"><span class="stat-title">三振</span><span class="stat-val" id="stat-so">0</span></div>
                 <div class="stat-box"><span class="stat-title">總安打</span><span class="stat-val" id="stat-tb">0</span></div>
             </div>
         </div>
 
         <div class="game-screen">
-            <div class="dialog-box" id="game-log">
-                </div>
+            <div class="dialog-box" id="game-log"></div>
             <div id="warning-msg">⚠ 警告：連續訓練同一項目效率會大幅降低！</div>
         </div>
     </main>
 
-    <div class="controls" id="control-panel">
-        </div>
+    <div class="controls" id="control-panel"></div>
 </div>
 
 <script>
-    // --- Configuration ---
     const MAX_STAT = 255;
-    const FIELD_HEIGHT = 500;
-    
-    // --- Game State ---
     const GameState = {
-        playerName: "Player",
-        round: 1, 
-        day: 1,
-        phase: 'training',
-        subCycleDay: 1,
-        
+        playerName: "Player", round: 1, day: 1, phase: 'training', subCycleDay: 1,
         stats: { power: 10, contact: 10, defense: 10, run: 10 },
         records: { gamesPlayed: 0, ab: 0, h: 0, hr: 0, tb: 0, rbi: 0, bb: 0, so: 0 },
-
-        lastTraining: null,
-        warningActive: false,
-        matchConfig: { 1: 20, 2: 30, 3: 60 },
-        matchesLeft: 0,
-
-        // Batting Mini-game State
-        batting: {
-            active: false,
-            ballY: 0,
-            ballSpeed: 0,
-            isPitched: false,
-            swung: false,
-            animationId: null,
-            atBatCount: 0 // 1 to 3
-        }
+        lastTraining: null, warningActive: false,
+        matchConfig: { 1: 20, 2: 30, 3: 60 }, matchesLeft: 0,
+        batting: { active: false, ballY: 0, ballSpeed: 0, isPitched: false, swung: false, atBatCount: 0, currentPitchType: '' }
     };
 
-    // --- UI Elements ---
     const elLog = document.getElementById('game-log');
     const elControls = document.getElementById('control-panel');
-    const elRound = document.getElementById('round-display');
-    const elDay = document.getElementById('day-display');
-    const elPhase = document.getElementById('phase-display');
-    const elWarning = document.getElementById('warning-msg');
-    
-    // Stadium Elements
     const elStadium = document.getElementById('stadium-screen');
     const elBall = document.getElementById('baseball');
     const elResultText = document.getElementById('match-result-text');
     const elBtnSwing = document.getElementById('btn-swing');
-    const elBtnNextAB = document.getElementById('btn-next-ab');
-    const elBtnEndMatch = document.getElementById('btn-end-match');
-
-    // --- Core Functions ---
+    const elSpeedInd = document.getElementById('speed-indicator');
 
     function startGame() {
         const input = document.getElementById('input-name');
-        let name = input.value.trim();
-        if(!name) name = "野球君";
+        let name = input.value.trim() || "野球君";
         GameState.playerName = name;
         document.getElementById('display-name').textContent = name;
         document.getElementById('start-screen').classList.add('hidden');
-        
         updateStatsUI();
         setPhase('training');
         log(`歡迎 ${name} 加入職棒養成計畫！`, "log-highlight");
-        log("第 1-3 輪目標：強化能力，在比賽中展現實力。", "");
     }
 
     function log(msg, type='') {
@@ -398,13 +284,11 @@
     }
 
     function updateStatsUI() {
-        // Bars
         ['power','contact','defense','run'].forEach(s => {
             document.getElementById(`val-${s}`).textContent = GameState.stats[s];
             document.getElementById(`bar-${s}`).style.width = (GameState.stats[s] / MAX_STAT * 100) + '%';
         });
         
-        // Stats
         let { ab, h, bb, tb, hr, rbi, so } = GameState.records;
         let avg = ab === 0 ? 0 : h / ab;
         let obp = (ab + bb) === 0 ? 0 : (h + bb) / (ab + bb);
@@ -415,7 +299,6 @@
         document.getElementById('stat-ops').textContent = ops.toFixed(3).replace(/^0+/, '');
         document.getElementById('stat-obp').textContent = obp.toFixed(3).replace(/^0+/, '');
         document.getElementById('stat-slg').textContent = slg.toFixed(3).replace(/^0+/, '');
-        
         document.getElementById('stat-hr').textContent = hr;
         document.getElementById('stat-rbi').textContent = rbi;
         document.getElementById('stat-h').textContent = h;
@@ -426,21 +309,15 @@
 
     function setPhase(phase) {
         GameState.phase = phase;
-        elPhase.textContent = phase === 'training' ? '訓練期' : (phase === 'rest' ? '休息週' : '賽季中');
-        elRound.textContent = `第 ${GameState.round} 輪`;
-        
-        if (phase === 'match') {
-            elDay.textContent = `剩餘場次: ${GameState.matchesLeft}`;
-        } else {
-            elDay.textContent = `第 ${GameState.day} 天 / 90`;
-        }
-        
+        document.getElementById('phase-display').textContent = phase === 'training' ? '訓練期' : (phase === 'rest' ? '休息週' : '賽季中');
+        document.getElementById('round-display').textContent = `第 ${GameState.round} 輪`;
+        document.getElementById('day-display').textContent = phase === 'match' ? `剩餘場次: ${GameState.matchesLeft}` : `第 ${GameState.day} 天 / 90`;
         renderControls();
     }
 
     function renderControls() {
         elControls.innerHTML = '';
-        elWarning.style.visibility = 'hidden';
+        document.getElementById('warning-msg').style.visibility = 'hidden';
 
         if (GameState.phase === 'training') {
             const trainings = [
@@ -487,13 +364,11 @@
         }
     }
 
-    // --- Training & Rest Logic ---
-
     function handleTraining(type) {
         if (GameState.lastTraining === type) {
             if (!GameState.warningActive) {
                 GameState.warningActive = true;
-                elWarning.style.visibility = 'visible';
+                document.getElementById('warning-msg').style.visibility = 'visible';
                 log("教練：效率在降低，建議換個項目訓練！(再次點擊將強制訓練並扣數值)", "log-highlight");
                 return;
             } else {
@@ -508,16 +383,13 @@
         GameState.lastTraining = type;
         GameState.warningActive = false;
         
-        // Changed gain to 1-3
-        let gain = Math.floor(Math.random() * 3) + 1; 
-        
+        let gain = Math.floor(Math.random() * 3) + 1; // 1-3
         if (Math.random() < 0.1) {
             gain += 3;
             log(`狀態絕佳！訓練效果超群！ ${type} +${gain}`, "log-success");
         } else {
             log(`進行了${type}訓練。 ${type} +${gain}`);
         }
-
         GameState.stats[type] = Math.min(MAX_STAT, GameState.stats[type] + gain);
         updateStatsUI();
         advanceDay();
@@ -527,13 +399,11 @@
         GameState.lastTraining = null;
         let msg = "", bonus = "";
         const rand = Math.random();
-        
         if(type==='shop'){ msg="去逛街。"; if(rand<0.3){GameState.stats.run+=2; bonus="買了好鞋(Run+2)";} }
         else if(type==='movie'){ msg="看電影。"; if(rand<0.3){GameState.stats.power+=2; bonus="熱血(Power+2)";} }
         else if(type==='date'){ msg="交友。"; if(rand<0.2){GameState.stats.contact+=3; bonus="交流技巧(Contact+3)";} }
         else if(type==='book'){ msg="看書。"; if(rand<0.4){GameState.stats.defense+=2; bonus="學習戰術(Defense+2)";} }
         else if(type==='eat'){ msg="吃大餐。"; if(rand<0.5){GameState.stats.power+=1;GameState.stats.contact+=1; bonus="體力恢復(All+1)";} }
-
         log(bonus ? `${msg} <b>${bonus}</b>` : msg, bonus ? "log-success" : "");
         advanceDay();
         updateStatsUI();
@@ -543,24 +413,10 @@
         GameState.day++;
         GameState.subCycleDay++;
         const dayInCycle = (GameState.day - 1) % 30;
-
-        if (GameState.day > 90) {
-            startMatchPhase();
-            return;
-        }
-
-        if (dayInCycle < 20) {
-            if (GameState.phase !== 'training') {
-                log("---- 假期結束，開始訓練！ ----");
-                setPhase('training');
-            }
-        } else {
-            if (GameState.phase !== 'rest') {
-                log("---- 20天訓練結束，接下來10天休息調整。 ----", "log-success");
-                setPhase('rest');
-            }
-        }
-        elDay.textContent = `第 ${GameState.day} 天 / 90`;
+        if (GameState.day > 90) { startMatchPhase(); return; }
+        if (dayInCycle < 20) { if (GameState.phase !== 'training') setPhase('training'); }
+        else { if (GameState.phase !== 'rest') setPhase('rest'); }
+        document.getElementById('day-display').textContent = `第 ${GameState.day} 天 / 90`;
     }
 
     function startMatchPhase() {
@@ -569,19 +425,13 @@
         log(`== 第 ${GameState.round} 輪訓練結束，開始 ${GameState.matchesLeft} 場比賽 ==`, "log-highlight");
     }
 
-    // --- Interactive Batting Game ---
+    // --- Interactive Batting Logic ---
 
     function startMatchMode() {
         if (GameState.matchesLeft <= 0) return;
-        
-        // Show Overlay
         elStadium.style.display = 'flex';
         GameState.batting.atBatCount = 0;
-        
-        // Update overlay stats
         updateStadiumStats();
-        
-        // Start first at bat
         nextAtBat();
     }
 
@@ -592,20 +442,14 @@
 
     function nextAtBat() {
         GameState.batting.atBatCount++;
-        
-        if (GameState.batting.atBatCount > 3) {
-            // End of Game logic
-            endMatchLogic();
-            return;
-        }
+        if (GameState.batting.atBatCount > 3) { endMatchLogic(); return; }
 
-        // Reset UI for new pitch
         document.getElementById('ab-counter').textContent = `第 ${GameState.batting.atBatCount} 打席`;
         elResultText.style.display = 'none';
-        elBtnNextAB.classList.add('hidden');
+        elSpeedInd.style.display = 'none';
+        document.getElementById('btn-next-ab').classList.add('hidden');
         elBtnSwing.classList.remove('hidden');
         elBtnSwing.disabled = false;
-        elBtnSwing.textContent = "揮 棒 !";
         
         preparePitch();
     }
@@ -614,11 +458,9 @@
         GameState.batting.active = true;
         GameState.batting.isPitched = false;
         GameState.batting.swung = false;
-        GameState.batting.ballY = 40; // Top of mound
+        GameState.batting.ballY = 40;
         elBall.style.top = '40px';
         elBall.style.display = 'block';
-
-        // Wait a random moment then pitch
         setTimeout(pitchBall, 1000 + Math.random() * 1000);
     }
 
@@ -626,29 +468,40 @@
         if (!GameState.batting.active) return;
         GameState.batting.isPitched = true;
         
-        // Ball speed (pixels per frame approx)
-        // Harder rounds = faster ball? For now constant but varied slightly
-        const baseSpeed = 5 + (Math.random() * 2); 
-        GameState.batting.ballSpeed = baseSpeed;
+        // --- Speed Variation Logic ---
+        const r = Math.random();
+        let speed = 5;
+        let label = "直球";
+
+        if (r < 0.5) {
+            // Normal (50%)
+            speed = 5 + Math.random();
+            label = "直球";
+        } else if (r < 0.8) {
+            // Fast (30%)
+            speed = 8 + Math.random() * 2;
+            label = "快速球";
+        } else {
+            // Super Fast (20%)
+            speed = 13 + Math.random() * 2;
+            label = "剛速球";
+        }
+        
+        GameState.batting.ballSpeed = speed;
+        GameState.batting.currentPitchType = label;
 
         requestAnimationFrame(gameLoop);
     }
 
     function gameLoop() {
         if (!GameState.batting.active || !GameState.batting.isPitched || GameState.batting.swung) return;
-
         GameState.batting.ballY += GameState.batting.ballSpeed;
         elBall.style.top = GameState.batting.ballY + 'px';
 
-        // Check if ball passed home plate without swing
-        if (GameState.batting.ballY > 500) {
-            handleSwingResult("MISS");
-        } else {
-            requestAnimationFrame(gameLoop);
-        }
+        if (GameState.batting.ballY > 500) { handleSwingResult("MISS"); }
+        else { requestAnimationFrame(gameLoop); }
     }
 
-    // Keyboard support
     document.addEventListener('keydown', (e) => {
         if (e.code === 'Space' && elStadium.style.display === 'flex' && !elBtnSwing.disabled) {
             attemptSwing();
@@ -657,138 +510,91 @@
 
     function attemptSwing() {
         if (!GameState.batting.isPitched || GameState.batting.swung) return;
-        
         GameState.batting.swung = true;
         elBtnSwing.disabled = true;
-
-        // Calculate Timing
-        // Perfect zone: Ball Y around 420-460 (Center of home plate area at bottom)
-        // Field Height 500. Home plate area starts ~380 to 480.
-        // Let's define the sweet spot.
         
         const ballPos = GameState.batting.ballY;
-        
-        // Hit Window Logic
-        // Contact stat increases the sweet spot size.
-        // Base Sweet Spot: 400 - 450
-        const contactBonus = (GameState.stats.contact / MAX_STAT) * 30; // Up to 30px bigger
+        const contactBonus = (GameState.stats.contact / MAX_STAT) * 30;
         const sweetCenter = 430;
         const sweetRadius = 25 + contactBonus; 
-        
         const dist = Math.abs(ballPos - sweetCenter);
 
-        if (dist <= sweetRadius) {
-            // HIT
-            handleSwingResult("HIT");
-        } else if (dist <= sweetRadius + 40) {
-            // Slightly off
-            if (ballPos < sweetCenter) handleSwingResult("EARLY"); // Too early (ball high)
-            else handleSwingResult("LATE"); // Too late (ball low)
-        } else {
-            // Way off
-            handleSwingResult("MISS");
-        }
+        if (dist <= sweetRadius) { handleSwingResult("HIT"); }
+        else if (dist <= sweetRadius + 40) { handleSwingResult(ballPos < sweetCenter ? "EARLY" : "LATE"); }
+        else { handleSwingResult("MISS"); }
     }
 
     function handleSwingResult(resultType) {
         GameState.batting.active = false;
         GameState.records.ab++;
-        
-        let text = "";
-        let color = "white";
+        let text = "", color = "white", logText = "";
+        const pitchName = GameState.batting.currentPitchType;
 
         if (resultType === "MISS") {
             GameState.records.so++;
-            text = "三振 (揮空)";
-            color = "#bdc3c7";
-            log("揮棒落空，三振出局。");
-        } 
-        else if (resultType === "EARLY") {
-            text = "滾地球出局 (太早)";
-            color = "#f39c12";
-            log("太早揮棒，打成了內野滾地球出局。");
-        }
-        else if (resultType === "LATE") {
-            text = "接殺出局 (太晚)";
-            color = "#f39c12";
-            log("太晚揮棒，打成了無力的飛球被接殺。");
-        }
-        else if (resultType === "HIT") {
+            text = "三振"; color = "#bdc3c7";
+            logText = `面對${pitchName}揮棒落空，三振出局。`;
+        } else if (resultType === "EARLY") {
+            text = "滾地出局 (太早)"; color = "#f39c12";
+            logText = `面對${pitchName}太早出棒，滾地球出局。`;
+        } else if (resultType === "LATE") {
+            text = "接殺出局 (太晚)"; color = "#f39c12";
+            logText = `面對${pitchName}太晚出棒，無力飛球被接殺。`;
+        } else if (resultType === "HIT") {
             GameState.records.h++;
-            color = "#e74c3c"; // Red for excitement
-            
-            // Determine Hit Type based on stats (Power/Run)
+            color = "#e74c3c";
             const outcome = calculateHitOutcome();
             text = outcome.label;
-            
-            log(outcome.logMsg, "log-success");
+            logText = `面對<b>${pitchName}</b>，${outcome.logMsg}`;
         }
 
-        // Show Result
         elResultText.textContent = text;
         elResultText.style.color = color;
         elResultText.style.display = 'block';
         elBall.style.display = 'none';
-
-        // Prepare next button
-        elBtnSwing.classList.add('hidden');
         
-        if (GameState.batting.atBatCount < 3) {
-            elBtnNextAB.classList.remove('hidden');
-        } else {
-            elBtnEndMatch.classList.remove('hidden');
-        }
+        // Show what pitch it was
+        elSpeedInd.textContent = pitchName;
+        elSpeedInd.style.display = 'block';
+
+        if(resultType === "HIT") log(logText, "log-success");
+        else log(logText);
+
+        elBtnSwing.classList.add('hidden');
+        if (GameState.batting.atBatCount < 3) document.getElementById('btn-next-ab').classList.remove('hidden');
+        else document.getElementById('btn-end-match').classList.remove('hidden');
     }
 
     function calculateHitOutcome() {
-        // Logic from V2, applied only when contact is made
-        // Base weights
-        let wSingle = 60;
-        let wDouble = 15;
-        let wTriple = 2; 
-        let wHR = 5;
-
-        // Stat Modifiers
+        let wSingle = 60, wDouble = 15, wTriple = 2, wHR = 5;
         wHR += (GameState.stats.power / MAX_STAT) * 30; 
         wTriple += (GameState.stats.run / MAX_STAT) * 20; 
         wDouble += (GameState.stats.power / MAX_STAT) * 10; 
-
-        // Constraint: HR reduced 30% -> to 2B
-        const reducedAmount = wHR * 0.30;
-        wHR = wHR * 0.70;
-        wDouble += reducedAmount;
+        const reducedAmount = wHR * 0.30; wHR = wHR * 0.70; wDouble += reducedAmount;
 
         const totalWeight = wSingle + wDouble + wTriple + wHR;
         const roll = Math.random() * totalWeight;
-
         let rbi = 0;
         
         if (roll < wHR) {
-            GameState.records.hr++;
-            GameState.records.tb += 4;
-            rbi = 1 + Math.floor(Math.random() * 3);
-            GameState.records.rbi += rbi;
-            return { label: "全壘打!!!", logMsg: `🔥 完美的擊球！全壘打！ (+${rbi}打點)` };
+            GameState.records.hr++; GameState.records.tb += 4;
+            rbi = 1 + Math.floor(Math.random() * 3); GameState.records.rbi += rbi;
+            return { label: "全壘打!!!", logMsg: `擊出了全壘打！ (+${rbi}打點)` };
         } else if (roll < wHR + wTriple) {
-            GameState.records.tb += 3;
-            rbi = Math.floor(Math.random() * 2);
-            GameState.records.rbi += rbi;
-            return { label: "三壘安打!", logMsg: "打穿了外野防線！狂奔上三壘！" };
+            GameState.records.tb += 3; rbi = Math.floor(Math.random() * 2); GameState.records.rbi += rbi;
+            return { label: "三壘安打!", logMsg: "掃出深遠三壘安打！" };
         } else if (roll < wHR + wTriple + wDouble) {
-            GameState.records.tb += 2;
-            rbi = Math.floor(Math.random() * 2);
-            GameState.records.rbi += rbi;
-            return { label: "二壘安打!", logMsg: "強勁的二壘安打！" };
+            GameState.records.tb += 2; rbi = Math.floor(Math.random() * 2); GameState.records.rbi += rbi;
+            return { label: "二壘安打!", logMsg: "擊出二壘安打！" };
         } else {
             GameState.records.tb += 1;
-            return { label: "一壘安打", logMsg: "巧妙的安打上壘。" };
+            return { label: "一壘安打", logMsg: "敲出一壘安打。" };
         }
     }
 
     function endMatchLogic() {
         elStadium.style.display = 'none';
-        elBtnEndMatch.classList.add('hidden');
-        
+        document.getElementById('btn-end-match').classList.add('hidden');
         GameState.records.gamesPlayed++;
         GameState.matchesLeft--;
         updateStatsUI();
@@ -801,52 +607,26 @@
                 endGame();
             }
         } else {
-             elDay.textContent = `剩餘場次: ${GameState.matchesLeft}`;
-             log(`比賽結束。`, "");
+             document.getElementById('day-display').textContent = `剩餘場次: ${GameState.matchesLeft}`;
         }
     }
     
-    function endMatch() {
-        endMatchLogic();
-    }
-
+    function endMatch() { endMatchLogic(); }
     function endSeasonRest() {
         log("經過了10天的休養，身體狀況恢復了。", "log-success");
-        GameState.round++;
-        GameState.day = 1;
-        setPhase('training');
+        GameState.round++; GameState.day = 1; setPhase('training');
     }
 
     function endGame() {
         setPhase('game-over');
-        elRound.textContent = "傳奇誕生";
-        elDay.textContent = "生涯結束";
-
+        document.getElementById('round-display').textContent = "傳奇誕生";
+        document.getElementById('day-display').textContent = "生涯結束";
         let totalScore = GameState.stats.power + GameState.stats.contact + GameState.stats.defense + GameState.stats.run;
         let rank = "D";
-        if (totalScore > 800) rank = "S";
-        else if (totalScore > 650) rank = "A";
-        else if (totalScore > 500) rank = "B";
-        else if (totalScore > 350) rank = "C";
-
-        const html = `
-            <div style="text-align:center; padding: 20px;">
-                <h2 style="color:var(--stadium-green)">養成結束！</h2>
-                <p>球員: ${GameState.playerName}</p>
-                <div style="font-size: 5em; font-weight: bold; color: var(--accent);">${rank}</div>
-                <hr>
-                <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 10px; text-align: left; padding: 0 20px;">
-                    <div>打擊率: ${document.getElementById('stat-avg').textContent}</div>
-                    <div>OPS: ${document.getElementById('stat-ops').textContent}</div>
-                    <div>全壘打: ${GameState.records.hr}</div>
-                    <div>安打數: ${GameState.records.h}</div>
-                    <div>總能力: ${totalScore}</div>
-                </div>
-            </div>
-        `;
+        if (totalScore > 800) rank = "S"; else if (totalScore > 650) rank = "A"; else if (totalScore > 500) rank = "B"; else if (totalScore > 350) rank = "C";
+        const html = `<div style="text-align:center; padding: 20px;"><h2 style="color:var(--stadium-green)">養成結束！</h2><p>球員: ${GameState.playerName}</p><div style="font-size: 5em; font-weight: bold; color: var(--accent);">${rank}</div><hr><div style="display:grid; grid-template-columns: 1fr 1fr; gap: 10px; text-align: left; padding: 0 20px;"><div>打擊率: ${document.getElementById('stat-avg').textContent}</div><div>OPS: ${document.getElementById('stat-ops').textContent}</div><div>全壘打: ${GameState.records.hr}</div><div>安打數: ${GameState.records.h}</div><div>總能力: ${totalScore}</div></div></div>`;
         elLog.innerHTML = html;
     }
-
 </script>
 </body>
 </html>
