@@ -141,7 +141,7 @@
                 <div class="panel-header">行動指令</div>
                 <div class="btn-group">
                     <button id="btn-attack">⚔️ 攻擊</button>
-                    <button id="btn-skill-menu">🔥 血鬼術/呼吸</button>
+                    <button id="btn-skill-menu">🔥 技能</button>
                     <div id="skill-list"></div>
                     <button id="btn-wait">✋ 待機</button>
                     <button id="btn-cancel-move" class="btn-cancel">↩ 取消移動</button>
@@ -167,19 +167,19 @@
     // --- 技能資料庫 ---
     const SKILL_DB = {
         tanjiro: [
-            { name: "水之呼吸·壹之型", reqLv: 1, range: 1, val: 1.2, cost: 0, aoe: false },
-            { name: "火之神神樂.圓舞", reqLv: 3, range: 1, val: 1.6, cost: 0, aoe: false },
-            { name: "日之呼吸·陽華突", reqLv: 6, range: 2, val: 2.2, cost: 0, aoe: false }
+            { name: "水之呼吸·水車", reqLv: 1, range: 1, val: 1.2, cost: 0, aoe: false },
+            { name: "火之神神樂·圓舞", reqLv: 3, range: 1, val: 1.6, cost: 0, aoe: false },
+            { name: "日之呼吸·灼骨炎陽", reqLv: 6, range: 2, val: 2.2, cost: 0, aoe: false }
         ],
         zenitsu: [
-            { name: "霹靂一閃", reqLv: 1, range: 3, val: 1.1, cost: 0, aoe: false },
+            { name: "雷之呼吸·霹靂一閃", reqLv: 1, range: 3, val: 1.1, cost: 0, aoe: false },
             { name: "霹靂一閃·六連", reqLv: 3, range: 4, val: 1.4, cost: 0, aoe: false },
-            { name: "霹靂一閃·神速", reqLv: 6, range: 5, val: 2.0, cost: 0, aoe: false }
+            { name: "奧義·火雷神", reqLv: 6, range: 5, val: 2.0, cost: 0, aoe: false }
         ],
         inosuke: [
-            { name: "獸之呼吸·獠牙", reqLv: 1, range: 1, val: 1.0, cost: 0, aoe: true },
-            { name: "空間感知·殺", reqLv: 3, range: 1, val: 1.5, cost: 0, aoe: true },
-            { name: "爆裂猛進", reqLv: 6, range: 2, val: 2.5, cost: 0, aoe: true }
+            { name: "獸之呼吸·獠牙撕扯", reqLv: 1, range: 1, val: 1.0, cost: 0, aoe: true },
+            { name: "獸之呼吸·狂牙綻裂", reqLv: 3, range: 1, val: 1.5, cost: 0, aoe: true },
+            { name: "絕殺·爆裂猛進", reqLv: 6, range: 2, val: 2.5, cost: 0, aoe: true }
         ],
         nezuko: [
             { name: "再生回復", reqLv: 1, range: 2, val: 60, cost: 0, aoe: false, isHeal: true }, 
