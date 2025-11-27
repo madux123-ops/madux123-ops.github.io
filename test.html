@@ -3,739 +3,805 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>實況野球風格 - 傳奇野手養成 Ver.2</title>
+    <title>鬼滅之刃：無限城決戰 RPG (雙王激鬥版)</title>
     <style>
-        :root {
-            --primary: #2c3e50;
-            --accent: #e74c3c;
-            --highlight: #f1c40f;
-            --bg-color: #ecf0f1;
-            --panel-bg: #ffffff;
-            --stadium-green: #27ae60;
-        }
+        /* --- 全局設定 --- */
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: var(--primary);
-            color: #333;
+            font-family: 'Microsoft JhengHei', sans-serif;
+            background-color: #050505;
+            color: #eee;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
             margin: 0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
+            padding: 5px;
+            background-image: repeating-linear-gradient(45deg, #110000 0, #110000 2px, transparent 0, transparent 50%);
+            background-size: 30px 30px;
         }
-        .game-container {
-            width: 900px;
-            background: var(--bg-color);
-            border-radius: 15px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
-            overflow: hidden;
+
+        h1 { margin: 5px 0; font-size: 1.5em; color: #ff99cc; text-shadow: 0 0 5px #ff0055; }
+
+        /* --- 頂部狀態列 --- */
+        #phase-banner {
+            width: 95%; max-width: 600px;
+            text-align: center; padding: 5px 0;
+            font-size: 1.1em; font-weight: bold; margin-bottom: 5px; border-radius: 5px;
+            text-shadow: 1px 1px 0 #000; transition: all 0.5s;
+        }
+        .phase-player { background: linear-gradient(90deg, #003366, #0056b3, #003366); color: #fff; border: 1px solid #4da6ff; }
+        .phase-enemy { background: linear-gradient(90deg, #440000, #8b0000, #440000); color: #ff9999; border: 1px solid #ff4d4d; }
+
+        /* --- 遊戲主區域 --- */
+        #game-wrapper {
+            display: flex; gap: 10px; align-items: flex-start; justify-content: center;
+        }
+
+        /* --- 地圖 --- */
+        #grid-container {
             display: grid;
-            grid-template-rows: 60px 1fr 180px; /* Increased footer height for new stats */
+            gap: 1px;
+            background-color: #222;
+            border: 3px solid #555;
+            box-shadow: 0 0 15px rgba(0,0,0,0.9);
+            user-select: none;
+        }
+
+        .tile {
+            width: 32px; height: 32px;
+            background-color: #2b2b2b;
             position: relative;
-        }
-        
-        /* Start Screen Overlay */
-        #start-screen {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(44, 62, 80, 0.95);
-            z-index: 100;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            color: white;
-        }
-        #start-screen input {
-            padding: 15px;
-            font-size: 1.5em;
-            margin: 20px 0;
-            border-radius: 5px;
-            border: none;
-            text-align: center;
-        }
-        #start-screen button {
-            background: var(--highlight);
-            color: #333;
-            font-size: 1.2em;
-        }
-
-        /* Header */
-        header {
-            background: var(--primary);
-            color: white;
-            padding: 0 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-weight: bold;
-            border-bottom: 4px solid var(--highlight);
-        }
-        .player-name { font-size: 1.2em; color: var(--highlight); margin-right: 10px; }
-        .status-badge {
-            background: var(--accent);
-            padding: 5px 10px;
-            border-radius: 5px;
-            font-size: 0.9em;
-        }
-
-        /* Main Content */
-        main {
-            padding: 20px;
-            display: grid;
-            grid-template-columns: 280px 1fr;
-            gap: 20px;
-        }
-        
-        /* Stats Panel */
-        .stats-panel {
-            background: var(--panel-bg);
-            padding: 15px;
-            border-radius: 10px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-        .stat-row { margin-bottom: 5px; }
-        .stat-label {
-            display: flex;
-            justify-content: space-between;
-            font-weight: bold;
-            margin-bottom: 3px;
-            font-size: 0.9em;
-        }
-        .stat-bar-bg {
-            background: #ddd;
-            height: 8px;
-            border-radius: 4px;
-            overflow: hidden;
-        }
-        .stat-bar-fill {
-            height: 100%;
-            width: 0%;
-            transition: width 0.3s;
-        }
-        .fill-power { background: #e74c3c; }
-        .fill-contact { background: #f39c12; }
-        .fill-defense { background: #3498db; }
-        .fill-run { background: #9b59b6; }
-
-        /* Game Screen */
-        .game-screen {
-            background: var(--panel-bg);
-            border-radius: 10px;
-            padding: 15px;
-            display: flex;
-            flex-direction: column;
-            position: relative;
-        }
-        .dialog-box {
-            flex-grow: 1;
-            border: 2px solid #ccc;
-            border-radius: 5px;
-            padding: 15px;
-            background: #fff;
-            margin-bottom: 10px;
-            overflow-y: auto;
-            height: 250px;
-            font-size: 0.95em;
-            line-height: 1.6;
-        }
-        .log-entry { margin-bottom: 8px; border-bottom: 1px dashed #eee; padding-bottom: 4px; }
-        .log-highlight { color: var(--accent); font-weight: bold; }
-        .log-success { color: var(--stadium-green); font-weight: bold; }
-        .log-detail { font-size: 0.85em; color: #666; font-style: italic; }
-        
-        /* Detailed Season Stats View */
-        .season-stats-grid {
-            background: #333;
-            color: #fff;
-            padding: 10px;
-            border-radius: 5px;
-            font-family: monospace;
-            font-size: 0.85em;
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 8px;
-            text-align: center;
-            margin-top: auto;
-        }
-        .stat-box { display: flex; flex-direction: column; }
-        .stat-title { color: #aaa; font-size: 0.8em; }
-        .stat-val { font-size: 1.1em; font-weight: bold; }
-
-        /* Controls */
-        .controls {
-            background: #dcdcdc;
-            padding: 15px;
-            display: flex;
-            gap: 10px;
-            justify-content: center;
-            align-items: center;
-            border-top: 1px solid #bbb;
-        }
-        button {
-            padding: 10px 20px;
-            border: none;
-            border-radius: 5px;
-            font-weight: bold;
             cursor: pointer;
-            transition: transform 0.1s, background 0.2s;
-            font-size: 1em;
-            min-width: 100px;
+            display: flex; justify-content: center; align-items: center;
         }
-        button:active { transform: scale(0.95); }
-        button:disabled { opacity: 0.5; cursor: not-allowed; }
-
-        .btn-train { background: var(--primary); color: white; }
-        .btn-train:hover { background: #34495e; }
         
-        .btn-rest { background: var(--stadium-green); color: white; }
-        .btn-rest:hover { background: #219150; }
+        .tile.movable { background-color: rgba(0, 191, 255, 0.25); box-shadow: inset 0 0 4px #00bfff; }
+        .tile.attackable { background-color: rgba(255, 69, 0, 0.3); box-shadow: inset 0 0 4px #ff4500; }
+        .tile.healable { background-color: rgba(50, 255, 50, 0.25); box-shadow: inset 0 0 4px #00ff00; }
 
-        .btn-next { background: var(--highlight); color: #333; width: 100%; font-size: 1.2em;}
-
-        /* Warning Modal */
-        #warning-msg {
-            color: red;
-            font-weight: bold;
-            text-align: center;
-            margin-top: 5px;
-            height: 20px;
-            visibility: hidden;
+        /* --- 單位樣式 --- */
+        .unit {
+            width: 26px; height: 26px;
+            border-radius: 50%;
+            display: flex; justify-content: center; align-items: center;
+            font-weight: bold; font-size: 12px;
+            z-index: 5; position: relative;
+            box-shadow: 1px 1px 2px #000;
+            transition: transform 0.2s;
+            border-width: 2px; border-style: solid;
         }
+        
+        .unit.tanjiro { background: radial-gradient(#2e8b57, #000); border-color: #00bfff; }
+        .unit.zenitsu { background: radial-gradient(#ffd700, #b8860b); border-color: #fff; color: #000; }
+        .unit.inosuke { background: radial-gradient(#708090, #2f4f4f); border-color: #dcdcdc; }
+        .unit.nezuko  { background: radial-gradient(#ff99cc, #cc0055); border-color: #ff3366; color: #fff; }
 
+        .unit.demon { background: radial-gradient(#444, #111); border-color: #f00; color: #bbb; font-size: 10px; }
+        .unit.demon-range { background: radial-gradient(#4a2c5a, #200020); border-color: #a0f; color: #eef; font-size: 10px; } /* 遠程鬼配色 */
+        .unit.boss { background: radial-gradient(#a00, #300); border-color: #ff0000; color: #fff; font-size: 14px; box-shadow: 0 0 6px #f00; }
+
+        .unit.done { filter: grayscale(100%) brightness(0.5); transform: scale(0.9); }
+        .unit.selected { box-shadow: 0 0 8px 2px #fff; z-index: 10; transform: scale(1.2); }
+
+        /* 血條與等級 */
+        .hp-bar-bg { position: absolute; bottom: -3px; width: 100%; height: 3px; background: #000; border-radius: 2px; }
+        .hp-bar-fill { height: 100%; background: #0f0; transition: width 0.3s; }
+        .unit.demon .hp-bar-fill, .unit.demon-range .hp-bar-fill { background: #f00; }
+        .lvl-tag { position: absolute; top: -5px; right: -5px; font-size: 8px; background: #000; padding: 0 1px; border-radius: 2px; color: #fff; border: 1px solid #666; transform: scale(0.9); }
+
+        /* --- UI 面板 --- */
+        #ui-panel { width: 220px; display: flex; flex-direction: column; gap: 8px; }
+        
+        .panel { background: #1a1a1a; padding: 8px; border: 1px solid #444; border-radius: 5px; }
+        .panel-header { color: #d4af37; border-bottom: 1px solid #444; margin-bottom: 5px; font-weight: bold; font-size: 0.9em; }
+
+        /* 按鈕群組 */
+        .btn-group { display: flex; flex-direction: column; gap: 4px; }
+        button {
+            padding: 8px; cursor: pointer; background: #333; color: #fff; border: 1px solid #555;
+            border-radius: 4px; font-size: 0.85em; text-align: left; transition: 0.2s;
+        }
+        button:hover { background: #444; border-color: #888; }
+        button:disabled { opacity: 0.3; cursor: default; }
+        .btn-skill { border-left: 3px solid #ff0055; }
+        .btn-cancel { background: #331111; border-color: #552222; text-align: center; font-size: 0.8em; }
+
+        /* 技能子選單 */
+        #skill-list { display: none; flex-direction: column; gap: 3px; margin-top: 5px; }
+        .skill-item { font-size: 0.8em; padding: 5px; background: #252525; border-left: 2px solid #666; }
+        .skill-heal { border-left-color: #00ff00; color: #ccffcc; } 
+
+        /* 戰鬥紀錄 */
+        #log-box { height: 160px; overflow-y: auto; font-size: 0.8em; color: #bbb; line-height: 1.4; background: #111; padding: 5px; }
+        .log-dmg { color: #ff6b6b; font-weight: bold; }
+        .log-heal { color: #4cd137; font-weight: bold; }
+        .log-sys { color: #ffd700; }
+        .log-xp { color: #00bfff; font-style: italic; }
+        .log-danger { color: #ff0000; font-weight: bold; background: #330000; padding: 2px; }
+
+        #btn-end-turn {
+            width: 100%; padding: 10px; background: #8b0000; color: #fff; font-weight: bold; 
+            border: none; cursor: pointer; margin-top: 5px; font-size: 0.9em;
+        }
     </style>
 </head>
 <body>
 
-<div class="game-container">
-    
-    <div id="start-screen">
-        <h1>⚾ 傳奇野球養成</h1>
-        <p>請輸入球員名稱 (最多6字)</p>
-        <input type="text" id="input-name" maxlength="6" value="野球君">
-        <button onclick="startGame()">開始遊戲</button>
+    <div id="phase-banner" class="phase-player">第 1 關 - 我方回合</div>
+
+    <div id="game-wrapper">
+        <div id="grid-container"></div>
+
+        <div id="ui-panel">
+            <div class="panel">
+                <div class="panel-header">單位資訊</div>
+                <div id="unit-info" style="font-size: 0.85em;">請選擇單位...</div>
+            </div>
+
+            <div class="panel" id="action-panel" style="display:none;">
+                <div class="panel-header">行動指令</div>
+                <div class="btn-group">
+                    <button id="btn-attack">⚔️ 攻擊</button>
+                    <button id="btn-skill-menu">🔥 血鬼術/呼吸</button>
+                    <div id="skill-list"></div>
+                    <button id="btn-wait">✋ 待機</button>
+                    <button id="btn-cancel-move" class="btn-cancel">↩ 取消移動</button>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-header">戰鬥紀錄</div>
+                <div id="log-box"></div>
+            </div>
+            
+            <button id="btn-end-turn">結束回合</button>
+        </div>
     </div>
 
-    <header>
-        <div>
-            <span class="player-name" id="display-name"></span>
-            <span id="round-display">第 1 輪</span>
-        </div>
-        <div id="day-display">第 1 天 / 90</div>
-        <div class="status-badge" id="phase-display">訓練期</div>
-    </header>
-
-    <main>
-        <div class="stats-panel">
-            <h3 style="margin:0;">球員能力</h3>
-            <div class="stat-row">
-                <div class="stat-label"><span>Power (力量)</span> <span id="val-power">10</span></div>
-                <div class="stat-bar-bg"><div class="stat-bar-fill fill-power" id="bar-power"></div></div>
-            </div>
-            <div class="stat-row">
-                <div class="stat-label"><span>Contact (技巧)</span> <span id="val-contact">10</span></div>
-                <div class="stat-bar-bg"><div class="stat-bar-fill fill-contact" id="bar-contact"></div></div>
-            </div>
-            <div class="stat-row">
-                <div class="stat-label"><span>Defense (守備)</span> <span id="val-defense">10</span></div>
-                <div class="stat-bar-bg"><div class="stat-bar-fill fill-defense" id="bar-defense"></div></div>
-            </div>
-            <div class="stat-row">
-                <div class="stat-label"><span>Run (跑壘)</span> <span id="val-run">10</span></div>
-                <div class="stat-bar-bg"><div class="stat-bar-fill fill-run" id="bar-run"></div></div>
-            </div>
-            
-            <hr style="width:100%; margin: 5px 0;">
-            
-            <h3 style="margin:0;">本季成績</h3>
-            <div class="season-stats-grid">
-                <div class="stat-box"><span class="stat-title">打擊率</span><span class="stat-val" id="stat-avg">.000</span></div>
-                <div class="stat-box"><span class="stat-title">全壘打</span><span class="stat-val" id="stat-hr">0</span></div>
-                <div class="stat-box"><span class="stat-title">打點</span><span class="stat-val" id="stat-rbi">0</span></div>
-                <div class="stat-box"><span class="stat-title">OPS</span><span class="stat-val" id="stat-ops">.000</span></div>
-                
-                <div class="stat-box"><span class="stat-title">上壘率</span><span class="stat-val" id="stat-obp">.000</span></div>
-                <div class="stat-box"><span class="stat-title">長打率</span><span class="stat-val" id="stat-slg">.000</span></div>
-                <div class="stat-box"><span class="stat-title">安打</span><span class="stat-val" id="stat-h">0</span></div>
-                <div class="stat-box"><span class="stat-title">保送</span><span class="stat-val" id="stat-bb">0</span></div>
-                
-                <div class="stat-box"><span class="stat-title">三振</span><span class="stat-val" id="stat-so">0</span></div>
-                <div class="stat-box"><span class="stat-title">總安打</span><span class="stat-val" id="stat-tb">0</span></div> </div>
-        </div>
-
-        <div class="game-screen">
-            <div class="dialog-box" id="game-log">
-                </div>
-            <div id="warning-msg">⚠ 警告：連續訓練同一項目效率會大幅降低！</div>
-        </div>
-    </main>
-
-    <div class="controls" id="control-panel">
-        </div>
-</div>
-
 <script>
-    // Game State
-    const GameState = {
-        playerName: "Player",
-        round: 1, // 1, 2, 3
-        day: 1,
-        totalDaysPerRound: 90,
-        phase: 'training', // 'training', 'rest', 'match', 'end'
-        subCycleDay: 1, // Tracks the 20 train / 10 rest cycle
-        
-        stats: {
-            power: 10,
-            contact: 10,
-            defense: 10,
-            run: 10
-        },
-        
-        records: {
-            gamesPlayed: 0,
-            ab: 0, // At Bats (打數)
-            h: 0,  // Hits (安打)
-            hr: 0, // Home Runs
-            tb: 0, // Total Bases (壘打數)
-            rbi: 0,
-            bb: 0, // Walks (四壞)
-            so: 0  // Strike Outs (三振)
-        },
-
-        lastTraining: null,
-        warningActive: false,
-        
-        matchConfig: {
-            1: 20,
-            2: 30,
-            3: 60
-        },
-        matchesLeft: 0
+    // --- 遊戲常數 ---
+    const COLS = 15;
+    const ROWS = 12;
+    const MAX_LEVEL = 9;
+    const TILE_SIZE = 32;
+    
+    // --- 技能資料庫 ---
+    const SKILL_DB = {
+        tanjiro: [
+            { name: "水之呼吸·壹之型", reqLv: 1, range: 1, val: 1.2, cost: 0, aoe: false },
+            { name: "火之神神樂", reqLv: 3, range: 1, val: 1.6, cost: 0, aoe: false },
+            { name: "日之呼吸·陽華突", reqLv: 6, range: 2, val: 2.2, cost: 0, aoe: false }
+        ],
+        zenitsu: [
+            { name: "霹靂一閃", reqLv: 1, range: 3, val: 1.1, cost: 0, aoe: false },
+            { name: "霹靂一閃·六連", reqLv: 3, range: 4, val: 1.4, cost: 0, aoe: false },
+            { name: "神速", reqLv: 6, range: 5, val: 2.0, cost: 0, aoe: false }
+        ],
+        inosuke: [
+            { name: "獸之呼吸·獠牙", reqLv: 1, range: 1, val: 1.0, cost: 0, aoe: true },
+            { name: "空間感知·殺", reqLv: 3, range: 1, val: 1.5, cost: 0, aoe: true },
+            { name: "爆裂猛進", reqLv: 6, range: 1, val: 2.5, cost: 0, aoe: true }
+        ],
+        nezuko: [
+            { name: "再生回復", reqLv: 1, range: 2, val: 50, cost: 0, aoe: false, isHeal: true }, 
+            { name: "爆血·廣域治癒", reqLv: 3, range: 0, val: 40, cost: 0, aoe: true, isHeal: true, global: true },
+            { name: "爆血·燒灼", reqLv: 6, range: 2, val: 2.5, cost: 0, aoe: false, isHeal: false } 
+        ]
     };
 
-    // Constants
-    const MAX_STAT = 255; 
-
-    // UI Elements
-    const elLog = document.getElementById('game-log');
-    const elControls = document.getElementById('control-panel');
-    const elRound = document.getElementById('round-display');
-    const elDay = document.getElementById('day-display');
-    const elPhase = document.getElementById('phase-display');
-    const elWarning = document.getElementById('warning-msg');
-    const elDisplayName = document.getElementById('display-name');
-
-    // --- Core Functions ---
-
-    function startGame() {
-        const input = document.getElementById('input-name');
-        let name = input.value.trim();
-        if(!name) name = "野球君";
-        GameState.playerName = name;
-        elDisplayName.textContent = name;
-        
-        document.getElementById('start-screen').style.display = 'none';
-        
-        updateStatsUI();
-        setPhase('training');
-        log(`歡迎 ${name} 加入職棒養成計畫！目標是成為傳奇野手。`, "log-highlight");
-        log("前90天請專注於基礎訓練。", "");
-    }
-
-    function log(msg, type='') {
-        const div = document.createElement('div');
-        div.className = 'log-entry ' + type;
-        div.innerHTML = msg;
-        elLog.prepend(div);
-    }
-
-    function updateStatsUI() {
-        // Update Bars
-        document.getElementById('val-power').textContent = GameState.stats.power;
-        document.getElementById('val-contact').textContent = GameState.stats.contact;
-        document.getElementById('val-defense').textContent = GameState.stats.defense;
-        document.getElementById('val-run').textContent = GameState.stats.run;
-
-        document.getElementById('bar-power').style.width = (GameState.stats.power / MAX_STAT * 100) + '%';
-        document.getElementById('bar-contact').style.width = (GameState.stats.contact / MAX_STAT * 100) + '%';
-        document.getElementById('bar-defense').style.width = (GameState.stats.defense / MAX_STAT * 100) + '%';
-        document.getElementById('bar-run').style.width = (GameState.stats.run / MAX_STAT * 100) + '%';
-        
-        // Calculate Advanced Stats
-        // AVG = H / AB
-        // OBP = (H + BB) / (AB + BB) (Ignoring SF/HBP for simplicity)
-        // SLG = TB / AB
-        
-        let ab = GameState.records.ab;
-        let h = GameState.records.h;
-        let bb = GameState.records.bb;
-        let tb = GameState.records.tb;
-
-        let avg = ab === 0 ? 0 : h / ab;
-        let obp = (ab + bb) === 0 ? 0 : (h + bb) / (ab + bb);
-        let slg = ab === 0 ? 0 : tb / ab;
-        let ops = obp + slg;
-
-        // Render Stats
-        document.getElementById('stat-avg').textContent = avg.toFixed(3).replace(/^0+/, '');
-        document.getElementById('stat-hr').textContent = GameState.records.hr;
-        document.getElementById('stat-rbi').textContent = GameState.records.rbi;
-        document.getElementById('stat-ops').textContent = ops.toFixed(3).replace(/^0+/, '');
-        
-        document.getElementById('stat-obp').textContent = obp.toFixed(3).replace(/^0+/, '');
-        document.getElementById('stat-slg').textContent = slg.toFixed(3).replace(/^0+/, '');
-        document.getElementById('stat-h').textContent = h;
-        document.getElementById('stat-bb').textContent = bb;
-        document.getElementById('stat-so').textContent = GameState.records.so;
-        document.getElementById('stat-tb').textContent = tb;
-    }
-
-    function setPhase(phase) {
-        GameState.phase = phase;
-        elPhase.textContent = phase === 'training' ? '訓練期' : (phase === 'rest' ? '休息週' : '賽季中');
-        elRound.textContent = `第 ${GameState.round} 輪`;
-        
-        if (phase === 'match') {
-            elDay.textContent = `剩餘場次: ${GameState.matchesLeft}`;
-        } else {
-            elDay.textContent = `第 ${GameState.day} 天 / 90`;
+    // --- 類別定義 ---
+    class Unit {
+        constructor(id, name, type, role, x, y, stats) {
+            this.id = id;
+            this.name = name;
+            this.type = type;
+            this.role = role;
+            this.x = x;
+            this.y = y;
+            
+            this.level = stats.level || 1;
+            this.maxHp = stats.hp;
+            this.hp = stats.hp;
+            this.atk = stats.atk;
+            this.def = stats.def;
+            this.moveRange = 2; 
+            
+            // 敵方 AI 參數
+            this.range = stats.range || 1; // 攻擊距離
+            this.aoeRange = stats.aoeRange || 0; // Boss 範圍攻擊半徑
+            
+            this.hasActed = false;
+            this.xp = 0;
+            this.maxXp = 100 * this.level;
+            this.prevX = x; 
+            this.prevY = y;
         }
-        
-        renderControls();
-    }
 
-    function renderControls() {
-        elControls.innerHTML = '';
-        elWarning.style.visibility = 'hidden';
+        getSkills() {
+            if (this.type === 'demon') return [];
+            return SKILL_DB[this.role].filter(s => this.level >= s.reqLv);
+        }
 
-        if (GameState.phase === 'training') {
-            const trainings = [
-                { id: 'power', label: '重訓 (Power)', color: '#e74c3c' },
-                { id: 'contact', label: '打擊 (Contact)', color: '#f39c12' },
-                { id: 'defense', label: '守備 (Defense)', color: '#3498db' },
-                { id: 'run', label: '衝刺 (Run)', color: '#9b59b6' }
-            ];
+        gainXp(amount) {
+            if (this.type !== 'slayer') return;
+            this.xp += amount;
+            if (this.xp >= this.maxXp) this.levelUp();
+        }
 
-            trainings.forEach(t => {
-                const btn = document.createElement('button');
-                btn.className = 'btn-train';
-                btn.textContent = t.label;
-                btn.style.borderLeft = `5px solid ${t.color}`;
-                btn.onclick = () => handleTraining(t.id);
-                elControls.appendChild(btn);
-            });
-        } else if (GameState.phase === 'rest') {
-            const rests = [
-                { id: 'shop', label: '逛街' },
-                { id: 'movie', label: '看電影' },
-                { id: 'date', label: '交友' },
-                { id: 'book', label: '看書' },
-                { id: 'eat', label: '吃大餐' }
-            ];
-            rests.forEach(r => {
-                const btn = document.createElement('button');
-                btn.className = 'btn-rest';
-                btn.textContent = r.label;
-                btn.onclick = () => handleRest(r.id);
-                elControls.appendChild(btn);
-            });
-        } else if (GameState.phase === 'match') {
-            const btn = document.createElement('button');
-            btn.className = 'btn-next';
-            btn.textContent = '進行下一場比賽';
-            btn.onclick = () => playMatch();
-            elControls.appendChild(btn);
-        } else if (GameState.phase === 'post-season') {
-            const btn = document.createElement('button');
-            btn.className = 'btn-next';
-            btn.textContent = '進入 10 天季後休息';
-            btn.onclick = () => endSeasonRest();
-            elControls.appendChild(btn);
-        } else if (GameState.phase === 'game-over') {
-            const btn = document.createElement('button');
-            btn.className = 'btn-next';
-            btn.textContent = '重新開始';
-            btn.onclick = () => location.reload();
-            elControls.appendChild(btn);
+        levelUp() {
+            this.level++;
+            this.xp = 0;
+            this.maxXp = Math.floor(this.maxXp * 1.2);
+            this.maxHp = Math.floor(this.maxHp * 1.2);
+            this.atk = Math.floor(this.atk * 1.15);
+            this.def = Math.floor(this.def * 1.15);
+            this.hp = this.maxHp;
+            log(`✨ ${this.name} 升級 Lv.${this.level}！體力全滿！`, 'log-sys');
+            renderMap();
         }
     }
 
-    // --- Actions ---
+    // --- 全局變數 ---
+    let grid = [];
+    let allies = [];
+    let enemies = [];
+    let currentLevel = 1;
+    let phase = 'PLAYER';
+    
+    let selectedUnit = null;
+    let selectionState = 'NONE';
+    let activeSkill = null;
 
-    function handleTraining(type) {
-        // Warning Check
-        if (GameState.lastTraining === type) {
-            if (!GameState.warningActive) {
-                GameState.warningActive = true;
-                elWarning.style.visibility = 'visible';
-                log("教練：效率在降低，建議換個項目訓練！(再次點擊將強制訓練並扣數值)", "log-highlight");
-                return;
-            } else {
-                // Punishment
-                GameState.stats[type] = Math.max(0, GameState.stats[type] - 5);
-                log(`你無視警告強行訓練...身體受傷了！ ${type} -5`, "log-highlight");
-                GameState.warningActive = false;
-                advanceDay();
-                updateStatsUI();
-                return;
+    // --- 初始化 ---
+    function initGame() {
+        const gridContainer = document.getElementById('grid-container');
+        gridContainer.style.gridTemplateColumns = `repeat(${COLS}, ${TILE_SIZE}px)`;
+        gridContainer.style.gridTemplateRows = `repeat(${ROWS}, ${TILE_SIZE}px)`;
+
+        createGrid();
+        
+        // 初始建立 (等級繼承，位置重置)
+        allies = [
+            new Unit(1, '炭治郎', 'slayer', 'tanjiro', 0, 0, { hp: 120, atk: 28, def: 10 }),
+            new Unit(2, '善逸', 'slayer', 'zenitsu', 0, 0, { hp: 90, atk: 35, def: 6 }),
+            new Unit(3, '伊之助', 'slayer', 'inosuke', 0, 0, { hp: 130, atk: 25, def: 12 }),
+            new Unit(4, '禰豆子', 'slayer', 'nezuko', 0, 0, { hp: 140, atk: 20, def: 15 })
+        ];
+        startLevel(1);
+        
+        document.getElementById('btn-end-turn').onclick = endPlayerPhase;
+        document.getElementById('btn-attack').onclick = () => prepAttack(false);
+        document.getElementById('btn-skill-menu').onclick = toggleSkillMenu;
+        document.getElementById('btn-wait').onclick = () => finalizeAction(true);
+        document.getElementById('btn-cancel-move').onclick = cancelMovement;
+    }
+
+    function createGrid() {
+        const container = document.getElementById('grid-container');
+        container.innerHTML = '';
+        grid = [];
+        for (let y = 0; y < ROWS; y++) {
+            let row = [];
+            for (let x = 0; x < COLS; x++) {
+                let div = document.createElement('div');
+                div.className = 'tile';
+                div.onclick = () => onTileClick(x, y);
+                container.appendChild(div);
+                row.push(div);
+            }
+            grid.push(row);
+        }
+    }
+
+    function startLevel(lvl) {
+        currentLevel = lvl;
+        document.getElementById('phase-banner').innerText = `第 ${lvl} 關 - 無限城深處`;
+        log(`=== 第 ${lvl} 關 開始 ===`, 'log-sys');
+        
+        // 站位設定
+        allies[0].x = 1; allies[0].y = 4; 
+        allies[1].x = 1; allies[1].y = 5; 
+        allies[2].x = 1; allies[2].y = 6; 
+        allies[3].x = 1; allies[3].y = 7; 
+
+        allies.forEach(u => { u.hasActed = false; u.prevX = u.x; u.prevY = u.y; });
+
+        // 生成敵人
+        enemies = [];
+        let difficulty = 1 + (lvl * 0.15);
+        
+        // 1. 雜魚生成邏輯 (數量隨關卡增加 1-2 隻)
+        // 基礎 8 隻 + 每關 1.5 隻 (四捨五入) -> Lv1: 9隻, Lv9: 21隻
+        let gruntCount = 8 + Math.floor(lvl * 1.5);
+        
+        for(let i=0; i<gruntCount; i++) {
+            let ex = 5 + Math.floor(Math.random() * (COLS - 5));
+            let ey = Math.floor(Math.random() * ROWS);
+            
+            // 30% 機率是遠程鬼
+            let isRanged = Math.random() < 0.3;
+            let name = isRanged ? '蜘蛛鬼' : '雜魚鬼';
+            let role = isRanged ? 'demon-range' : 'demon';
+            let range = isRanged ? 3 : 1; // 遠程鬼 3格
+            let hpMult = isRanged ? 0.8 : 1.0; // 遠程血少一點
+
+            if(!isOccupied(ex, ey)) {
+                enemies.push(new Unit(100+i, name, role, 'grunt', ex, ey, {
+                    hp: Math.floor(40 * difficulty * hpMult), 
+                    atk: Math.floor(12 * difficulty), 
+                    def: Math.floor(2 * difficulty), 
+                    level: lvl,
+                    range: range
+                }));
+            }
+        }
+        
+        // 2. BOSS 生成邏輯 (雙王機制)
+        // 定義雙王關卡
+        const doubleBossLevels = [2, 4, 6, 8, 9];
+        let bossesToSpawn = [];
+        
+        // 取得單王名字
+        let bossName1 = getBossName(lvl, 1);
+        bossesToSpawn.push(bossName1);
+
+        if (doubleBossLevels.includes(lvl)) {
+            let bossName2 = getBossName(lvl, 2);
+            bossesToSpawn.push(bossName2);
+            log("⚠️ 警告：本關卡偵測到雙重鬼月反應！", 'log-danger');
+        }
+
+        bossesToSpawn.forEach((bName, idx) => {
+            let bx = COLS - 2 - idx; // 稍微錯開位置
+            let by = Math.floor(ROWS / 2) + (idx === 0 ? -1 : 1);
+            if (isOccupied(bx, by)) bx--; // 防重疊
+
+            enemies.push(new Unit(200+idx, bName, 'demon', 'boss', bx, by, {
+                hp: Math.floor(150 * difficulty * 3),
+                atk: Math.floor(30 * difficulty), // 攻擊力提升
+                def: Math.floor(8 * difficulty), 
+                level: lvl+2,
+                range: 1, // Boss 普攻距離
+                aoeRange: (lvl >= 7 ? 3 : 2) // 後期 Boss 範圍 3，前期 2
+            }));
+        });
+
+        startPlayerPhase();
+    }
+
+    function isOccupied(x, y) { return [...allies, ...enemies].some(u => u.x === x && u.y === y && u.hp > 0); }
+    function getUnitAt(x, y) { return [...allies, ...enemies].find(u => u.x === x && u.y === y && u.hp > 0); }
+
+    // --- 遊戲流程 ---
+
+    function startPlayerPhase() {
+        phase = 'PLAYER';
+        const banner = document.getElementById('phase-banner');
+        banner.className = 'phase-player';
+        banner.innerText = `第 ${currentLevel} 關 - 我方回合`;
+        document.getElementById('btn-end-turn').disabled = false;
+        
+        allies.forEach(u => {
+            u.hasActed = false;
+            u.prevX = u.x; u.prevY = u.y;
+        });
+        
+        resetSelection();
+        renderMap();
+    }
+
+    function endPlayerPhase() {
+        if (phase !== 'PLAYER') return;
+        resetSelection();
+        startEnemyPhase();
+    }
+
+    async function startEnemyPhase() {
+        phase = 'ENEMY';
+        const banner = document.getElementById('phase-banner');
+        banner.className = 'phase-enemy';
+        banner.innerText = "敵方行動中...";
+        document.getElementById('btn-end-turn').disabled = true;
+        renderMap();
+
+        for (const demon of enemies) {
+            if (demon.hp > 0) {
+                // 移動鏡頭或高亮當前敵人? 暫時省略
+                await new Promise(r => setTimeout(r, 200)); // 加快節奏
+                runEnemyAI(demon);
+                renderMap();
             }
         }
 
-        // Normal Training
-        GameState.lastTraining = type;
-        GameState.warningActive = false;
-        
-        // Changed gain to 2-4
-        let gain = Math.floor(Math.random() * 3) + 2; // 2, 3, 4
-        
-        // Crit Chance
-        if (Math.random() < 0.1) {
-            gain += 4;
-            log(`狀態絕佳！訓練效果超群！ ${type} +${gain}`, "log-success");
-        } else {
-            log(`進行了${type}訓練。 ${type} +${gain}`);
-        }
-
-        GameState.stats[type] = Math.min(MAX_STAT, GameState.stats[type] + gain);
-        
-        updateStatsUI();
-        advanceDay();
+        if (checkWinLose()) return;
+        startPlayerPhase();
     }
 
-    function handleRest(type) {
-        GameState.lastTraining = null; // Reset streak
-        let msg = "";
-        let bonus = "";
+    // --- 玩家操作邏輯 (保持不變) ---
+    // (省略細節，功能與上一版相同)
+    function onTileClick(x, y) {
+        if (phase !== 'PLAYER') return;
+        const targetUnit = getUnitAt(x, y);
 
-        const rand = Math.random();
-        
-        switch(type) {
-            case 'shop':
-                msg = "去商店街逛了一整天。";
-                if (rand < 0.3) { GameState.stats.run += 2; bonus = "買到了好鞋子 (Run+2)"; }
-                break;
-            case 'movie':
-                msg = "看了一場感人的棒球電影。";
-                if (rand < 0.3) { GameState.stats.power += 2; bonus = "熱血沸騰 (Power+2)"; }
-                break;
-            case 'date':
-                msg = "和朋友出去玩。";
-                if (rand < 0.2) { GameState.stats.contact += 3; bonus = "聊到了打擊技巧 (Contact+3)"; }
-                break;
-            case 'book':
-                msg = "在圖書館安靜地看書。";
-                if (rand < 0.4) { GameState.stats.defense += 2; bonus = "學習了戰術 (Defense+2)"; }
-                break;
-            case 'eat':
-                msg = "去吃了一頓高級燒肉！";
-                if (rand < 0.5) { GameState.stats.power += 1; GameState.stats.contact += 1; bonus = "體力恢復 (All+1)"; }
-                break;
-        }
-
-        log(bonus ? `${msg} <b>${bonus}</b>` : msg, bonus ? "log-success" : "");
-        advanceDay();
-        updateStatsUI();
-    }
-
-    function advanceDay() {
-        GameState.day++;
-        GameState.subCycleDay++;
-        const dayInCycle = (GameState.day - 1) % 30;
-
-        if (GameState.day > 90) {
-            startMatchPhase();
+        if (selectionState === 'NONE') {
+            if (targetUnit && targetUnit.type === 'slayer' && !targetUnit.hasActed) {
+                selectUnit(targetUnit);
+            } else if (targetUnit) {
+                showUnitInfo(targetUnit);
+            }
             return;
         }
 
-        if (dayInCycle < 20) {
-            // Training Phase
-            if (GameState.phase !== 'training') {
-                log("---- 假期結束，開始訓練！ ----");
-                setPhase('training');
-            }
-        } else {
-            // Rest Phase
-            if (GameState.phase !== 'rest') {
-                log("---- 20天訓練結束，接下來10天休息調整。 ----", "log-success");
-                setPhase('rest');
-            }
-        }
-        
-        elDay.textContent = `第 ${GameState.day} 天 / 90`;
-    }
-
-    // --- Match Logic (UPDATED) ---
-
-    function startMatchPhase() {
-        GameState.matchesLeft = GameState.matchConfig[GameState.round];
-        setPhase('match');
-        log(`== 第 ${GameState.round} 輪訓練結束，開始 ${GameState.matchesLeft} 場比賽 ==`, "log-highlight");
-    }
-
-    function playMatch() {
-        if (GameState.matchesLeft <= 0) return;
-
-        log(`--- 第 ${GameState.matchConfig[GameState.round] - GameState.matchesLeft + 1} 場比賽 ---`);
-        
-        for (let i = 0; i < 3; i++) {
-            simulateAtBat();
-        }
-
-        GameState.records.gamesPlayed++;
-        GameState.matchesLeft--;
-        updateStatsUI();
-
-        if (GameState.matchesLeft === 0) {
-            if (GameState.round < 3) {
-                setPhase('post-season');
-                log("本季賽程結束！請進行季後休息調整。", "log-success");
+        if (selectionState === 'MOVING') {
+            if (grid[y][x].classList.contains('movable')) {
+                executeMove(selectedUnit, x, y);
+            } else if (x === selectedUnit.x && y === selectedUnit.y) {
+                 executeMove(selectedUnit, x, y);
             } else {
-                endGame();
+                resetSelection();
+                if (targetUnit && targetUnit.type === 'slayer' && !targetUnit.hasActed) selectUnit(targetUnit);
             }
-        } else {
-             elDay.textContent = `剩餘場次: ${GameState.matchesLeft}`;
+            return;
         }
-    }
 
-    function simulateAtBat() {
-        // --- PROBABILITY ADJUSTMENTS ---
-        // 1. Walk Rate (Fixed around 10%)
-        const walkThreshold = 10; // 0-10 on a d100
-        
-        // 2. Batting Average Logic (0.200 to 0.380)
-        // Formula: 0.20 + (Contact / MAX_STAT) * 0.18
-        // This is the probability of a HIT occurring given a non-walk.
-        // To simplify, we map this to d100.
-        // Total Hit Chance = (100 - walkThreshold) * (calculatedAvg)
-        
-        const rawHitProb = 0.20 + (GameState.stats.contact / MAX_STAT) * 0.18;
-        const hitThreshold = walkThreshold + (90 * rawHitProb); 
-        
-        // 3. Strikeout Logic (Affected by Contact)
-        // High contact reduces SO rate within the "Out" pool
-        const soRateInOuts = Math.max(0.1, 0.5 - (GameState.stats.contact / 500));
+        if (selectionState === 'MENU') {
+            cancelMovement();
+            return;
+        }
 
-        const roll = Math.random() * 100;
-        
-        if (roll < walkThreshold) {
-            // WALK
-            GameState.records.bb++;
-            log("選球眼！獲得保送上壘。", "log-success");
-        } else if (roll < hitThreshold) {
-            // HIT
-            GameState.records.ab++;
-            GameState.records.h++;
-            determineHitType();
-        } else {
-            // OUT
-            GameState.records.ab++;
-            if (Math.random() < soRateInOuts) {
-                GameState.records.so++;
-                log("揮棒落空，三振出局。");
+        if (selectionState === 'TARGETING') {
+            if (grid[y][x].classList.contains('attackable') || grid[y][x].classList.contains('healable')) {
+                const hitUnit = getUnitAt(x, y);
+                if (activeSkill && activeSkill.global) {
+                     executeSkillAction(selectedUnit, null, activeSkill);
+                } else if (hitUnit) {
+                     executeSkillAction(selectedUnit, hitUnit, activeSkill);
+                } else if (activeSkill && activeSkill.aoe) {
+                     executeSkillAction(selectedUnit, {x:x, y:y, name:"地面"}, activeSkill);
+                }
             } else {
-                log("打擊出去，被接殺出局。");
+                openActionMenu();
             }
         }
     }
 
-    function determineHitType() {
-        // --- HIT TYPE DISTRIBUTION ---
-        // Constraint: Reduce HR rate by 30%, give to 2B.
+    function selectUnit(unit) {
+        selectedUnit = unit;
+        selectionState = 'MOVING';
+        showUnitInfo(unit);
+        renderMap();
         
-        // Base Weights
-        let wSingle = 60;
-        let wDouble = 15;
-        let wTriple = 2; // Very rare base
-        let wHR = 5;     // Rare base
-        
-        // Stat Modifiers
-        wHR += (GameState.stats.power / MAX_STAT) * 25; // Max power adds heavy weight to HR
-        wTriple += (GameState.stats.run / MAX_STAT) * 15; // Speed adds weight to Triple
-        wDouble += (GameState.stats.power / MAX_STAT) * 10; // Power also helps doubles (gaps)
-        
-        // --- APPLY CONSTRAINT ---
-        // Reduce calculated HR weight by 30% and move it to Double
-        const reducedAmount = wHR * 0.30;
-        wHR = wHR * 0.70;
-        wDouble += reducedAmount;
-
-        // Normalize
-        const totalWeight = wSingle + wDouble + wTriple + wHR;
-        const typeRoll = Math.random() * totalWeight;
-        
-        let rbiGain = 0;
-
-        if (typeRoll < wHR) {
-            // Home Run
-            GameState.records.hr++;
-            GameState.records.tb += 4;
-            rbiGain = 1 + Math.floor(Math.random() * 3); // 1-4 RBI
-            log(`🔥 全壘打！小白球飛出了場外！ (+${rbiGain}打點)`, "log-highlight");
-        } else if (typeRoll < wHR + wTriple) {
-            // Triple
-            GameState.records.tb += 3;
-            rbiGain = Math.floor(Math.random() * 2);
-            log("深遠安打！靠著飛快的腳程滑上三壘！", "log-success");
-        } else if (typeRoll < wHR + wTriple + wDouble) {
-            // Double
-            GameState.records.tb += 2;
-            rbiGain = Math.floor(Math.random() * 2);
-            log("擊中全壘打牆的深遠二壘安打！"); // More common now due to redistributed stats
-        } else {
-            // Single
-            GameState.records.tb += 1;
-            log("巧妙地穿越內野防線的一壘安打。");
+        const range = 2;
+        for(let y=0; y<ROWS; y++) {
+            for(let x=0; x<COLS; x++) {
+                const dist = Math.abs(x - unit.x) + Math.abs(y - unit.y);
+                const occupied = isOccupied(x, y) && (x !== unit.x || y !== unit.y);
+                if (dist <= range && !occupied) {
+                    grid[y][x].classList.add('movable');
+                }
+            }
         }
-        
-        GameState.records.rbi += rbiGain;
     }
 
-    function endSeasonRest() {
-        log("經過了10天的休養，身體狀況恢復了。", "log-success");
-        GameState.round++;
-        GameState.day = 1;
-        setPhase('training');
+    function executeMove(unit, x, y) {
+        unit.x = x; unit.y = y;
+        renderMap();
+        openActionMenu();
     }
 
-    function endGame() {
-        setPhase('game-over');
-        elRound.textContent = "傳奇誕生";
-        elDay.textContent = "生涯結束";
+    function cancelMovement() {
+        if (!selectedUnit) return;
+        selectedUnit.x = selectedUnit.prevX;
+        selectedUnit.y = selectedUnit.prevY;
+        resetSelection();
+        renderMap();
+    }
 
-        let totalScore = GameState.stats.power + GameState.stats.contact + GameState.stats.defense + GameState.stats.run;
+    function openActionMenu() {
+        selectionState = 'MENU';
+        document.getElementById('action-panel').style.display = 'block';
+        document.getElementById('skill-list').style.display = 'none';
+    }
+
+    function toggleSkillMenu() {
+        const list = document.getElementById('skill-list');
+        list.style.display = (list.style.display === 'flex') ? 'none' : 'flex';
+        list.innerHTML = '';
         
-        // Calculate Rank
-        let rank = "D";
-        if (totalScore > 800) rank = "S";
-        else if (totalScore > 650) rank = "A";
-        else if (totalScore > 500) rank = "B";
-        else if (totalScore > 350) rank = "C";
+        const skills = selectedUnit.getSkills();
+        skills.forEach(skill => {
+            let btn = document.createElement('button');
+            btn.className = 'skill-item';
+            if(skill.isHeal) btn.classList.add('skill-heal');
+            let rangeTxt = skill.global ? "全體" : `距${skill.range}`;
+            if(skill.aoe && !skill.global) rangeTxt += "/範圍";
+            btn.innerHTML = `${skill.name} <small>(${rangeTxt})</small>`;
+            btn.onclick = () => { activeSkill = skill; prepAttack(true); };
+            list.appendChild(btn);
+        });
+        if(skills.length===0) list.innerHTML = '<div style="color:#666; font-size:0.8em;">無可用招式</div>';
+    }
 
-        // Display Final
-        const html = `
-            <div style="text-align:center; padding: 20px;">
-                <h2 style="color:var(--stadium-green)">養成結束！</h2>
-                <p>球員: ${GameState.playerName}</p>
-                <div style="font-size: 5em; font-weight: bold; color: var(--accent);">${rank}</div>
-                <hr>
-                <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 10px; text-align: left; padding: 0 20px;">
-                    <div>打擊率: ${document.getElementById('stat-avg').textContent}</div>
-                    <div>OPS: ${document.getElementById('stat-ops').textContent}</div>
-                    <div>全壘打: ${GameState.records.hr}</div>
-                    <div>安打數: ${GameState.records.h}</div>
-                    <div>總能力: ${totalScore}</div>
-                    <div>保送: ${GameState.records.bb}</div>
-                </div>
-            </div>
+    function prepAttack(isSkill) {
+        if (!isSkill) activeSkill = null;
+        selectionState = 'TARGETING';
+        document.getElementById('action-panel').style.display = 'none';
+        
+        renderMap();
+        
+        const range = isSkill ? activeSkill.range : 1; 
+        const isHeal = isSkill && activeSkill.isHeal;
+        const isGlobal = isSkill && activeSkill.global;
+
+        if (isGlobal) {
+            allies.forEach(a => { if(a.hp > 0) grid[a.y][a.x].classList.add('healable'); });
+            log("請點擊任意隊友發動...", 'log-sys');
+            return;
+        }
+
+        for(let y=0; y<ROWS; y++) {
+            for(let x=0; x<COLS; x++) {
+                const dist = Math.abs(x - selectedUnit.x) + Math.abs(y - selectedUnit.y);
+                if (dist <= range && (dist > 0 || isHeal)) {
+                    const unitHere = getUnitAt(x, y);
+                    if (isHeal) {
+                        if (unitHere && unitHere.type === 'slayer') {
+                            grid[y][x].classList.add('healable');
+                        }
+                    } else {
+                        grid[y][x].classList.add('attackable');
+                    }
+                }
+            }
+        }
+        log(isHeal ? "選擇治療對象..." : "選擇攻擊目標...", 'log-sys');
+    }
+
+    function executeSkillAction(attacker, targetObj, skill) {
+        let targets = [];
+        const isHeal = skill && skill.isHeal;
+        let totalXpGain = 0;
+
+        if (skill && skill.global && isHeal) {
+            targets = allies.filter(a => a.hp > 0);
+            log(`${attacker.name} 使用 ${skill.name}！`, 'log-heal');
+        } else if (skill && skill.aoe && !isHeal) {
+            let cx = targetObj.x; let cy = targetObj.y;
+            for(let dy=-1; dy<=1; dy++){
+                for(let dx=-1; dx<=1; dx++){
+                    let u = getUnitAt(cx+dx, cy+dy);
+                    if (u && u.type === 'demon') targets.push(u);
+                }
+            }
+            log(`${attacker.name} 施放範圍攻擊！`, 'log-dmg');
+        } else {
+            if (targetObj) targets.push(targetObj);
+        }
+
+        if (targets.length === 0) {
+            log("無效的目標！", 'log-sys');
+        } else {
+            targets.forEach(t => {
+                let val = 0;
+                if (isHeal) {
+                    val = skill.val + (attacker.atk * 0.5); 
+                    val = Math.floor(val);
+                    t.hp = Math.min(t.maxHp, t.hp + val);
+                    log(`${t.name} 回復了 <span class="log-heal">${val}</span> HP`, 'log-heal');
+                    totalXpGain += 15;
+                } else {
+                    let mult = skill ? skill.val : 1.0;
+                    let raw = attacker.atk * mult - (t.def * 0.5);
+                    val = Math.max(1, Math.floor(raw * (0.9 + Math.random()*0.2)));
+                    t.hp -= val;
+                    log(`${attacker.name} 攻擊 ${t.name}，傷害 <span class="log-dmg">${val}</span>`, 'log-dmg');
+                    totalXpGain += 10;
+                    if (t.hp <= 0) {
+                        t.hp = 0;
+                        log(`${t.name} 被消滅！`, 'log-sys');
+                        totalXpGain += (35 + t.level*5 + (t.role==='boss'?80:0));
+                    }
+                }
+            });
+            if (totalXpGain > 0) {
+                log(`${attacker.name} 獲得 ${totalXpGain} EXP`, 'log-xp');
+                attacker.gainXp(totalXpGain);
+            }
+        }
+        finalizeAction(false);
+    }
+
+    function finalizeAction(isWait) {
+        if (selectedUnit) {
+            selectedUnit.hasActed = true;
+            if (isWait) log(`${selectedUnit.name} 待機`, 'log-sys');
+        }
+        resetSelection();
+        renderMap();
+    }
+
+    function resetSelection() {
+        selectedUnit = null;
+        selectionState = 'NONE';
+        activeSkill = null;
+        document.getElementById('action-panel').style.display = 'none';
+        document.getElementById('unit-info').innerHTML = "請選擇單位...";
+        document.querySelectorAll('.tile').forEach(t => t.classList.remove('movable', 'attackable', 'healable'));
+    }
+
+    // --- AI 邏輯更新 (支援遠程與 Boss AOE) ---
+    function runEnemyAI(demon) {
+        // 1. 找最近目標
+        let target = null;
+        let minDist = 999;
+        allies.forEach(a => {
+            if (a.hp > 0) {
+                let d = Math.abs(a.x - demon.x) + Math.abs(a.y - demon.y);
+                if (d < minDist) { minDist = d; target = a; }
+            }
+        });
+        if (!target) return; // 無目標
+
+        let dist = Math.abs(target.x - demon.x) + Math.abs(target.y - demon.y);
+        let attackRange = demon.range;
+
+        // 2. 移動邏輯
+        // 如果距離大於射程，則移動接近；如果距離太近(遠程怪)，也許可以不動? 
+        // 這裡簡化：只要在射程外就移動
+        if (dist > attackRange) {
+            let moves = 2; 
+            let bestX = demon.x, bestY = demon.y;
+            let currentBestDist = dist;
+
+            // 簡單路徑尋找：嘗試靠近目標
+            for(let m=0; m<moves; m++) {
+                let dx = target.x - bestX;
+                let dy = target.y - bestY;
+                
+                // 決定下一步
+                let tryX = bestX + Math.sign(dx);
+                let tryY = bestY + (dx === 0 ? Math.sign(dy) : 0); 
+                
+                // 檢查是否可走
+                if (!isOccupied(tryX, tryY)) {
+                    bestX = tryX; bestY = tryY;
+                } else if (!isOccupied(bestX, bestY + Math.sign(dy))) {
+                    bestY += Math.sign(dy); // 繞路
+                }
+                
+                // 重新計算與目標距離，如果在射程內就停下，不再移動
+                let newDist = Math.abs(target.x - bestX) + Math.abs(target.y - bestY);
+                if (newDist <= attackRange) {
+                    break;
+                }
+            }
+            demon.x = bestX; demon.y = bestY;
+            dist = Math.abs(target.x - demon.x) + Math.abs(target.y - demon.y); // 更新距離
+        }
+
+        // 3. 攻擊邏輯
+        if (dist <= attackRange) {
+            // 計算傷害
+            let baseDmg = Math.max(1, Math.floor((demon.atk - target.def*0.5) * 0.9));
+            
+            // BOSS 的 AOE 判定
+            if (demon.role === 'boss' && demon.aoeRange > 0) {
+                log(`⚠️ ${demon.name} 發動血鬼術 (範圍${demon.aoeRange})！`, 'log-danger');
+                // 攻擊目標周圍範圍
+                allies.forEach(a => {
+                    if (a.hp > 0) {
+                        let dToTarget = Math.abs(a.x - target.x) + Math.abs(a.y - target.y);
+                        if (dToTarget <= demon.aoeRange) { // 範圍內所有人都被打
+                            // 距離中心越遠傷害略減? 這裡簡化全傷
+                            a.hp -= baseDmg;
+                            log(`${a.name} 受到波及，傷害 <span class="log-dmg">${baseDmg}</span>`, 'log-dmg');
+                            if (a.hp <= 0) {
+                                a.hp = 0;
+                                log(`${a.name} 倒下了...`, 'log-dmg');
+                            }
+                        }
+                    }
+                });
+            } else {
+                // 普通單體攻擊 (近戰或遠程)
+                target.hp -= baseDmg;
+                log(`${demon.name} 攻擊 ${target.name}，傷害 <span class="log-dmg">${baseDmg}</span>`, 'log-dmg');
+                if (target.hp <= 0) {
+                    target.hp = 0;
+                    log(`${target.name} 倒下了...`, 'log-dmg');
+                }
+            }
+        }
+    }
+
+    function renderMap() {
+        for(let y=0; y<ROWS; y++) {
+            for(let x=0; x<COLS; x++) {
+                grid[y][x].innerHTML = '';
+                grid[y][x].className = 'tile';
+            }
+        }
+        [...enemies, ...allies].forEach(u => {
+            if (u.hp <= 0) return;
+            let div = document.createElement('div');
+            div.className = `unit ${u.role}`;
+            if (u.type === 'demon' && u.range > 1 && u.role !== 'boss') div.classList.add('demon-range'); // 樣式區分
+            
+            if (u.hasActed && u.type === 'slayer') div.classList.add('done');
+            if (u === selectedUnit) div.classList.add('selected');
+
+            div.innerText = u.name[0];
+            
+            let hpBg = document.createElement('div');
+            hpBg.className = 'hp-bar-bg';
+            let hpFill = document.createElement('div');
+            hpFill.className = 'hp-bar-fill';
+            hpFill.style.width = (u.hp / u.maxHp * 100) + '%';
+            hpBg.appendChild(hpFill);
+            div.appendChild(hpBg);
+            
+            let lvl = document.createElement('div');
+            lvl.className = 'lvl-tag';
+            lvl.innerText = u.level;
+            div.appendChild(lvl);
+
+            grid[u.y][u.x].appendChild(div);
+        });
+    }
+
+    function showUnitInfo(u) {
+        let skills = u.getSkills ? u.getSkills().map(s=>s.name).join(', ') : "無";
+        let html = `
+            <strong style="color:${u.type==='slayer'?'#4da6ff':'#ff4d4d'}">${u.name} (Lv.${u.level})</strong><br>
+            HP: ${u.hp}/${u.maxHp} | ATK: ${u.atk}<br>
+            ${u.type==='slayer' ? `EXP: ${u.xp}/${u.maxXp}` : ''}
         `;
-        
-        elLog.innerHTML = html;
+        document.getElementById('unit-info').innerHTML = html;
     }
+
+    function log(msg, type) {
+        const box = document.getElementById('log-box');
+        box.innerHTML += `<div class="${type}">${msg}</div>`;
+        box.scrollTop = box.scrollHeight;
+    }
+
+    function checkWinLose() {
+        if (allies.every(u => u.hp <= 0)) {
+            alert("全軍覆沒...");
+            location.reload();
+            return true;
+        }
+        if (enemies.every(u => u.hp <= 0)) {
+            setTimeout(() => {
+                if (currentLevel >= MAX_LEVEL) {
+                    alert("恭喜通關！消滅了鬼舞辻無慘！");
+                } else {
+                    alert(`第 ${currentLevel} 關通過！`);
+                    startLevel(currentLevel + 1);
+                }
+            }, 500);
+            return true;
+        }
+        return false;
+    }
+
+    function getBossName(l, index) {
+        const bossMap = {
+            1: ["下弦之陸"],
+            2: ["下弦之伍", "下弦之壹"],
+            3: ["墮姬"],
+            4: ["墮姬", "妓夫太郎"],
+            5: ["玉壺"],
+            6: ["半天狗", "憎珀天"],
+            7: ["猗窩座"],
+            8: ["童磨", "猗窩座"],
+            9: ["黑死牟", "鬼舞辻無慘"]
+        };
+        const list = bossMap[l] || ["無慘"];
+        return list[index - 1] || list[0];
+    }
+
+    initGame();
 
 </script>
-
 </body>
 </html>
