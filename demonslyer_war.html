@@ -587,14 +587,14 @@
                     val = Math.floor(val);
                     t.hp = Math.min(t.maxHp, t.hp + val);
                     log(`${t.name} 回復了 <span class="log-heal">${val}</span> HP`, 'log-heal');
-                    totalXpGain += 15;
+                    totalXpGain += 12;
                 } else {
                     let mult = skill ? skill.val : 1.0;
                     let raw = attacker.atk * mult - (t.def * 0.5);
                     val = Math.max(1, Math.floor(raw * (0.9 + Math.random()*0.2)));
                     t.hp -= val;
                     log(`${attacker.name} 攻擊 ${t.name}，傷害 <span class="log-dmg">${val}</span>`, 'log-dmg');
-                    totalXpGain += 10;
+                    totalXpGain += 15;
                     if (t.hp <= 0) {
                         t.hp = 0;
                         log(`${t.name} 被消滅！`, 'log-sys');
@@ -681,7 +681,7 @@
         // 3. 攻擊邏輯
         if (dist <= attackRange) {
             // 計算傷害
-            let baseDmg = Math.max(1, Math.floor((demon.atk - target.def*0.5) * 0.9));
+            let baseDmg = Math.max(1, Math.floor((demon.atk - target.def*0.5) * 1.2));
             
             // BOSS 的 AOE 判定
             if (demon.role === 'boss' && demon.aoeRange > 0) {
