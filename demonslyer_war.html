@@ -247,9 +247,9 @@
     const SKILL_DB = {
         tanjiro: [
             { name: "水之呼吸·壹之型", reqLv: 1, range: 1, val: 1.2, cost: 0, aoe: false },
-            { name: "火之神神樂", reqLv: 3, range: 1, val: 1.6, cost: 0, aoe: true },
+            { name: "火之神神樂", reqLv: 3, range: 1, val: 1.6, cost: 0, aoe: false },
             { name: "日之呼吸·陽華突", reqLv: 6, range: 2, val: 2.2, cost: 0, aoe: false },
-            { name: "奧義·第十三型", reqLv: 9, range: 4, val: 4.0, cost: 0, aoe: false, ult: true }
+            { name: "奧義·第十三型", reqLv: 9, range: 1, val: 3.5, cost: 0, aoe: false, ult: true }
         ],
         zenitsu: [
             { name: "霹靂一閃", reqLv: 1, range: 3, val: 1.1, cost: 0, aoe: false },
@@ -260,8 +260,8 @@
         inosuke: [
             { name: "獸之呼吸·獠牙", reqLv: 1, range: 1, val: 1.0, cost: 0, aoe: true },
             { name: "空間感知·殺", reqLv: 3, range: 1, val: 1.5, cost: 0, aoe: true },
-            { name: "爆裂猛進", reqLv: 6, range: 2, val: 2.5, cost: 0, aoe: true },
-            { name: "奧義·靈魂衝撞", reqLv: 9, range: 2, val: 3.0, cost: 0, aoe: true, ult: true }
+            { name: "爆裂猛進", reqLv: 6, range: 1, val: 2.5, cost: 0, aoe: true },
+            { name: "奧義·靈魂衝撞", reqLv: 9, range: 1, val: 3.0, cost: 0, aoe: true, ult: true }
         ],
         nezuko: [
             { name: "再生回復", reqLv: 1, range: 2, val: 50, cost: 0, aoe: false, isHeal: true }, 
@@ -270,27 +270,27 @@
             { name: "奧義·完全覺醒", reqLv: 9, range: 2, val: 3.5, cost: 0, aoe: true, isHeal: false, ult: true }
         ],
         giyu: [
-            { name: "凪", reqLv: 1, range: 2, val: 1.5, cost: 0, aoe: false },
-            { name: "生生流轉", reqLv: 3, range: 3, val: 2.0, cost: 0, aoe: false },
-            { name: "水之呼吸·拾壹之型", reqLv: 6, range: 3, val: 2.8, cost: 0, aoe: true },
+            { name: "凪", reqLv: 1, range: 1, val: 1.5, cost: 0, aoe: false },
+            { name: "生生流轉", reqLv: 3, range: 2, val: 2.0, cost: 0, aoe: false },
+            { name: "水之呼吸·拾壹之型", reqLv: 6, range: 1, val: 2.8, cost: 0, aoe: true },
             { name: "奧義·驚濤駭浪", reqLv: 9, range: 3, val: 3.5, cost: 0, aoe: true, ult: true }
         ],
         rengoku: [
             { name: "不知火", reqLv: 1, range: 2, val: 1.8, cost: 0, aoe: false },
             { name: "盛炎之漩渦", reqLv: 3, range: 1, val: 2.2, cost: 0, aoe: true },
-            { name: "炎虎", reqLv: 6, range: 3, val: 3.0, cost: 0, aoe: false },
-            { name: "奧義·煉獄", reqLv: 9, range: 2, val: 4.5, cost: 0, aoe: true, ult: true }
+            { name: "炎虎", reqLv: 6, range: 2, val: 3.0, cost: 0, aoe: false },
+            { name: "奧義·煉獄", reqLv: 9, range: 1, val: 4.5, cost: 0, aoe: true, ult: true }
         ],
         uzui: [ // 音柱
             { name: "鳴弦奏奏", reqLv: 1, range: 2, val: 2.0, cost: 0, aoe: true },
             { name: "轟", reqLv: 3, range: 1, val: 2.5, cost: 0, aoe: true },
             { name: "譜面完成", reqLv: 6, range: 3, val: 3.2, cost: 0, aoe: false },
-            { name: "奧義·華麗大爆炸", reqLv: 9, range: 3, val: 4.0, cost: 0, aoe: true, ult: true }
+            { name: "奧義·華麗大爆炸", reqLv: 9, range: 2, val: 4.0, cost: 0, aoe: true, ult: true }
         ],
         himejima: [ // 岩柱
             { name: "蛇紋岩·雙極", reqLv: 1, range: 2, val: 2.5, cost: 0, aoe: false },
             { name: "天面碎", reqLv: 3, range: 1, val: 3.0, cost: 0, aoe: true },
-            { name: "岩軀之膚", reqLv: 6, range: 3, val: 3.5, cost: 0, aoe: false },
+            { name: "岩軀之膚", reqLv: 6, range: 1, val: 3.5, cost: 0, aoe: false },
             { name: "奧義·流紋岩·速征", reqLv: 9, range: 3, val: 5.0, cost: 0, aoe: true, ult: true }
         ]
     };
@@ -402,7 +402,7 @@
 
     function startNewGame() {
         allies = [
-            new Unit(1, '炭治郎', 'slayer', 'tanjiro', 0, 0, { hp: 120, atk: 32, def: 10 }),
+            new Unit(1, '炭治郎', 'slayer', 'tanjiro', 0, 0, { hp: 120, atk: 28, def: 10 }),
             new Unit(2, '善逸', 'slayer', 'zenitsu', 0, 0, { hp: 90, atk: 35, def: 6 }),
             new Unit(3, '伊之助', 'slayer', 'inosuke', 0, 0, { hp: 130, atk: 25, def: 12 }),
             new Unit(4, '禰豆子', 'slayer', 'nezuko', 0, 0, { hp: 140, atk: 20, def: 15 })
@@ -483,7 +483,7 @@
         }
         if (lvl === 5 && !allies.find(u => u.role === 'rengoku')) {
             allies.push(new Unit(6, '煉獄杏壽郎', 'slayer', 'rengoku', 0, 0, { hp: 200, atk: 55, def: 15, level: 5 }));
-            log("🔥 炎柱・煉獄杏壽郎 燃燒心靈！", 'log-join');
+            log("🔥 炎柱・煉獄杏壽郎 加入戰場！", 'log-join');
         }
         if (lvl === 7 && !allies.find(u => u.role === 'uzui')) { // 音柱加入
             allies.push(new Unit(7, '宇隨天元', 'slayer', 'uzui', 0, 0, { hp: 220, atk: 50, def: 18, level: 7 }));
@@ -788,9 +788,7 @@
         if (enemies.every(u => u.hp <= 0)) { setTimeout(() => { if (currentLevel >= MAX_LEVEL) alert("恭喜通關！無限城崩塌！"); else startLevel(currentLevel + 1); }, 500); return true; }
         return false;
     }
-    function getBossName(l, index) { const bossMap = { 1: ["下弦之陸-響凱"], 2: ["下弦之伍-累", "下弦之壹-魘夢"], 3: ["上弦之陸-墮姬"], 4: ["上弦之陸-墮姬", "上弦之陸-妓夫太郎"],
-            5: ["上弦之伍-玉壺"], 6: ["上弦之肆-半天狗", "上弦之肆-憎珀天"], 7: ["上弦之參-猗窩座"], 8: ["上弦之貳-童磨", "上弦之參-猗窩座"], 9: ["上弦之壹-黑死牟", "鬼王-鬼舞辻無慘"]
-        }; }; const list = bossMap[l] || ["鬼王-鬼舞辻無慘·分身"]; return list[index - 1] || list[0]; }
+    function getBossName(l, index) { const bossMap = { 1: ["下弦之陸"], 2: ["下弦之伍", "下弦之壹"], 3: ["墮姬"], 4: ["墮姬", "妓夫太郎"], 5: ["玉壺"], 6: ["半天狗", "憎珀天"], 7: ["猗窩座"], 8: ["童磨", "猗窩座"], 9: ["黑死牟", "鬼舞辻無慘"] }; const list = bossMap[l] || ["無慘"]; return list[index - 1] || list[0]; }
 
     initGame();
 
