@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>鬼滅之刃：無限城決戰 RPG </title>
+    <title>鬼滅之刃：無限城決戰 RPG (存檔機能版)</title>
     <style>
         /* --- 全局設定 --- */
         body {
@@ -95,7 +95,6 @@
         .unit.done { filter: grayscale(100%) brightness(0.5); transform: scale(0.9); }
         .unit.selected { box-shadow: 0 0 8px 2px #fff; z-index: 10; transform: scale(1.2); }
 
-        /* 血條與等級 */
         .hp-bar-bg { position: absolute; bottom: -3px; width: 100%; height: 3px; background: #000; border-radius: 2px; }
         .hp-bar-fill { height: 100%; background: #0f0; transition: width 0.3s; }
         .unit.demon .hp-bar-fill { background: #f00; }
@@ -118,12 +117,16 @@
         .btn-skill { border-left: 3px solid #ff0055; }
         .btn-cancel { background: #331111; border-color: #552222; text-align: center; font-size: 0.8em; }
 
+        /* 系統按鈕區 */
+        .btn-system { background: #003344; border-color: #005566; color: #aaddff; font-size: 0.8em; text-align: center; }
+        .btn-system:hover { background: #004455; }
+        
         #skill-list { display: none; flex-direction: column; gap: 3px; margin-top: 5px; }
         .skill-item { font-size: 0.8em; padding: 5px; background: #252525; border-left: 2px solid #666; }
         .skill-heal { border-left-color: #00ff00; color: #ccffcc; } 
         .skill-ult { border-left-color: #ffd700; color: #ffeb3b; font-weight: bold; border-width: 4px; } 
 
-        #log-box { height: 200px; overflow-y: auto; font-size: 0.8em; color: #bbb; line-height: 1.4; background: #111; padding: 5px; }
+        #log-box { height: 150px; overflow-y: auto; font-size: 0.8em; color: #bbb; line-height: 1.4; background: #111; padding: 5px; }
         .log-dmg { color: #ff6b6b; font-weight: bold; }
         .log-heal { color: #4cd137; font-weight: bold; }
         .log-sys { color: #ffd700; }
@@ -159,6 +162,20 @@
             </div>
 
             <div class="panel">
+                <div class="panel-header">系統</div>
+                <div class="btn-group">
+                    <button class="btn-system" id="btn-save-local">💾 瀏覽器存檔</button>
+                    <button class="btn-system" id="btn-load-local">📂 讀取存檔</button>
+                    <div style="display:flex; gap:2px;">
+                        <button class="btn-system" id="btn-save-file" style="flex:1;">⬇ 下載檔案</button>
+                        <button class="btn-system" onclick="document.getElementById('file-input').click()" style="flex:1;">⬆ 讀取檔案</button>
+                    </div>
+                    <input type="file" id="file-input" style="display:none" accept=".json">
+                    <button class="btn-system" id="btn-reset" style="background:#441111; color:#ffaaaa;">⚠ 重置遊戲</button>
+                </div>
+            </div>
+
+            <div class="panel">
                 <div class="panel-header">戰鬥紀錄</div>
                 <div id="log-box"></div>
             </div>
@@ -171,7 +188,7 @@
     // --- 遊戲常數 ---
     const COLS = 24;
     const ROWS = 18;
-    const MAX_LEVEL = 18; // 等級上限提升
+    const MAX_LEVEL = 20;
     const TILE_SIZE = 30;
     
     // --- 技能資料庫 ---
@@ -180,7 +197,7 @@
             { name: "水之呼吸·壹之型", reqLv: 1, range: 1, val: 1.2, cost: 0, aoe: false },
             { name: "火之神神樂", reqLv: 3, range: 1, val: 1.6, cost: 0, aoe: false },
             { name: "日之呼吸·陽華突", reqLv: 6, range: 2, val: 2.2, cost: 0, aoe: false },
-            { name: "奧義·第十三型", reqLv: 9, range: 3, val: 3.5, cost: 0, aoe: true, ult: true }
+            { name: "奧義·第十三型", reqLv: 9, range: 1, val: 3.5, cost: 0, aoe: false, ult: true }
         ],
         zenitsu: [
             { name: "霹靂一閃", reqLv: 1, range: 3, val: 1.1, cost: 0, aoe: false },
@@ -192,25 +209,25 @@
             { name: "獸之呼吸·獠牙", reqLv: 1, range: 1, val: 1.0, cost: 0, aoe: true },
             { name: "空間感知·殺", reqLv: 3, range: 1, val: 1.5, cost: 0, aoe: true },
             { name: "爆裂猛進", reqLv: 6, range: 1, val: 2.5, cost: 0, aoe: true },
-            { name: "奧義·靈魂衝撞", reqLv: 9, range: 2, val: 3.0, cost: 0, aoe: true, ult: true }
+            { name: "奧義·靈魂衝撞", reqLv: 9, range: 1, val: 3.0, cost: 0, aoe: true, ult: true }
         ],
         nezuko: [
             { name: "再生回復", reqLv: 1, range: 2, val: 50, cost: 0, aoe: false, isHeal: true }, 
             { name: "爆血·廣域治癒", reqLv: 3, range: 0, val: 40, cost: 0, aoe: true, isHeal: true, global: true },
             { name: "爆血·燒灼", reqLv: 6, range: 2, val: 2.5, cost: 0, aoe: false, isHeal: false },
-            { name: "奧義·完全覺醒", reqLv: 9, range: 3, val: 3.5, cost: 0, aoe: true, isHeal: false, ult: true }
+            { name: "奧義·完全覺醒", reqLv: 9, range: 2, val: 3.5, cost: 0, aoe: true, isHeal: false, ult: true }
         ],
         giyu: [
-            { name: "凪", reqLv: 3, range: 2, val: 1.5, cost: 0, aoe: false },
-            { name: "生生流轉", reqLv: 6, range: 3, val: 2.0, cost: 0, aoe: false },
-            { name: "水之呼吸·拾壹之型", reqLv: 8, range: 2, val: 2.8, cost: 0, aoe: true },
-            { name: "奧義·驚濤駭浪", reqLv: 10, range: 3, val: 3.5, cost: 0, aoe: true, ult: true }
+            { name: "凪", reqLv: 1, range: 1, val: 1.5, cost: 0, aoe: false },
+            { name: "生生流轉", reqLv: 3, range: 2, val: 2.0, cost: 0, aoe: false },
+            { name: "水之呼吸·拾壹之型", reqLv: 6, range: 1, val: 2.8, cost: 0, aoe: true },
+            { name: "奧義·驚濤駭浪", reqLv: 9, range: 3, val: 3.5, cost: 0, aoe: true, ult: true }
         ],
         rengoku: [
-            { name: "不知火", reqLv: 3, range: 2, val: 1.8, cost: 0, aoe: false },
-            { name: "盛炎之漩渦", reqLv: 6, range: 2, val: 2.2, cost: 0, aoe: true },
-            { name: "炎虎", reqLv: 8, range: 4, val: 3.0, cost: 0, aoe: false },
-            { name: "奧義·煉獄", reqLv: 10, range: 3, val: 4.5, cost: 0, aoe: true, ult: true }
+            { name: "不知火", reqLv: 1, range: 2, val: 1.8, cost: 0, aoe: false },
+            { name: "盛炎之漩渦", reqLv: 3, range: 1, val: 2.2, cost: 0, aoe: true },
+            { name: "炎虎", reqLv: 6, range: 2, val: 3.0, cost: 0, aoe: false },
+            { name: "奧義·煉獄", reqLv: 9, range: 1, val: 4.5, cost: 0, aoe: true, ult: true }
         ]
     };
 
@@ -230,20 +247,18 @@
             this.atk = stats.atk;
             this.def = stats.def;
             
-            // --- 移動力邏輯 ---
-            // 基礎為 2，如果等級 >= 5 則為 3 (除非手動指定更高)
+            // 移動力: 基礎2, Lv>=5 變 3
             let baseMove = stats.move || 2;
             if (this.level >= 5) baseMove = Math.max(baseMove, 3);
             this.moveRange = baseMove;
             
-            // 敵方參數
             this.range = stats.range || 1; 
             this.aoeRange = stats.aoeRange || 0; 
-            this.awakened = false; 
+            this.awakened = stats.awakened || false; 
             
             this.hasActed = false;
-            this.xp = 0;
-            this.maxXp = 100 * this.level;
+            this.xp = stats.xp || 0;
+            this.maxXp = stats.maxXp || (100 * this.level);
             this.prevX = x; 
             this.prevY = y;
         }
@@ -269,7 +284,6 @@
             this.def = Math.floor(this.def * 1.12);
             this.hp = this.maxHp;
             
-            // --- 升級時檢查移動力 ---
             if (this.level === 5) {
                 this.moveRange = 3;
                 log(`🚀 ${this.name} 的移動力提升了！`, 'log-sys');
@@ -284,7 +298,7 @@
 
     // --- 全局變數 ---
     let gridElements = []; 
-    let gridMap = []; 
+    let gridMap = []; // 0=空, 1=障礙
     let allies = [];
     let enemies = [];
     let currentLevel = 1;
@@ -300,23 +314,130 @@
         container.style.gridTemplateColumns = `repeat(${COLS}, ${TILE_SIZE}px)`;
         container.style.gridTemplateRows = `repeat(${ROWS}, ${TILE_SIZE}px)`;
 
-        // 初始隊伍
-        allies = [
-            new Unit(1, '炭治郎', 'slayer', 'tanjiro', 0, 0, { hp: 180, atk: 30, def: 15 }),
-            new Unit(2, '善逸', 'slayer', 'zenitsu', 0, 0, { hp: 90, atk: 35, def: 6 }),
-            new Unit(3, '伊之助', 'slayer', 'inosuke', 0, 0, { hp: 130, atk: 25, def: 12 }),
-            new Unit(4, '禰豆子', 'slayer', 'nezuko', 0, 0, { hp: 140, atk: 20, def: 15 })
-        ];
-        startLevel(1);
-        
+        // 綁定事件
         document.getElementById('btn-end-turn').onclick = endPlayerPhase;
         document.getElementById('btn-attack').onclick = () => prepAttack(false);
         document.getElementById('btn-skill-menu').onclick = toggleSkillMenu;
         document.getElementById('btn-wait').onclick = () => finalizeAction(true);
         document.getElementById('btn-cancel-move').onclick = cancelMovement;
+        
+        // 系統按鈕
+        document.getElementById('btn-save-local').onclick = saveGameLocal;
+        document.getElementById('btn-load-local').onclick = loadGameLocal;
+        document.getElementById('btn-save-file').onclick = saveGameFile;
+        document.getElementById('file-input').addEventListener('change', loadGameFile, false);
+        document.getElementById('btn-reset').onclick = () => { if(confirm("確定要重置遊戲嗎？所有進度將丟失。")) location.reload(); };
+
+        // 預設開始新遊戲
+        startNewGame();
     }
 
-    function createMap(lvl) {
+    function startNewGame() {
+        allies = [
+            new Unit(1, '炭治郎', 'slayer', 'tanjiro', 0, 0, { hp: 120, atk: 28, def: 10 }),
+            new Unit(2, '善逸', 'slayer', 'zenitsu', 0, 0, { hp: 90, atk: 35, def: 6 }),
+            new Unit(3, '伊之助', 'slayer', 'inosuke', 0, 0, { hp: 130, atk: 25, def: 12 }),
+            new Unit(4, '禰豆子', 'slayer', 'nezuko', 0, 0, { hp: 140, atk: 20, def: 15 })
+        ];
+        startLevel(1);
+    }
+
+    // --- 存檔系統 ---
+    function getGameState() {
+        return {
+            level: currentLevel,
+            allies: allies, // JSON stringify 會處理基本屬性
+            enemies: enemies,
+            gridMap: gridMap // 保存地圖障礙物
+        };
+    }
+
+    function restoreGameState(data) {
+        currentLevel = data.level;
+        gridMap = data.gridMap;
+        
+        // 重建地圖 DOM
+        const container = document.getElementById('grid-container');
+        container.innerHTML = '';
+        gridElements = [];
+        for (let y = 0; y < ROWS; y++) {
+            let rowEl = [];
+            for (let x = 0; x < COLS; x++) {
+                let div = document.createElement('div');
+                div.className = 'tile';
+                div.onclick = () => onTileClick(x, y);
+                if (gridMap[y][x] === 1) div.classList.add('obstacle');
+                container.appendChild(div);
+                rowEl.push(div);
+            }
+            gridElements.push(rowEl);
+        }
+
+        // 重建單位 (因為 JSON 沒有 prototype 方法)
+        allies = data.allies.map(d => {
+            let u = new Unit(d.id, d.name, d.type, d.role, d.x, d.y, {});
+            Object.assign(u, d); // 覆蓋屬性
+            return u;
+        });
+        enemies = data.enemies.map(d => {
+            let u = new Unit(d.id, d.name, d.type, d.role, d.x, d.y, {});
+            Object.assign(u, d);
+            return u;
+        });
+
+        startPlayerPhase();
+        log("📂 遊戲讀取成功！", 'log-sys');
+    }
+
+    function saveGameLocal() {
+        const data = JSON.stringify(getGameState());
+        localStorage.setItem('demonSlayerSave', data);
+        alert("遊戲已保存至瀏覽器！");
+    }
+
+    function loadGameLocal() {
+        const data = localStorage.getItem('demonSlayerSave');
+        if (!data) { alert("找不到存檔！"); return; }
+        if (confirm("確定要讀取進度嗎？當前未保存的進度將丟失。")) {
+            try {
+                restoreGameState(JSON.parse(data));
+            } catch(e) { console.error(e); alert("存檔損毀！"); }
+        }
+    }
+
+    function saveGameFile() {
+        const data = JSON.stringify(getGameState(), null, 2);
+        const blob = new Blob([data], {type: "application/json"});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `demon_slayer_lv${currentLevel}_save.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+
+    function loadGameFile(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const data = JSON.parse(e.target.result);
+                restoreGameState(data);
+            } catch(err) {
+                alert("讀取檔案失敗：格式錯誤");
+            }
+        };
+        reader.readAsText(file);
+        // 清空 input 讓同一檔案可重複選取
+        e.target.value = ''; 
+    }
+
+    // --- 關卡生成 ---
+    function createMap() {
+        // 此函數僅在 startLevel 時產生新地圖，讀檔時使用 restoreGameState 重建
         const container = document.getElementById('grid-container');
         container.innerHTML = '';
         gridElements = [];
@@ -352,20 +473,19 @@
         document.getElementById('phase-banner').innerText = `第 ${lvl} 關 - 無限城深處`;
         log(`=== 第 ${lvl} 關 開始 ===`, 'log-sys');
         
-        createMap(lvl);
+        createMap();
 
-        // --- 增援檢測 ---
+        // 增援
         if (lvl === 3 && !allies.find(u => u.role === 'giyu')) {
             allies.push(new Unit(5, '富岡義勇', 'slayer', 'giyu', 0, 0, { hp: 180, atk: 40, def: 20, level: 3 }));
             log("🌊 水柱・富岡義勇 加入戰場！", 'log-join');
         }
         if (lvl === 5 && !allies.find(u => u.role === 'rengoku')) {
-            // 煉獄加入時就是 Lv5，所以移動力會自動判定為 3
             allies.push(new Unit(6, '煉獄杏壽郎', 'slayer', 'rengoku', 0, 0, { hp: 200, atk: 55, def: 15, level: 5 }));
             log("🔥 炎柱・煉獄杏壽郎 加入戰場！", 'log-join');
         }
 
-        // 我方站位
+        // 站位
         allies.forEach((u, i) => {
             u.x = 1; 
             u.y = 4 + i;
@@ -373,15 +493,13 @@
             u.hasActed = false; u.prevX = u.x; u.prevY = u.y;
         });
 
-        // 敵方生成
         enemies = [];
         let difficulty = 1 + (lvl * 0.15);
-        let gruntCount = 10 + Math.floor(lvl * 2); 
+        let gruntCount = 10 + Math.floor(lvl * 1.5); 
         
         for(let i=0; i<gruntCount; i++) {
             let ex = 5 + Math.floor(Math.random() * (COLS - 5));
             let ey = Math.floor(Math.random() * ROWS);
-            
             if (gridMap[ey][ex] === 1) continue; 
 
             let isRanged = Math.random() < 0.3;
@@ -392,7 +510,7 @@
             if(!isOccupied(ex, ey)) {
                 enemies.push(new Unit(100+i, name, role, 'grunt', ex, ey, {
                     hp: Math.floor(40 * difficulty), atk: Math.floor(12 * difficulty), def: Math.floor(2 * difficulty), 
-                    level: lvl, range: range // 等級高時，Unit 構造函數會自動將 moveRange 設為 3
+                    level: lvl, range: range
                 }));
             }
         }
@@ -421,8 +539,6 @@
     function isOccupied(x, y) { return [...allies, ...enemies].some(u => u.x === x && u.y === y && u.hp > 0); }
     function getUnitAt(x, y) { return [...allies, ...enemies].find(u => u.x === x && u.y === y && u.hp > 0); }
     function isWalkable(x, y) { return x >= 0 && x < COLS && y >= 0 && y < ROWS && gridMap[y][x] === 0; }
-
-    // --- 遊戲流程 ---
 
     function startPlayerPhase() {
         phase = 'PLAYER';
@@ -453,7 +569,7 @@
 
         for (const demon of enemies) {
             if (demon.hp > 0) {
-                await new Promise(r => setTimeout(r, 80)); 
+                await new Promise(r => setTimeout(r, 60)); 
                 runEnemyAI(demon);
                 renderMap();
             }
@@ -462,7 +578,7 @@
         startPlayerPhase();
     }
 
-    // --- 移動演算法 (BFS) ---
+    // --- 移動計算 ---
     function getMovableTiles(unit) {
         let moves = [];
         let range = unit.moveRange;
@@ -486,7 +602,6 @@
         return moves;
     }
 
-    // --- 玩家操作 ---
     function onTileClick(x, y) {
         if (phase !== 'PLAYER') return;
         const targetUnit = getUnitAt(x, y);
@@ -675,7 +790,6 @@
         document.querySelectorAll('.tile').forEach(t => t.classList.remove('movable', 'attackable', 'healable'));
     }
 
-    // --- AI ---
     function runEnemyAI(demon) {
         let target = null;
         let minDist = 999;
@@ -690,10 +804,9 @@
         let dist = Math.abs(target.x - demon.x) + Math.abs(target.y - demon.y);
         let attackRange = demon.range;
 
-        // 移動
         if (dist > attackRange) {
             let bestX = demon.x, bestY = demon.y;
-            let moves = demon.moveRange; // 使用動態移動力 (等級高則為3)
+            let moves = demon.moveRange; // 敵人也會使用提升後的移動力
             
             for (let i=0; i<moves; i++) {
                 let dx = Math.sign(target.x - bestX);
@@ -704,16 +817,12 @@
                 if (isWalkable(tx, ty) && !isOccupied(tx, ty)) {
                     bestX = tx; bestY = ty;
                 }
-                
-                // 如果進入射程就停下
-                let newDist = Math.abs(target.x - bestX) + Math.abs(target.y - bestY);
-                if (newDist <= attackRange) break;
+                if (Math.abs(target.x - bestX) + Math.abs(target.y - bestY) <= attackRange) break;
             }
             demon.x = bestX; demon.y = bestY;
             dist = Math.abs(target.x - demon.x) + Math.abs(target.y - demon.y);
         }
 
-        // 攻擊
         if (dist <= attackRange) {
             let dmg = Math.max(1, Math.floor((demon.atk - target.def*0.5) * 0.9));
             if (demon.role === 'boss' && demon.aoeRange > 0) {
@@ -731,10 +840,8 @@
         }
     }
 
-    // --- UI/System ---
     function renderMap() {
         document.querySelectorAll('.unit').forEach(e => e.remove());
-        
         [...enemies, ...allies].forEach(u => {
             if (u.hp <= 0) return;
             let div = document.createElement('div');
@@ -743,7 +850,6 @@
             if (u.type === 'demon' && u.range > 1 && u.role !== 'boss') div.classList.add('demon-range');
             if (u.hasActed && u.type === 'slayer') div.classList.add('done');
             if (u === selectedUnit) div.classList.add('selected');
-
             div.innerText = u.name[0];
             
             let hpBg = document.createElement('div');
@@ -758,7 +864,6 @@
             lvl.className = 'lvl-tag';
             lvl.innerText = u.level;
             div.appendChild(lvl);
-
             gridElements[u.y][u.x].appendChild(div);
         });
     }
