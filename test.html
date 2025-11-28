@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>實況野球風格 - 傳奇野手養成 Ver.4.0 (光速球 & 選球眼)</title>
+    <title>實況野球風格 - 傳奇野手養成 Ver.4.5 (真實軌跡 & 極速挑戰)</title>
     <style>
         :root {
             --primary: #2c3e50;
@@ -60,7 +60,7 @@
         .field-area {
             position: relative; width: 400px; height: 500px; margin-top: 20px;
             border: 2px solid rgba(255,255,255,0.3); background: rgba(0,0,0,0.1);
-            overflow: hidden; /* Hide balls flying out */
+            overflow: hidden; 
         }
         
         .mound {
@@ -264,6 +264,7 @@
     const FIELD_WIDTH = 400;
     const ZONE_CENTER_X = 200; // 50% of 400
     const ZONE_WIDTH = 100;
+    const MOUND_Y = 40;
     
     const GameState = {
         playerName: "Player", round: 1, day: 1, phase: 'training', subCycleDay: 1,
@@ -275,6 +276,8 @@
             active: false, 
             ballY: 0, 
             ballX: 0,
+            startX: 0,
+            targetX: 0,
             ballSpeed: 0, 
             isPitched: false, 
             swung: false, 
@@ -302,7 +305,7 @@
         updateStatsUI();
         setPhase('training');
         log(`歡迎 ${name} 加入職棒養成計畫！`, "log-highlight");
-        log("新增光速球與選球機制：面對壞球請勿揮棒。", "");
+        log("新增：壞球將從投手丘投出，請注意飛行軌跡。", "");
     }
 
     function log(msg, type='') {
@@ -488,30 +491,34 @@
         GameState.batting.active = true;
         GameState.batting.isPitched = false;
         GameState.batting.swung = false;
-        GameState.batting.ballY = 40;
+        GameState.batting.ballY = MOUND_Y;
         
-        // --- Ball / Strike Logic ---
+        // --- 1. Ball / Strike Logic ---
         const badBallChance = 0.25; // 25% Chance for Ball
         GameState.batting.isBall = Math.random() < badBallChance;
         
-        // --- Trajectory Logic ---
+        // --- 2. Trajectory Logic ---
+        // All balls start at the center (Mound)
+        GameState.batting.startX = ZONE_CENTER_X;
+        GameState.batting.ballX = ZONE_CENTER_X;
+        
         if (GameState.batting.isBall) {
-            // Randomize Bad Ball Direction (Left, Right, Wide)
+            // Bad Ball: Target is far Left or Right
             const dir = Math.random();
             if (dir < 0.5) {
-                // Left Ball
-                GameState.batting.ballX = ZONE_CENTER_X - (ZONE_WIDTH/2) - 40 - Math.random() * 60;
+                // Left Ball (Target < 130)
+                GameState.batting.targetX = ZONE_CENTER_X - (ZONE_WIDTH/2) - 40 - Math.random() * 60;
             } else {
-                // Right Ball
-                GameState.batting.ballX = ZONE_CENTER_X + (ZONE_WIDTH/2) + 40 + Math.random() * 60;
+                // Right Ball (Target > 270)
+                GameState.batting.targetX = ZONE_CENTER_X + (ZONE_WIDTH/2) + 40 + Math.random() * 60;
             }
         } else {
-            // Strike (Center-ish)
-            GameState.batting.ballX = ZONE_CENTER_X; 
+            // Strike: Target is roughly Center
+            GameState.batting.targetX = ZONE_CENTER_X + (Math.random() * 40 - 20); 
         }
 
-        elBall.style.top = '40px';
-        elBall.style.left = GameState.batting.ballX + 'px';
+        elBall.style.top = MOUND_Y + 'px';
+        elBall.style.left = ZONE_CENTER_X + 'px';
         elBall.style.display = 'block';
         elBall.style.opacity = '1';
 
@@ -522,25 +529,30 @@
         if (!GameState.batting.active) return;
         GameState.batting.isPitched = true;
         
-        // --- Speed Variation Logic (Updated) ---
+        // --- Speed Variation Logic (Updated Probabilities) ---
+        // Goal: Low probability for Normal, High for Super/Ultra
         const r = Math.random();
         let speed = 5;
         let label = "直球";
         let color = "#f1c40f";
 
-        if (r < 0.4) {
-            speed = 5 + Math.random(); // Normal
+        // Distribution: Normal 15%, Fast 25%, Super 35%, Ultra 25%
+        if (r < 0.15) {
+            // Normal (15%)
+            speed = 5 + Math.random(); 
             label = "直球";
-        } else if (r < 0.7) {
-            speed = 9 + Math.random() * 2; // Fast
+        } else if (r < 0.40) {
+            // Fast (25%)
+            speed = 9 + Math.random() * 2;
             label = "快速球";
             color = "#e67e22";
-        } else if (r < 0.9) {
-            speed = 13 + Math.random() * 2; // Super Fast
+        } else if (r < 0.75) {
+            // Super Fast (35%)
+            speed = 13 + Math.random() * 2;
             label = "剛速球";
             color = "#e74c3c";
         } else {
-            // Ultra Fast (New)
+            // Ultra Fast (25%)
             speed = 22; 
             label = "光速球";
             color = "#8e44ad";
@@ -549,7 +561,6 @@
         GameState.batting.ballSpeed = speed;
         GameState.batting.currentPitchType = label;
         
-        // Visual indicator update
         elSpeedInd.style.color = color;
 
         requestAnimationFrame(gameLoop);
@@ -557,11 +568,22 @@
 
     function gameLoop() {
         if (!GameState.batting.active || !GameState.batting.isPitched || GameState.batting.swung) return;
+        
         GameState.batting.ballY += GameState.batting.ballSpeed;
+        
+        // Calculate X position using Linear Interpolation based on Y progress
+        // Y goes from 40 (Start) to ~500 (End)
+        const startY = MOUND_Y;
+        const endY = 500;
+        const progress = Math.min(1, (GameState.batting.ballY - startY) / (endY - startY));
+        
+        // Lerp X
+        GameState.batting.ballX = GameState.batting.startX + (GameState.batting.targetX - GameState.batting.startX) * progress;
+
         elBall.style.top = GameState.batting.ballY + 'px';
+        elBall.style.left = GameState.batting.ballX + 'px';
 
         if (GameState.batting.ballY > 520) { 
-            // Ball passed player without swing
             handleNoSwingResult();
         } else { 
             requestAnimationFrame(gameLoop); 
@@ -579,9 +601,8 @@
         GameState.batting.swung = true;
         elBtnSwing.disabled = true;
         
-        // Check if swinging at a Ball (Bad Eye)
         if (GameState.batting.isBall) {
-            handleSwingResult("CHASE"); // Chased a bad ball
+            handleSwingResult("CHASE");
             return;
         }
 
@@ -601,14 +622,11 @@
         let text = "", color = "white", logText = "";
         
         if (GameState.batting.isBall) {
-            // Good Eye! Walk.
             GameState.records.bb++;
             text = "選球成功!";
-            color = "#2ecc71"; // Green
+            color = "#2ecc71";
             logText = `冷靜選掉了偏離好球帶的<b>${GameState.batting.currentPitchType}</b>，獲得保送。`;
-            // Note: BB does not count to AB
         } else {
-            // Strikeout looking
             GameState.records.ab++;
             GameState.records.so++;
             text = "見逃三振";
@@ -658,11 +676,9 @@
         elResultText.style.display = 'block';
         elBall.style.display = 'none';
         
-        // Show pitch info
         elSpeedInd.textContent = GameState.batting.currentPitchType;
         elSpeedInd.style.display = 'block';
         
-        // Show if it was ball or strike
         elBallTypeInd.textContent = GameState.batting.isBall ? "壞球" : "好球";
         elBallTypeInd.style.display = 'block';
 
