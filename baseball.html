@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>實況野球風格 - 傳奇野手養成 Ver.4.5 (真實軌跡 & 極速挑戰)</title>
+    <title>實況野球風格 - 傳奇野手養成 Ver.5.0 (存檔版)</title>
     <style>
         :root {
             --primary: #2c3e50;
@@ -43,8 +43,12 @@
         }
         .hidden { display: none !important; }
 
-        #input-name { padding: 15px; font-size: 1.5em; margin: 20px 0; border-radius: 5px; border: none; text-align: center; }
+        #input-name { padding: 15px; font-size: 1.5em; margin: 20px 0; border-radius: 5px; border: none; text-align: center; width: 200px;}
         
+        .start-btn-group { display: flex; gap: 20px; }
+        .btn-start { background: var(--highlight); color: #333; padding: 15px 30px; font-size: 1.2em; border:none; border-radius:5px; cursor:pointer; font-weight:bold;}
+        .btn-load { background: #3498db; color: white; padding: 15px 30px; font-size: 1.2em; border:none; border-radius:5px; cursor:pointer; font-weight:bold;}
+
         /* Interactive Stadium Overlay */
         #stadium-screen {
             background: radial-gradient(circle at 50% 100%, var(--dirt) 20%, var(--stadium-green) 21%);
@@ -168,7 +172,7 @@
 
         .controls {
             background: #dcdcdc; padding: 15px; display: flex; gap: 10px;
-            justify-content: center; align-items: center; border-top: 1px solid #bbb;
+            justify-content: center; align-items: center; border-top: 1px solid #bbb; flex-wrap: wrap;
         }
         button {
             padding: 10px 20px; border: none; border-radius: 5px; font-weight: bold; cursor: pointer;
@@ -180,6 +184,7 @@
         .btn-rest { background: var(--stadium-green); color: white; }
         .btn-rest:hover { background: #219150; }
         .btn-next { background: var(--highlight); color: #333; width: 100%; font-size: 1.2em;}
+        .btn-save { background: #95a5a6; color: white; font-size: 0.9em; min-width: 80px;}
         #warning-msg { color: red; font-weight: bold; text-align: center; visibility: hidden; }
 
     </style>
@@ -192,7 +197,11 @@
         <h1>⚾ 傳奇野球養成</h1>
         <p>請輸入球員名稱 (最多6字)</p>
         <input type="text" id="input-name" maxlength="6" value="野球君">
-        <button onclick="startGame()" style="background:var(--highlight); color:#333;">開始遊戲</button>
+        <div class="start-btn-group">
+            <button class="btn-start" onclick="startGame()">開始新遊戲</button>
+            <button class="btn-load" onclick="document.getElementById('file-input').click()">📂 讀取紀錄</button>
+        </div>
+        <input type="file" id="file-input" class="hidden" accept=".json" onchange="handleFileSelect(event)">
     </div>
 
     <div id="stadium-screen">
@@ -261,29 +270,21 @@
 
 <script>
     const MAX_STAT = 255;
-    const FIELD_WIDTH = 400;
-    const ZONE_CENTER_X = 200; // 50% of 400
+    const ZONE_CENTER_X = 200; 
     const ZONE_WIDTH = 100;
     const MOUND_Y = 40;
     
-    const GameState = {
+    // Core Game Object
+    let GameState = {
         playerName: "Player", round: 1, day: 1, phase: 'training', subCycleDay: 1,
         stats: { power: 10, contact: 10, defense: 10, run: 10 },
         records: { gamesPlayed: 0, ab: 0, h: 0, hr: 0, tb: 0, rbi: 0, bb: 0, so: 0 },
         lastTraining: null, warningActive: false,
         matchConfig: { 1: 20, 2: 30, 3: 60 }, matchesLeft: 0,
         batting: { 
-            active: false, 
-            ballY: 0, 
-            ballX: 0,
-            startX: 0,
-            targetX: 0,
-            ballSpeed: 0, 
-            isPitched: false, 
-            swung: false, 
-            atBatCount: 0, 
-            currentPitchType: '',
-            isBall: false
+            active: false, ballY: 0, ballX: 0, startX: 0, targetX: 0,
+            ballSpeed: 0, isPitched: false, swung: false, atBatCount: 0, 
+            currentPitchType: '', isBall: false
         }
     };
 
@@ -296,10 +297,71 @@
     const elSpeedInd = document.getElementById('speed-indicator');
     const elBallTypeInd = document.getElementById('ball-type-indicator');
 
+    // --- Save / Load Logic ---
+    function saveGame() {
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(GameState));
+        const downloadAnchorNode = document.createElement('a');
+        downloadAnchorNode.setAttribute("href", dataStr);
+        downloadAnchorNode.setAttribute("download", `${GameState.playerName}_save_R${GameState.round}_D${GameState.day}.json`);
+        document.body.appendChild(downloadAnchorNode);
+        downloadAnchorNode.click();
+        downloadAnchorNode.remove();
+        log("進度已保存到您的電腦。", "log-success");
+    }
+
+    function handleFileSelect(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const savedState = JSON.parse(e.target.result);
+                // Simple validation check
+                if (!savedState.stats || !savedState.phase) throw new Error("Invalid Save File");
+                
+                GameState = savedState;
+                document.getElementById('input-name').value = GameState.playerName; // Sync name input just in case
+                
+                // Restore UI
+                document.getElementById('display-name').textContent = GameState.playerName;
+                document.getElementById('start-screen').classList.add('hidden');
+                updateStatsUI();
+                setPhase(GameState.phase);
+                
+                // Clear log and welcome back
+                elLog.innerHTML = '';
+                log(`歡迎回來，${GameState.playerName}！`, "log-highlight");
+                log(`已讀取進度：第 ${GameState.round} 輪，第 ${GameState.day} 天。`, "");
+
+                // If loaded into match state but not batting, ensure match controls
+                if(GameState.phase === 'match' && elStadium.style.display !== 'flex') {
+                    renderControls();
+                }
+
+            } catch (err) {
+                alert("讀取失敗：檔案格式錯誤");
+                console.error(err);
+            }
+        };
+        reader.readAsText(file);
+    }
+
+    // --- Game Logic ---
+
     function startGame() {
         const input = document.getElementById('input-name');
         let name = input.value.trim() || "野球君";
-        GameState.playerName = name;
+        
+        // Reset State for New Game
+        GameState = {
+            playerName: name, round: 1, day: 1, phase: 'training', subCycleDay: 1,
+            stats: { power: 10, contact: 10, defense: 10, run: 10 },
+            records: { gamesPlayed: 0, ab: 0, h: 0, hr: 0, tb: 0, rbi: 0, bb: 0, so: 0 },
+            lastTraining: null, warningActive: false,
+            matchConfig: { 1: 20, 2: 30, 3: 60 }, matchesLeft: 0,
+            batting: { active: false, ballY: 0, ballX: 0, startX: 0, targetX: 0, ballSpeed: 0, isPitched: false, swung: false, atBatCount: 0, currentPitchType: '', isBall: false }
+        };
+
         document.getElementById('display-name').textContent = name;
         document.getElementById('start-screen').classList.add('hidden');
         updateStatsUI();
@@ -351,6 +413,16 @@
         elControls.innerHTML = '';
         document.getElementById('warning-msg').style.visibility = 'hidden';
 
+        // Add Save Button for Training/Rest phases
+        const addSaveBtn = () => {
+            const btn = document.createElement('button');
+            btn.className = 'btn-save';
+            btn.textContent = '💾 保存進度';
+            btn.onclick = () => saveGame();
+            btn.style.marginLeft = 'auto'; // push to right
+            elControls.appendChild(btn);
+        };
+
         if (GameState.phase === 'training') {
             const trainings = [
                 { id: 'power', label: '重訓 (Power)', color: '#e74c3c' },
@@ -366,6 +438,7 @@
                 btn.onclick = () => handleTraining(t.id);
                 elControls.appendChild(btn);
             });
+            addSaveBtn();
         } else if (GameState.phase === 'rest') {
             const rests = [ {id:'shop',l:'逛街'}, {id:'movie',l:'看電影'}, {id:'date',l:'交友'}, {id:'book',l:'看書'}, {id:'eat',l:'吃大餐'} ];
             rests.forEach(r => {
@@ -375,6 +448,7 @@
                 btn.onclick = () => handleRest(r.id);
                 elControls.appendChild(btn);
             });
+            addSaveBtn();
         } else if (GameState.phase === 'match') {
             const btn = document.createElement('button');
             btn.className = 'btn-next';
@@ -387,6 +461,7 @@
             btn.textContent = '進入 10 天季後休息';
             btn.onclick = () => endSeasonRest();
             elControls.appendChild(btn);
+            addSaveBtn();
         } else if (GameState.phase === 'game-over') {
             const btn = document.createElement('button');
             btn.className = 'btn-next';
@@ -498,22 +573,21 @@
         GameState.batting.isBall = Math.random() < badBallChance;
         
         // --- 2. Trajectory Logic ---
-        // All balls start at the center (Mound)
         GameState.batting.startX = ZONE_CENTER_X;
         GameState.batting.ballX = ZONE_CENTER_X;
         
         if (GameState.batting.isBall) {
-            // Bad Ball: Target is far Left or Right
+            // Bad Ball Target
             const dir = Math.random();
             if (dir < 0.5) {
-                // Left Ball (Target < 130)
+                // Left Ball
                 GameState.batting.targetX = ZONE_CENTER_X - (ZONE_WIDTH/2) - 40 - Math.random() * 60;
             } else {
-                // Right Ball (Target > 270)
+                // Right Ball
                 GameState.batting.targetX = ZONE_CENTER_X + (ZONE_WIDTH/2) + 40 + Math.random() * 60;
             }
         } else {
-            // Strike: Target is roughly Center
+            // Strike Target
             GameState.batting.targetX = ZONE_CENTER_X + (Math.random() * 40 - 20); 
         }
 
@@ -529,33 +603,20 @@
         if (!GameState.batting.active) return;
         GameState.batting.isPitched = true;
         
-        // --- Speed Variation Logic (Updated Probabilities) ---
-        // Goal: Low probability for Normal, High for Super/Ultra
+        // --- Speed Variation (High Difficulty) ---
         const r = Math.random();
         let speed = 5;
         let label = "直球";
         let color = "#f1c40f";
 
-        // Distribution: Normal 15%, Fast 25%, Super 35%, Ultra 25%
         if (r < 0.15) {
-            // Normal (15%)
-            speed = 5 + Math.random(); 
-            label = "直球";
+            speed = 5 + Math.random(); label = "直球";
         } else if (r < 0.40) {
-            // Fast (25%)
-            speed = 9 + Math.random() * 2;
-            label = "快速球";
-            color = "#e67e22";
+            speed = 9 + Math.random() * 2; label = "快速球"; color = "#e67e22";
         } else if (r < 0.75) {
-            // Super Fast (35%)
-            speed = 13 + Math.random() * 2;
-            label = "剛速球";
-            color = "#e74c3c";
+            speed = 13 + Math.random() * 2; label = "剛速球"; color = "#e74c3c";
         } else {
-            // Ultra Fast (25%)
-            speed = 22; 
-            label = "光速球";
-            color = "#8e44ad";
+            speed = 22; label = "光速球"; color = "#8e44ad";
         }
         
         GameState.batting.ballSpeed = speed;
@@ -571,13 +632,9 @@
         
         GameState.batting.ballY += GameState.batting.ballSpeed;
         
-        // Calculate X position using Linear Interpolation based on Y progress
-        // Y goes from 40 (Start) to ~500 (End)
         const startY = MOUND_Y;
         const endY = 500;
         const progress = Math.min(1, (GameState.batting.ballY - startY) / (endY - startY));
-        
-        // Lerp X
         GameState.batting.ballX = GameState.batting.startX + (GameState.batting.targetX - GameState.batting.startX) * progress;
 
         elBall.style.top = GameState.batting.ballY + 'px';
@@ -622,15 +679,10 @@
         let text = "", color = "white", logText = "";
         
         if (GameState.batting.isBall) {
-            GameState.records.bb++;
-            text = "選球成功!";
-            color = "#2ecc71";
+            GameState.records.bb++; text = "選球成功!"; color = "#2ecc71";
             logText = `冷靜選掉了偏離好球帶的<b>${GameState.batting.currentPitchType}</b>，獲得保送。`;
         } else {
-            GameState.records.ab++;
-            GameState.records.so++;
-            text = "見逃三振";
-            color = "#7f8c8d";
+            GameState.records.ab++; GameState.records.so++; text = "見逃三振"; color = "#7f8c8d";
             logText = `面對好球帶的<b>${GameState.batting.currentPitchType}</b>沒有揮棒，三振出局。`;
         }
         
@@ -645,12 +697,10 @@
         let isSuccess = false;
 
         if (resultType === "CHASE") {
-            GameState.records.so++;
-            text = "追打壞球"; color = "#95a5a6";
+            GameState.records.so++; text = "追打壞球"; color = "#95a5a6";
             logText = `被騙了！追打好球帶外的<b>${pitchName}</b>，揮空三振。`;
         } else if (resultType === "MISS") {
-            GameState.records.so++;
-            text = "揮棒落空"; color = "#bdc3c7";
+            GameState.records.so++; text = "揮棒落空"; color = "#bdc3c7";
             logText = `面對<b>${pitchName}</b>揮棒落空，三振出局。`;
         } else if (resultType === "EARLY") {
             text = "滾地出局"; color = "#f39c12";
@@ -659,11 +709,9 @@
             text = "接殺出局"; color = "#f39c12";
             logText = `面對<b>${pitchName}</b>太晚出棒，無力飛球被接殺。`;
         } else if (resultType === "HIT") {
-            GameState.records.h++;
-            color = "#e74c3c";
+            GameState.records.h++; color = "#e74c3c";
             const outcome = calculateHitOutcome();
-            text = outcome.label;
-            logText = `面對<b>${pitchName}</b>，${outcome.logMsg}`;
+            text = outcome.label; logText = `面對<b>${pitchName}</b>，${outcome.logMsg}`;
             isSuccess = true;
         }
 
@@ -678,7 +726,6 @@
         
         elSpeedInd.textContent = GameState.batting.currentPitchType;
         elSpeedInd.style.display = 'block';
-        
         elBallTypeInd.textContent = GameState.batting.isBall ? "壞球" : "好球";
         elBallTypeInd.style.display = 'block';
 
