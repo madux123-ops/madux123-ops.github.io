@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>進階甘特圖：拖拉與連線版</title>
+    <title>全功能甘特圖：存檔/讀檔/匯出圖片</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         :root {
             --primary-color: #2563eb;
@@ -12,8 +13,8 @@
             --border-color: #e2e8f0;
             --main-task-color: #3b82f6;
             --sub-task-color: #10b981;
-            --day-width: 40px; /* 每一天的寬度 */
-            --row-height: 42px; /* 每一行的高度 */
+            --day-width: 40px;
+            --row-height: 42px;
         }
 
         body {
@@ -22,7 +23,7 @@
             padding: 20px;
             background-color: var(--bg-color);
             color: #333;
-            user-select: none; /* 防止拖拉時選取文字 */
+            user-select: none;
         }
 
         .container {
@@ -34,7 +35,34 @@
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
         }
 
-        h2 { border-bottom: 2px solid var(--border-color); padding-bottom: 10px; }
+        h2 { border-bottom: 2px solid var(--border-color); padding-bottom: 10px; margin-top: 0; }
+
+        /* 工具列區域 */
+        .toolbar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            padding: 10px;
+            background: #e0f2fe;
+            border-radius: 6px;
+            align-items: center;
+        }
+        
+        .btn-tool {
+            padding: 8px 15px;
+            border: 1px solid #0284c7;
+            background: white;
+            color: #0284c7;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .btn-tool:hover { background: #0284c7; color: white; }
+        .btn-export-img { border-color: #059669; color: #059669; }
+        .btn-export-img:hover { background: #059669; color: white; }
 
         /* 輸入區域 */
         .input-group {
@@ -52,15 +80,13 @@
         label { margin-bottom: 5px; font-weight: 600; font-size: 0.9em; }
         input, select { padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
         
-        button {
-            padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; transition: 0.2s;
-        }
-        .btn-add { background-color: var(--primary-color); color: white; }
+        button { cursor: pointer; transition: 0.2s; }
+        .btn-add { padding: 10px 20px; border: none; border-radius: 4px; background-color: var(--primary-color); color: white; font-weight: bold;}
         .btn-add:hover { background-color: #1d4ed8; }
-        .btn-generate { background-color: #0f172a; color: white; width: 100%; margin-top: 10px; }
-        .btn-delete { background-color: #ef4444; color: white; padding: 5px 10px; font-size: 0.8em; }
+        .btn-generate { padding: 12px; border: none; border-radius: 4px; background-color: #0f172a; color: white; width: 100%; margin-top: 10px; font-weight: bold; font-size: 1.1em;}
+        .btn-delete { background-color: #ef4444; border: none; border-radius: 4px; color: white; padding: 5px 10px; font-size: 0.8em; }
 
-        /* 任務列表表格 */
+        /* 任務列表 */
         .task-list-container {
             max-height: 200px;
             overflow-y: auto;
@@ -80,7 +106,8 @@
             background: white;
             margin-top: 20px;
             position: relative;
-            overflow: hidden; /* 防止外層溢出 */
+            /* overflow: hidden; */ 
+            /* 注意：為了截圖，這裡不能隨意 hidden，結構由下方 wrapper 控制 */
         }
 
         .gantt-header {
@@ -102,7 +129,7 @@
         }
 
         .timeline-header-container {
-            overflow: hidden; /* 隱藏捲軸，由下方同步捲動 */
+            overflow: hidden; 
             flex-grow: 1;
             position: relative;
         }
@@ -156,7 +183,6 @@
             flex-grow: 1;
         }
 
-        /* 背景網格 */
         .grid-background {
             position: absolute;
             top: 0; left: 0; right: 0; bottom: 0;
@@ -172,28 +198,20 @@
             box-sizing: border-box;
         }
 
-        /* SVG 連線層 */
         #arrow-layer {
             position: absolute;
             top: 0; left: 0;
             width: 100%; height: 100%;
             z-index: 1;
-            pointer-events: none; /* 讓點擊事件穿透到下方的 Bar */
+            pointer-events: none;
         }
         
-        .arrow-line {
-            stroke: #94a3b8;
-            stroke-width: 2;
-            fill: none;
-        }
-        .arrow-head {
-            fill: #94a3b8;
-        }
+        .arrow-line { stroke: #94a3b8; stroke-width: 2; fill: none; }
+        .arrow-head { fill: #94a3b8; }
 
-        /* 進度條 */
         .bar-row {
             height: var(--row-height);
-            border-bottom: 1px solid transparent; /* 佔位用 */
+            border-bottom: 1px solid transparent;
             position: relative;
             box-sizing: border-box;
         }
@@ -211,15 +229,13 @@
             white-space: nowrap;
             overflow: hidden;
             box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-            cursor: grab; /* 手型游標 */
+            cursor: grab;
             z-index: 5;
-            transition: background-color 0.2s;
         }
         .bar:active { cursor: grabbing; opacity: 0.8; }
         .bar.main { background-color: var(--main-task-color); }
         .bar.sub { background-color: var(--sub-task-color); }
 
-        /* 週末樣式 */
         .weekend { background-color: #f8fafc; }
 
     </style>
@@ -227,7 +243,15 @@
 <body>
 
 <div class="container">
-    <h2>甘特圖產生器 (進階版)</h2>
+    <h2>專案甘特圖繪製工具</h2>
+
+    <div class="toolbar">
+        <button class="btn-tool" onclick="saveProject()">💾 儲存專案 (JSON)</button>
+        <button class="btn-tool" onclick="document.getElementById('fileInput').click()">📂 讀取專案</button>
+        <input type="file" id="fileInput" accept=".json" style="display: none;" onchange="loadProject(this)">
+        <div style="flex-grow: 1;"></div>
+        <button class="btn-tool btn-export-img" onclick="exportToImage()">📷 匯出圖片 (PNG)</button>
+    </div>
 
     <div class="input-group">
         <div class="form-control">
@@ -262,7 +286,7 @@
         <table class="task-list">
             <thead>
                 <tr>
-                    <th width="35%">任務名稱</th>
+                    <th width="30%">任務名稱</th>
                     <th>開始日期</th>
                     <th>天數</th>
                     <th>前置任務</th>
@@ -285,7 +309,6 @@
         
         <div class="gantt-scroll-wrapper" id="ganttScrollWrapper">
             <div class="gantt-sidebar" id="ganttSidebar"></div>
-            
             <div class="gantt-timeline-area" id="ganttTimelineArea">
                 <div class="grid-background" id="gridBackground"></div>
                 <svg id="arrow-layer"></svg>
@@ -297,23 +320,116 @@
 
 <script>
     let tasks = [];
-    const DAY_WIDTH = 40; // 必須對應 CSS
-    const ROW_HEIGHT = 42; // 必須對應 CSS
-    
-    // 初始化
+    const DAY_WIDTH = 40;
+    const ROW_HEIGHT = 42;
+    let minDate, totalDays;
+
     document.getElementById('startDate').valueAsDate = new Date();
 
-    // 格式化日期字串 yyyy-mm-dd
-    function formatDate(date) {
-        return date.toISOString().split('T')[0];
+    // ----------------------
+    //  存檔與讀檔功能
+    // ----------------------
+
+    function saveProject() {
+        if (tasks.length === 0) {
+            alert("目前沒有任何任務可供儲存。");
+            return;
+        }
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(tasks));
+        const downloadAnchorNode = document.createElement('a');
+        downloadAnchorNode.setAttribute("href", dataStr);
+        downloadAnchorNode.setAttribute("download", "gantt_project.json");
+        document.body.appendChild(downloadAnchorNode); // required for firefox
+        downloadAnchorNode.click();
+        downloadAnchorNode.remove();
     }
 
-    // 增加日期
-    function addDays(dateStr, days) {
-        const date = new Date(dateStr);
-        date.setDate(date.getDate() + days);
-        return date;
+    function loadProject(input) {
+        const file = input.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const loadedTasks = JSON.parse(e.target.result);
+                if (Array.isArray(loadedTasks)) {
+                    tasks = loadedTasks;
+                    updateUI();
+                    alert("專案讀取成功！請點擊「產出甘特圖」來查看。");
+                } else {
+                    alert("檔案格式錯誤");
+                }
+            } catch (err) {
+                alert("無法讀取檔案，請確認是否為正確的 JSON 檔。");
+            }
+        };
+        reader.readAsText(file);
+        // 清空 input 讓同檔名可重複觸發
+        input.value = '';
     }
+
+    // ----------------------
+    //  匯出圖片功能
+    // ----------------------
+    
+    function exportToImage() {
+        const chartElement = document.getElementById("gantt-chart-view");
+        if (chartElement.style.display === "none") {
+            alert("請先產出甘特圖！");
+            return;
+        }
+
+        // 截圖前的準備：為了截到完整寬度，需要暫時修改樣式
+        const scrollWrapper = document.getElementById("ganttScrollWrapper");
+        const timelineHeaderContainer = document.getElementById("timelineHeaderContainer");
+        
+        // 紀錄原始樣式
+        const originalOverflow = scrollWrapper.style.overflow;
+        const originalWidth = scrollWrapper.style.width;
+        
+        // 強制展開捲軸區域，讓 html2canvas 能抓到全部內容
+        // 這裡設定固定寬度為內容的 scrollWidth
+        const fullWidth = scrollWrapper.scrollWidth;
+        
+        // 為了避免 sticky 定位在截圖時跑版，通常建議截圖時暫時移除 sticky 或確保視窗夠大
+        // 這裡我們嘗試直接截取，如果 sticky 跑掉，通常是因為 html2canvas 對 sticky 支援度有限
+        // 一個解法是截圖當下把 sticky 改成 static (但這樣列表會跑上去)，或直接截大圖
+        
+        // 這裡採用一個簡單策略：暫時把外框撐大
+        chartElement.style.width = (fullWidth + 210) + "px"; // 200 sidebar + buffer
+        scrollWrapper.style.overflow = "visible";
+        timelineHeaderContainer.style.overflow = "visible";
+
+        html2canvas(chartElement, {
+            scale: 2, // 提高解析度
+            backgroundColor: "#ffffff"
+        }).then(canvas => {
+            // 復原樣式
+            chartElement.style.width = "";
+            scrollWrapper.style.overflow = "";
+            timelineHeaderContainer.style.overflow = "";
+
+            // 下載圖片
+            const link = document.createElement('a');
+            link.download = 'gantt_chart.png';
+            link.href = canvas.toDataURL();
+            link.click();
+        }).catch(err => {
+            console.error(err);
+            alert("圖片匯出失敗，請檢查瀏覽器主控台。");
+            // 發生錯誤也要復原
+            chartElement.style.width = "";
+            scrollWrapper.style.overflow = "";
+            timelineHeaderContainer.style.overflow = "";
+        });
+    }
+
+
+    // ----------------------
+    //  基本邏輯 (同前版)
+    // ----------------------
+
+    function formatDate(date) { return date.toISOString().split('T')[0]; }
 
     function addTask() {
         const name = document.getElementById('taskName').value;
@@ -322,34 +438,23 @@
         const duration = parseInt(document.getElementById('duration').value);
         const predecessorId = document.getElementById('predecessor').value;
 
-        if (!name || !start || !duration) {
-            alert("請填寫完整資訊");
-            return;
-        }
+        if (!name || !start || !duration) { alert("請填寫完整資訊"); return; }
 
         const task = {
-            id: Date.now().toString(), // 使用字串作為 ID
-            name,
-            type,
-            start,
-            duration,
+            id: Date.now().toString(),
+            name, type, start, duration,
             predecessorId: predecessorId || null
         };
 
         tasks.push(task);
         updateUI();
-        
-        // 重置輸入
         document.getElementById('taskName').value = '';
         document.getElementById('taskName').focus();
     }
 
     function removeTask(id) {
         tasks = tasks.filter(t => t.id !== id);
-        // 移除其他任務對此任務的依賴
-        tasks.forEach(t => {
-            if (t.predecessorId === id) t.predecessorId = null;
-        });
+        tasks.forEach(t => { if (t.predecessorId === id) t.predecessorId = null; });
         updateUI();
     }
 
@@ -375,11 +480,9 @@
         tasks.forEach(task => {
             const predTask = tasks.find(t => t.id === task.predecessorId);
             const predName = predTask ? predTask.name : '-';
-            
             const tr = document.createElement('tr');
             const nameClass = task.type === 'main' ? 'type-main' : 'type-sub';
             const prefix = task.type === 'sub' ? '└ ' : '';
-            
             tr.innerHTML = `
                 <td class="${nameClass}">${prefix}${task.name}</td>
                 <td id="list-date-${task.id}">${task.start}</td>
@@ -391,17 +494,11 @@
         });
     }
 
-    // --- 甘特圖核心邏輯 ---
-
-    let minDate, totalDays;
-
     function generateGantt() {
         if (tasks.length === 0) return;
-
         const chartView = document.getElementById('gantt-chart-view');
         chartView.style.display = 'block';
 
-        // 1. 計算全域時間範圍
         let minTime = new Date(tasks[0].start).getTime();
         let maxTime = new Date(tasks[0].start).getTime();
 
@@ -413,22 +510,16 @@
             if (e.getTime() > maxTime) maxTime = e.getTime();
         });
 
-        // 緩衝日期
         minDate = new Date(minTime);
-        minDate.setDate(minDate.getDate() - 3); // 前3天
+        minDate.setDate(minDate.getDate() - 3);
         const finalDate = new Date(maxTime);
-        finalDate.setDate(finalDate.getDate() + 10); // 後10天
-
+        finalDate.setDate(finalDate.getDate() + 10);
         totalDays = Math.ceil((finalDate - minDate) / (1000 * 60 * 60 * 24));
 
-        // 2. 建構 DOM
         buildTimelineHeader(totalDays);
         buildChartBody(totalDays);
-        
-        // 3. 繪製連線
         drawArrows();
 
-        // 4. 同步 Header 捲動
         const scrollWrapper = document.getElementById('ganttScrollWrapper');
         const headerContainer = document.getElementById('timelineHeaderContainer');
         scrollWrapper.onscroll = function() {
@@ -445,9 +536,7 @@
             const div = document.createElement('div');
             div.className = 'day-cell';
             div.innerText = `${current.getMonth() + 1}/${current.getDate()}`;
-            if (current.getDay() === 0 || current.getDay() === 6) {
-                div.style.backgroundColor = '#f1f5f9';
-            }
+            if (current.getDay() === 0 || current.getDay() === 6) div.style.backgroundColor = '#f1f5f9';
             header.appendChild(div);
         }
     }
@@ -458,110 +547,77 @@
         const gridBackground = document.getElementById('gridBackground');
         const arrowLayer = document.getElementById('arrow-layer');
         
-        sidebar.innerHTML = '';
-        barsContainer.innerHTML = '';
-        gridBackground.innerHTML = '';
+        sidebar.innerHTML = ''; barsContainer.innerHTML = ''; gridBackground.innerHTML = '';
         
-        // 設定容器總寬度
         const totalWidth = days * DAY_WIDTH;
         gridBackground.style.width = `${totalWidth}px`;
         arrowLayer.style.width = `${totalWidth}px`;
-        arrowLayer.innerHTML = ''; // 清空舊箭頭
+        arrowLayer.innerHTML = '';
 
-        // 繪製網格
         for (let i = 0; i < days; i++) {
             const line = document.createElement('div');
             line.className = 'grid-line';
-            // 標記週末
             const current = new Date(minDate);
             current.setDate(current.getDate() + i);
-            if (current.getDay() === 0 || current.getDay() === 6) {
-                line.classList.add('weekend');
-            }
+            if (current.getDay() === 0 || current.getDay() === 6) line.classList.add('weekend');
             gridBackground.appendChild(line);
         }
 
-        // 繪製每一行任務
         tasks.forEach((task, index) => {
-            // 1. 左側欄位
             const nameDiv = document.createElement('div');
             nameDiv.className = 'task-name-cell';
             const prefix = task.type === 'sub' ? '&nbsp;&nbsp;└ ' : '';
             nameDiv.innerHTML = `<span class="${task.type === 'main' ? 'type-main' : 'type-sub'}">${prefix}${task.name}</span>`;
             sidebar.appendChild(nameDiv);
 
-            // 2. 時間軸列 (隱形列，用來定位)
             const rowDiv = document.createElement('div');
             rowDiv.className = 'bar-row';
             barsContainer.appendChild(rowDiv);
 
-            // 3. 建立 Bar
             const bar = document.createElement('div');
             bar.className = `bar ${task.type}`;
             bar.id = `bar-${task.id}`;
             bar.innerText = `${task.duration}天`;
             
-            // 計算位置
             const diffTime = new Date(task.start) - minDate;
             const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
             
             bar.style.left = `${diffDays * DAY_WIDTH}px`;
-            bar.style.width = `${task.duration * DAY_WIDTH - 6}px`; // -6 為了留縫隙
-            bar.style.top = `${(index * ROW_HEIGHT) + 9}px`; // 絕對定位高度
-            
-            // 綁定資料屬性
+            bar.style.width = `${task.duration * DAY_WIDTH - 6}px`;
+            bar.style.top = `${(index * ROW_HEIGHT) + 9}px`;
             bar.dataset.taskId = task.id;
-            bar.dataset.index = index;
-            bar.dataset.currentLeft = diffDays * DAY_WIDTH;
-
-            // 加入拖拉事件
+            
             bar.addEventListener('mousedown', handleDragStart);
-
             barsContainer.appendChild(bar);
         });
-
-        // 調整 SVG 高度以符合內容
+        
         const totalHeight = tasks.length * ROW_HEIGHT;
         arrowLayer.style.height = `${totalHeight}px`;
         barsContainer.style.height = `${totalHeight}px`;
     }
 
-    // --- 拖拉功能實作 ---
-    let draggedBar = null;
-    let startX = 0;
-    let originalLeft = 0;
-
+    let draggedBar = null, startX = 0, originalLeft = 0;
     function handleDragStart(e) {
         draggedBar = e.target;
         startX = e.clientX;
         originalLeft = parseFloat(draggedBar.style.left || 0);
-        
         document.addEventListener('mousemove', handleDragMove);
         document.addEventListener('mouseup', handleDragEnd);
         draggedBar.style.opacity = '0.7';
     }
-
     function handleDragMove(e) {
         if (!draggedBar) return;
         const deltaX = e.clientX - startX;
         let newLeft = originalLeft + deltaX;
-        
-        // 邊界檢查
         if (newLeft < 0) newLeft = 0;
-        
         draggedBar.style.left = `${newLeft}px`;
-        
-        // 即時重繪連線 (為了效能，這裡只做簡單計算，真正的吸附在 drop)
-        requestAnimationFrame(() => drawArrows());
+        requestAnimationFrame(drawArrows);
     }
-
     function handleDragEnd(e) {
         if (!draggedBar) return;
-        
         document.removeEventListener('mousemove', handleDragMove);
         document.removeEventListener('mouseup', handleDragEnd);
         
-        // 磁吸效果 (Snap to Grid)
         const currentLeft = parseFloat(draggedBar.style.left || 0);
         const dayIndex = Math.round(currentLeft / DAY_WIDTH);
         const snappedLeft = dayIndex * DAY_WIDTH;
@@ -569,31 +625,22 @@
         draggedBar.style.left = `${snappedLeft}px`;
         draggedBar.style.opacity = '1';
 
-        // 更新資料模型
         const taskId = draggedBar.dataset.taskId;
         const task = tasks.find(t => t.id === taskId);
-        
         if (task) {
             const newDate = new Date(minDate);
             newDate.setDate(newDate.getDate() + dayIndex);
             task.start = formatDate(newDate);
-            
-            // 同步更新列表顯示
             const listDateCell = document.getElementById(`list-date-${taskId}`);
             if (listDateCell) listDateCell.innerText = task.start;
         }
-
-        // 完整重繪連線
         drawArrows();
         draggedBar = null;
     }
 
-    // --- 繪製連線 (SVG) ---
     function drawArrows() {
         const svg = document.getElementById('arrow-layer');
-        svg.innerHTML = ''; // 清除舊線
-        
-        // 定義箭頭標記
+        svg.innerHTML = '';
         const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
         const marker = document.createElementNS("http://www.w3.org/2000/svg", "marker");
         marker.setAttribute("id", "arrowhead");
@@ -602,11 +649,9 @@
         marker.setAttribute("refX", "9");
         marker.setAttribute("refY", "3.5");
         marker.setAttribute("orient", "auto");
-        
         const polygon = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
         polygon.setAttribute("points", "0 0, 10 3.5, 0 7");
         polygon.setAttribute("fill", "#94a3b8");
-        
         marker.appendChild(polygon);
         defs.appendChild(marker);
         svg.appendChild(defs);
@@ -615,44 +660,28 @@
             if (task.predecessorId) {
                 const currentBar = document.getElementById(`bar-${task.id}`);
                 const predBar = document.getElementById(`bar-${task.predecessorId}`);
-                
                 if (currentBar && predBar) {
-                    // 取得相對於 gantt-timeline-area 的座標
-                    // 由於 bar 是 absolute positioning，直接讀取 style.left / top 比較準確且快
-                    const x1 = parseFloat(predBar.style.left) + parseFloat(predBar.style.width); // 前置任務右側
-                    const y1 = parseFloat(predBar.style.top) + 12; // 垂直置中
-                    
-                    const x2 = parseFloat(currentBar.style.left); // 當前任務左側
-                    const y2 = parseFloat(currentBar.style.top) + 12; // 垂直置中
-
-                    // 繪製折線 (類似 MS Project 風格)
-                    // 路徑: (x1,y1) -> (x1+10, y1) -> (x1+10, y2) -> (x2, y2)
-                    // 如果 x2 < x1，線條會往回繞
-                    
-                    const midX = x1 + 15; // 轉折點 X 軸位移
-                    
+                    const x1 = parseFloat(predBar.style.left) + parseFloat(predBar.style.width);
+                    const y1 = parseFloat(predBar.style.top) + 12;
+                    const x2 = parseFloat(currentBar.style.left);
+                    const y2 = parseFloat(currentBar.style.top) + 12;
+                    const midX = x1 + 15;
                     let d = `M ${x1} ${y1} L ${midX} ${y1}`;
-                    
                     if (x2 > midX) {
-                        // 簡單情況：目標在右邊
                         d += ` L ${midX} ${y2} L ${x2} ${y2}`;
                     } else {
-                        // 複雜情況：目標在左邊 (回溯) -> 需要更多轉折避免穿過 Bar
                         const midY = y2 > y1 ? y1 + (ROW_HEIGHT/2) + 5 : y1 - (ROW_HEIGHT/2) - 5;
                         d += ` L ${midX} ${midY} L ${x2 - 10} ${midY} L ${x2 - 10} ${y2} L ${x2} ${y2}`;
                     }
-
                     const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
                     path.setAttribute("d", d);
                     path.setAttribute("class", "arrow-line");
                     path.setAttribute("marker-end", "url(#arrowhead)");
-                    
                     svg.appendChild(path);
                 }
             }
         });
     }
-
 </script>
 
 </body>
