@@ -3,348 +3,657 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>武士決戰 (Samurai Showdown)</title>
+    <title>進階甘特圖：拖拉與連線版</title>
     <style>
+        :root {
+            --primary-color: #2563eb;
+            --secondary-color: #475569;
+            --bg-color: #f8fafc;
+            --border-color: #e2e8f0;
+            --main-task-color: #3b82f6;
+            --sub-task-color: #10b981;
+            --day-width: 40px; /* 每一天的寬度 */
+            --row-height: 42px; /* 每一行的高度 */
+        }
+
         body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             margin: 0;
-            padding: 0;
-            background-color: #222;
+            padding: 20px;
+            background-color: var(--bg-color);
+            color: #333;
+            user-select: none; /* 防止拖拉時選取文字 */
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        h2 { border-bottom: 2px solid var(--border-color); padding-bottom: 10px; }
+
+        /* 輸入區域 */
+        .input-group {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+            align-items: end;
+            background: #f1f5f9;
+            padding: 15px;
+            border-radius: 6px;
+        }
+
+        .form-control { display: flex; flex-direction: column; }
+        label { margin-bottom: 5px; font-weight: 600; font-size: 0.9em; }
+        input, select { padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+        
+        button {
+            padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; transition: 0.2s;
+        }
+        .btn-add { background-color: var(--primary-color); color: white; }
+        .btn-add:hover { background-color: #1d4ed8; }
+        .btn-generate { background-color: #0f172a; color: white; width: 100%; margin-top: 10px; }
+        .btn-delete { background-color: #ef4444; color: white; padding: 5px 10px; font-size: 0.8em; }
+
+        /* 任務列表表格 */
+        .task-list-container {
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid var(--border-color);
+            margin-bottom: 20px;
+        }
+        .task-list { width: 100%; border-collapse: collapse; }
+        .task-list th { position: sticky; top: 0; background: #eee; z-index: 2; }
+        .task-list th, .task-list td { padding: 8px 10px; border-bottom: 1px solid var(--border-color); text-align: left; font-size: 0.9em; }
+        .type-main { font-weight: bold; color: var(--primary-color); }
+        .type-sub { padding-left: 20px; color: var(--secondary-color); }
+
+        /* 甘特圖顯示區域 */
+        #gantt-chart-view {
+            display: none;
+            border: 1px solid var(--border-color);
+            background: white;
+            margin-top: 20px;
+            position: relative;
+            overflow: hidden; /* 防止外層溢出 */
+        }
+
+        .gantt-header {
             display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            overflow: hidden;
-            font-family: 'Helvetica', sans-serif;
+            border-bottom: 1px solid #ddd;
+            background: #f8f9fa;
+            height: 40px;
         }
-        #gameCanvas {
-            border: 4px solid #555;
-            background-color: #87CEEB; /* 天空藍背景 */
-            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+
+        .gantt-sidebar-header {
+            min-width: 200px;
+            width: 200px;
+            padding: 10px;
+            font-weight: bold;
+            border-right: 1px solid #ddd;
+            background: #f8f9fa;
+            box-sizing: border-box;
+            z-index: 20;
         }
-        #instructions {
-            position: absolute;
-            top: 10px;
-            color: white;
+
+        .timeline-header-container {
+            overflow: hidden; /* 隱藏捲軸，由下方同步捲動 */
+            flex-grow: 1;
+            position: relative;
+        }
+        
+        .timeline-header { display: flex; }
+
+        .day-cell {
+            min-width: var(--day-width);
+            width: var(--day-width);
             text-align: center;
+            border-right: 1px solid #eee;
+            font-size: 0.8em;
+            padding: 10px 0;
+            box-sizing: border-box;
+        }
+
+        /* 捲動區域 */
+        .gantt-scroll-wrapper {
+            display: flex;
+            overflow-x: auto;
+            overflow-y: auto;
+            max-height: 500px;
+            position: relative;
+        }
+
+        .gantt-sidebar {
+            min-width: 200px;
+            width: 200px;
+            position: sticky;
+            left: 0;
+            background: white;
+            z-index: 10;
+            border-right: 1px solid #ddd;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.05);
+        }
+
+        .task-name-cell {
+            height: var(--row-height);
+            padding: 0 10px;
+            border-bottom: 1px solid #f0f0f0;
+            display: flex;
+            align-items: center;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+            box-sizing: border-box;
+        }
+
+        .gantt-timeline-area {
+            position: relative;
+            flex-grow: 1;
+        }
+
+        /* 背景網格 */
+        .grid-background {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            display: flex;
+            z-index: 0;
             pointer-events: none;
         }
+        .grid-line {
+            min-width: var(--day-width);
+            width: var(--day-width);
+            border-right: 1px solid #f5f5f5;
+            height: 100%;
+            box-sizing: border-box;
+        }
+
+        /* SVG 連線層 */
+        #arrow-layer {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 1;
+            pointer-events: none; /* 讓點擊事件穿透到下方的 Bar */
+        }
+        
+        .arrow-line {
+            stroke: #94a3b8;
+            stroke-width: 2;
+            fill: none;
+        }
+        .arrow-head {
+            fill: #94a3b8;
+        }
+
+        /* 進度條 */
+        .bar-row {
+            height: var(--row-height);
+            border-bottom: 1px solid transparent; /* 佔位用 */
+            position: relative;
+            box-sizing: border-box;
+        }
+
+        .bar {
+            position: absolute;
+            height: 24px;
+            top: 9px;
+            border-radius: 4px;
+            color: white;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            padding-left: 8px;
+            white-space: nowrap;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            cursor: grab; /* 手型游標 */
+            z-index: 5;
+            transition: background-color 0.2s;
+        }
+        .bar:active { cursor: grabbing; opacity: 0.8; }
+        .bar.main { background-color: var(--main-task-color); }
+        .bar.sub { background-color: var(--sub-task-color); }
+
+        /* 週末樣式 */
+        .weekend { background-color: #f8fafc; }
+
     </style>
 </head>
 <body>
-    <div id="instructions">
-        <h2>武士決戰</h2>
-        <p>移動: 方向鍵 (← →) | 攻擊: 空白鍵 (Space)</p>
+
+<div class="container">
+    <h2>甘特圖產生器 (進階版)</h2>
+
+    <div class="input-group">
+        <div class="form-control">
+            <label>任務名稱</label>
+            <input type="text" id="taskName" placeholder="任務名稱">
+        </div>
+        <div class="form-control">
+            <label>類型</label>
+            <select id="taskType">
+                <option value="main">主項目</option>
+                <option value="sub">└ 子項目</option>
+            </select>
+        </div>
+        <div class="form-control">
+            <label>開始日期</label>
+            <input type="date" id="startDate">
+        </div>
+        <div class="form-control">
+            <label>天數</label>
+            <input type="number" id="duration" min="1" value="3" style="width: 60px;">
+        </div>
+        <div class="form-control">
+            <label>前置任務</label>
+            <select id="predecessor">
+                <option value="">(無)</option>
+            </select>
+        </div>
+        <button class="btn-add" onclick="addTask()">+ 加入</button>
     </div>
-    <canvas id="gameCanvas"></canvas>
+
+    <div class="task-list-container">
+        <table class="task-list">
+            <thead>
+                <tr>
+                    <th width="35%">任務名稱</th>
+                    <th>開始日期</th>
+                    <th>天數</th>
+                    <th>前置任務</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody id="taskListBody"></tbody>
+        </table>
+    </div>
+
+    <button class="btn-generate" onclick="generateGantt()">產出 / 重繪甘特圖</button>
+
+    <div id="gantt-chart-view">
+        <div class="gantt-header">
+            <div class="gantt-sidebar-header">項目列表</div>
+            <div class="timeline-header-container" id="timelineHeaderContainer">
+                <div class="timeline-header" id="timelineHeader"></div>
+            </div>
+        </div>
+        
+        <div class="gantt-scroll-wrapper" id="ganttScrollWrapper">
+            <div class="gantt-sidebar" id="ganttSidebar"></div>
+            
+            <div class="gantt-timeline-area" id="ganttTimelineArea">
+                <div class="grid-background" id="gridBackground"></div>
+                <svg id="arrow-layer"></svg>
+                <div id="barsContainer"></div>
+            </div>
+        </div>
+    </div>
+</div>
 
 <script>
-// ===========================
-// 遊戲設定與變數
-// ===========================
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
+    let tasks = [];
+    const DAY_WIDTH = 40; // 必須對應 CSS
+    const ROW_HEIGHT = 42; // 必須對應 CSS
+    
+    // 初始化
+    document.getElementById('startDate').valueAsDate = new Date();
 
-// 設定畫布大小 (固定寬高比)
-const GAME_WIDTH = 800;
-const GAME_HEIGHT = 450;
-canvas.width = GAME_WIDTH;
-canvas.height = GAME_HEIGHT;
-
-let gameState = 'playing'; // playing, gameover
-let score = 0;
-let worldOffsetX = 0; // 用於背景捲動
-
-// 按鍵狀態追蹤
-const keys = {
-    ArrowRight: false,
-    ArrowLeft: false,
-    Space: false
-};
-
-// ===========================
-// 遊戲物件類別
-// ===========================
-
-// 主角：武士
-class Samurai {
-    constructor() {
-        this.width = 40;
-        this.height = 60;
-        this.x = 100; // 初始位置
-        this.y = GAME_HEIGHT - this.height - 50; // 地板高度
-        this.speed = 5;
-        this.color = '#004488'; // 深藍色盔甲
-        this.health = 100;
-        
-        // 攻擊相關
-        this.isAttacking = false;
-        this.attackDuration = 0;
-        this.attackCooldown = 0;
-        this.attackHitbox = { x: 0, y: 0, width: 60, height: 20 };
+    // 格式化日期字串 yyyy-mm-dd
+    function formatDate(date) {
+        return date.toISOString().split('T')[0];
     }
 
-    update() {
-        // 移動邏輯
-        if (keys.ArrowRight) {
-            // 如果主角在螢幕中間左側，移動主角
-            if (this.x < GAME_WIDTH / 2) {
-                this.x += this.speed;
-            } else {
-                // 如果主角在中間，移動世界(背景和敵人)
-                worldOffsetX += this.speed;
-            }
-        }
-        if (keys.ArrowLeft && this.x > 0) {
-            this.x -= this.speed;
-        }
-
-        // 攻擊邏輯
-        if (this.attackCooldown > 0) this.attackCooldown--;
-        if (this.attackDuration > 0) this.attackDuration--;
-
-        if (keys.Space && this.attackCooldown === 0 && !this.isAttacking) {
-            this.isAttacking = true;
-            this.attackDuration = 15; // 攻擊動畫持續幀數
-            this.attackCooldown = 30; // 攻擊冷卻幀數
-        }
-
-        if (this.attackDuration === 0) {
-            this.isAttacking = false;
-        }
-
-        // 更新攻擊判定框位置
-        this.attackHitbox.x = this.x + this.width;
-        this.attackHitbox.y = this.y + 20;
+    // 增加日期
+    function addDays(dateStr, days) {
+        const date = new Date(dateStr);
+        date.setDate(date.getDate() + days);
+        return date;
     }
 
-    draw(ctx) {
-        // 繪製身體 (簡化盔甲)
-        ctx.fillStyle = this.color;
-        ctx.fillRect(this.x, this.y, this.width, this.height);
-        
-        // 繪製頭部/頭盔
-        ctx.fillStyle = '#111';
-        ctx.fillRect(this.x + 5, this.y - 15, this.width - 10, 15);
+    function addTask() {
+        const name = document.getElementById('taskName').value;
+        const type = document.getElementById('taskType').value;
+        const start = document.getElementById('startDate').value;
+        const duration = parseInt(document.getElementById('duration').value);
+        const predecessorId = document.getElementById('predecessor').value;
 
-        // 繪製武士刀斬擊效果
-        if (this.isAttacking && this.attackDuration > 5) {
-            ctx.fillStyle = '#E5E4E2'; // 銀色刀光
-            // 畫一個向右延伸的刀光矩形
-            ctx.fillRect(this.x + this.width - 10, this.y + 10, this.attackHitbox.width, 10);
+        if (!name || !start || !duration) {
+            alert("請填寫完整資訊");
+            return;
+        }
+
+        const task = {
+            id: Date.now().toString(), // 使用字串作為 ID
+            name,
+            type,
+            start,
+            duration,
+            predecessorId: predecessorId || null
+        };
+
+        tasks.push(task);
+        updateUI();
+        
+        // 重置輸入
+        document.getElementById('taskName').value = '';
+        document.getElementById('taskName').focus();
+    }
+
+    function removeTask(id) {
+        tasks = tasks.filter(t => t.id !== id);
+        // 移除其他任務對此任務的依賴
+        tasks.forEach(t => {
+            if (t.predecessorId === id) t.predecessorId = null;
+        });
+        updateUI();
+    }
+
+    function updateUI() {
+        renderTaskList();
+        updatePredecessorSelect();
+    }
+
+    function updatePredecessorSelect() {
+        const select = document.getElementById('predecessor');
+        select.innerHTML = '<option value="">(無)</option>';
+        tasks.forEach(task => {
+            const option = document.createElement('option');
+            option.value = task.id;
+            option.textContent = task.name;
+            select.appendChild(option);
+        });
+    }
+
+    function renderTaskList() {
+        const tbody = document.getElementById('taskListBody');
+        tbody.innerHTML = '';
+        tasks.forEach(task => {
+            const predTask = tasks.find(t => t.id === task.predecessorId);
+            const predName = predTask ? predTask.name : '-';
             
-            // 刀光閃爍效果
-            ctx.strokeStyle = '#FFFFFF';
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.moveTo(this.x + this.width, this.y + 15);
-            ctx.lineTo(this.x + this.width + this.attackHitbox.width + 10, this.y + 15 - (15 - this.attackDuration)*2);
-            ctx.stroke();
-        }
-    }
-}
-
-// 敵人：浪人
-class Enemy {
-    constructor(x) {
-        this.width = 40;
-        this.height = 60;
-        this.x = x; // 生成在螢幕外
-        this.y = GAME_HEIGHT - this.height - 50;
-        this.speed = Math.random() * 2 + 2; // 隨機速度
-        this.color = '#880000'; // 紅色敵人
-        this.markedForDeletion = false;
+            const tr = document.createElement('tr');
+            const nameClass = task.type === 'main' ? 'type-main' : 'type-sub';
+            const prefix = task.type === 'sub' ? '└ ' : '';
+            
+            tr.innerHTML = `
+                <td class="${nameClass}">${prefix}${task.name}</td>
+                <td id="list-date-${task.id}">${task.start}</td>
+                <td>${task.duration}</td>
+                <td>${predName}</td>
+                <td><button class="btn-delete" onclick="removeTask('${task.id}')">X</button></td>
+            `;
+            tbody.appendChild(tr);
+        });
     }
 
-    update(playerSpeedX) {
-        // 敵人向左移動
-        this.x -= this.speed;
+    // --- 甘特圖核心邏輯 ---
+
+    let minDate, totalDays;
+
+    function generateGantt() {
+        if (tasks.length === 0) return;
+
+        const chartView = document.getElementById('gantt-chart-view');
+        chartView.style.display = 'block';
+
+        // 1. 計算全域時間範圍
+        let minTime = new Date(tasks[0].start).getTime();
+        let maxTime = new Date(tasks[0].start).getTime();
+
+        tasks.forEach(t => {
+            const s = new Date(t.start).getTime();
+            const e = new Date(t.start);
+            e.setDate(e.getDate() + t.duration);
+            if (s < minTime) minTime = s;
+            if (e.getTime() > maxTime) maxTime = e.getTime();
+        });
+
+        // 緩衝日期
+        minDate = new Date(minTime);
+        minDate.setDate(minDate.getDate() - 3); // 前3天
+        const finalDate = new Date(maxTime);
+        finalDate.setDate(finalDate.getDate() + 10); // 後10天
+
+        totalDays = Math.ceil((finalDate - minDate) / (1000 * 60 * 60 * 24));
+
+        // 2. 建構 DOM
+        buildTimelineHeader(totalDays);
+        buildChartBody(totalDays);
         
-        // 如果玩家在捲動世界，敵人需要額外向左移動
-        if (keys.ArrowRight && player.x >= GAME_WIDTH / 2) {
-            this.x -= playerSpeedX;
-        }
+        // 3. 繪製連線
+        drawArrows();
 
-        // 如果移出螢幕左側，標記刪除
-        if (this.x + this.width < 0) {
-            this.markedForDeletion = true;
-        }
+        // 4. 同步 Header 捲動
+        const scrollWrapper = document.getElementById('ganttScrollWrapper');
+        const headerContainer = document.getElementById('timelineHeaderContainer');
+        scrollWrapper.onscroll = function() {
+            headerContainer.scrollLeft = scrollWrapper.scrollLeft;
+        };
     }
 
-    draw(ctx) {
-        ctx.fillStyle = this.color;
-        // 繪製敵人身體
-        ctx.fillRect(this.x, this.y, this.width, this.height);
-        // 繪製簡單的頭帶
-        ctx.fillStyle = '#FF0000';
-        ctx.fillRect(this.x, this.y + 5, this.width, 5);
-    }
-}
-
-// ===========================
-// 遊戲核心功能
-// ===========================
-
-const player = new Samurai();
-let enemies = [];
-let enemySpawnTimer = 0;
-
-// 碰撞偵測 (矩形與矩形)
-function checkCollision(rect1, rect2) {
-    return (
-        rect1.x < rect2.x + rect2.width &&
-        rect1.x + rect1.width > rect2.x &&
-        rect1.y < rect2.y + rect2.height &&
-        rect1.y + rect1.height > rect2.y
-    );
-}
-
-function handleEnemies() {
-    // 生成敵人
-    enemySpawnTimer++;
-    if (enemySpawnTimer > 60 - Math.min(score / 2, 40)) { // 隨著分數增加，生成速度變快
-        // 生成在螢幕右側邊緣外
-        enemies.push(new Enemy(GAME_WIDTH + Math.random() * 200));
-        enemySpawnTimer = 0;
-    }
-
-    enemies.forEach(enemy => {
-        enemy.update(player.speed);
-        enemy.draw(ctx);
-
-        // 檢查玩家攻擊是否擊中敵人
-        if (player.isAttacking && player.attackDuration > 5) {
-            if (checkCollision(player.attackHitbox, enemy)) {
-                enemy.markedForDeletion = true;
-                score += 10;
-                // 擊中效果 (簡單閃爍)
-                ctx.fillStyle = 'rgba(255, 255, 0, 0.5)';
-                ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
+    function buildTimelineHeader(days) {
+        const header = document.getElementById('timelineHeader');
+        header.innerHTML = '';
+        for (let i = 0; i < days; i++) {
+            const current = new Date(minDate);
+            current.setDate(current.getDate() + i);
+            const div = document.createElement('div');
+            div.className = 'day-cell';
+            div.innerText = `${current.getMonth() + 1}/${current.getDate()}`;
+            if (current.getDay() === 0 || current.getDay() === 6) {
+                div.style.backgroundColor = '#f1f5f9';
             }
+            header.appendChild(div);
+        }
+    }
+
+    function buildChartBody(days) {
+        const sidebar = document.getElementById('ganttSidebar');
+        const barsContainer = document.getElementById('barsContainer');
+        const gridBackground = document.getElementById('gridBackground');
+        const arrowLayer = document.getElementById('arrow-layer');
+        
+        sidebar.innerHTML = '';
+        barsContainer.innerHTML = '';
+        gridBackground.innerHTML = '';
+        
+        // 設定容器總寬度
+        const totalWidth = days * DAY_WIDTH;
+        gridBackground.style.width = `${totalWidth}px`;
+        arrowLayer.style.width = `${totalWidth}px`;
+        arrowLayer.innerHTML = ''; // 清空舊箭頭
+
+        // 繪製網格
+        for (let i = 0; i < days; i++) {
+            const line = document.createElement('div');
+            line.className = 'grid-line';
+            // 標記週末
+            const current = new Date(minDate);
+            current.setDate(current.getDate() + i);
+            if (current.getDay() === 0 || current.getDay() === 6) {
+                line.classList.add('weekend');
+            }
+            gridBackground.appendChild(line);
         }
 
-        // 檢查敵人是否撞到玩家 (簡單的遊戲結束條件)
-        if (checkCollision(player, enemy)) {
-            // 在這個簡單原型中，碰到敵人就扣血，這裡簡化為碰觸多次後結束
-             player.health -= 1;
-             if(player.health <= 0) {
-                 gameState = 'gameover';
-             }
-             ctx.fillStyle = 'rgba(255, 0, 0, 0.3)';
-             ctx.fillRect(player.x, player.y, player.width, player.height);
+        // 繪製每一行任務
+        tasks.forEach((task, index) => {
+            // 1. 左側欄位
+            const nameDiv = document.createElement('div');
+            nameDiv.className = 'task-name-cell';
+            const prefix = task.type === 'sub' ? '&nbsp;&nbsp;└ ' : '';
+            nameDiv.innerHTML = `<span class="${task.type === 'main' ? 'type-main' : 'type-sub'}">${prefix}${task.name}</span>`;
+            sidebar.appendChild(nameDiv);
+
+            // 2. 時間軸列 (隱形列，用來定位)
+            const rowDiv = document.createElement('div');
+            rowDiv.className = 'bar-row';
+            barsContainer.appendChild(rowDiv);
+
+            // 3. 建立 Bar
+            const bar = document.createElement('div');
+            bar.className = `bar ${task.type}`;
+            bar.id = `bar-${task.id}`;
+            bar.innerText = `${task.duration}天`;
+            
+            // 計算位置
+            const diffTime = new Date(task.start) - minDate;
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            
+            bar.style.left = `${diffDays * DAY_WIDTH}px`;
+            bar.style.width = `${task.duration * DAY_WIDTH - 6}px`; // -6 為了留縫隙
+            bar.style.top = `${(index * ROW_HEIGHT) + 9}px`; // 絕對定位高度
+            
+            // 綁定資料屬性
+            bar.dataset.taskId = task.id;
+            bar.dataset.index = index;
+            bar.dataset.currentLeft = diffDays * DAY_WIDTH;
+
+            // 加入拖拉事件
+            bar.addEventListener('mousedown', handleDragStart);
+
+            barsContainer.appendChild(bar);
+        });
+
+        // 調整 SVG 高度以符合內容
+        const totalHeight = tasks.length * ROW_HEIGHT;
+        arrowLayer.style.height = `${totalHeight}px`;
+        barsContainer.style.height = `${totalHeight}px`;
+    }
+
+    // --- 拖拉功能實作 ---
+    let draggedBar = null;
+    let startX = 0;
+    let originalLeft = 0;
+
+    function handleDragStart(e) {
+        draggedBar = e.target;
+        startX = e.clientX;
+        originalLeft = parseFloat(draggedBar.style.left || 0);
+        
+        document.addEventListener('mousemove', handleDragMove);
+        document.addEventListener('mouseup', handleDragEnd);
+        draggedBar.style.opacity = '0.7';
+    }
+
+    function handleDragMove(e) {
+        if (!draggedBar) return;
+        const deltaX = e.clientX - startX;
+        let newLeft = originalLeft + deltaX;
+        
+        // 邊界檢查
+        if (newLeft < 0) newLeft = 0;
+        
+        draggedBar.style.left = `${newLeft}px`;
+        
+        // 即時重繪連線 (為了效能，這裡只做簡單計算，真正的吸附在 drop)
+        requestAnimationFrame(() => drawArrows());
+    }
+
+    function handleDragEnd(e) {
+        if (!draggedBar) return;
+        
+        document.removeEventListener('mousemove', handleDragMove);
+        document.removeEventListener('mouseup', handleDragEnd);
+        
+        // 磁吸效果 (Snap to Grid)
+        const currentLeft = parseFloat(draggedBar.style.left || 0);
+        const dayIndex = Math.round(currentLeft / DAY_WIDTH);
+        const snappedLeft = dayIndex * DAY_WIDTH;
+        
+        draggedBar.style.left = `${snappedLeft}px`;
+        draggedBar.style.opacity = '1';
+
+        // 更新資料模型
+        const taskId = draggedBar.dataset.taskId;
+        const task = tasks.find(t => t.id === taskId);
+        
+        if (task) {
+            const newDate = new Date(minDate);
+            newDate.setDate(newDate.getDate() + dayIndex);
+            task.start = formatDate(newDate);
+            
+            // 同步更新列表顯示
+            const listDateCell = document.getElementById(`list-date-${taskId}`);
+            if (listDateCell) listDateCell.innerText = task.start;
         }
-    });
 
-    // 移除標記的敵人
-    enemies = enemies.filter(enemy => !enemy.markedForDeletion);
-}
-
-function drawBackground() {
-    // 簡單的視差滾動背景
-    
-    // 遠景 (天空與山) - 移動較慢
-    let bg1Offset = (worldOffsetX * 0.1) % GAME_WIDTH;
-    ctx.fillStyle = '#87CEEB'; // 天空
-    ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
-    ctx.fillStyle = '#6E7B8B'; // 遠山
-    ctx.beginPath();
-    ctx.moveTo(0, 250);
-    ctx.lineTo(200, 150);
-    ctx.lineTo(400, 250);
-    ctx.lineTo(600, 180);
-    ctx.lineTo(800, 250);
-    ctx.lineTo(800, GAME_HEIGHT);
-    ctx.lineTo(0, GAME_HEIGHT);
-    ctx.fill();
-
-    // 中景 (竹林) - 移動中等
-    let bg2Offset = (worldOffsetX * 0.5) % GAME_WIDTH;
-    ctx.fillStyle = '#228B22';
-    for(let i = -1; i < 5; i++) {
-        let xPos = i * 200 - bg2Offset + 50;
-        ctx.fillRect(xPos, 200, 20, GAME_HEIGHT - 200);
-        ctx.fillRect(xPos + 30, 180, 15, GAME_HEIGHT - 180);
+        // 完整重繪連線
+        drawArrows();
+        draggedBar = null;
     }
 
-    // 地板 - 移動最快 (與玩家同步)
-    ctx.fillStyle = '#4b3c2a'; // 泥土顏色
-    ctx.fillRect(0, GAME_HEIGHT - 50, GAME_WIDTH, 50);
-    // 地板紋理
-    ctx.strokeStyle = '#3b2c1a';
-    ctx.beginPath();
-    for(let i=0; i < GAME_WIDTH + worldOffsetX % 50; i+=50) {
-         let lineX = i - (worldOffsetX % 50);
-         ctx.moveTo(lineX, GAME_HEIGHT-50);
-         ctx.lineTo(lineX, GAME_HEIGHT);
+    // --- 繪製連線 (SVG) ---
+    function drawArrows() {
+        const svg = document.getElementById('arrow-layer');
+        svg.innerHTML = ''; // 清除舊線
+        
+        // 定義箭頭標記
+        const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
+        const marker = document.createElementNS("http://www.w3.org/2000/svg", "marker");
+        marker.setAttribute("id", "arrowhead");
+        marker.setAttribute("markerWidth", "10");
+        marker.setAttribute("markerHeight", "7");
+        marker.setAttribute("refX", "9");
+        marker.setAttribute("refY", "3.5");
+        marker.setAttribute("orient", "auto");
+        
+        const polygon = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+        polygon.setAttribute("points", "0 0, 10 3.5, 0 7");
+        polygon.setAttribute("fill", "#94a3b8");
+        
+        marker.appendChild(polygon);
+        defs.appendChild(marker);
+        svg.appendChild(defs);
+
+        tasks.forEach(task => {
+            if (task.predecessorId) {
+                const currentBar = document.getElementById(`bar-${task.id}`);
+                const predBar = document.getElementById(`bar-${task.predecessorId}`);
+                
+                if (currentBar && predBar) {
+                    // 取得相對於 gantt-timeline-area 的座標
+                    // 由於 bar 是 absolute positioning，直接讀取 style.left / top 比較準確且快
+                    const x1 = parseFloat(predBar.style.left) + parseFloat(predBar.style.width); // 前置任務右側
+                    const y1 = parseFloat(predBar.style.top) + 12; // 垂直置中
+                    
+                    const x2 = parseFloat(currentBar.style.left); // 當前任務左側
+                    const y2 = parseFloat(currentBar.style.top) + 12; // 垂直置中
+
+                    // 繪製折線 (類似 MS Project 風格)
+                    // 路徑: (x1,y1) -> (x1+10, y1) -> (x1+10, y2) -> (x2, y2)
+                    // 如果 x2 < x1，線條會往回繞
+                    
+                    const midX = x1 + 15; // 轉折點 X 軸位移
+                    
+                    let d = `M ${x1} ${y1} L ${midX} ${y1}`;
+                    
+                    if (x2 > midX) {
+                        // 簡單情況：目標在右邊
+                        d += ` L ${midX} ${y2} L ${x2} ${y2}`;
+                    } else {
+                        // 複雜情況：目標在左邊 (回溯) -> 需要更多轉折避免穿過 Bar
+                        const midY = y2 > y1 ? y1 + (ROW_HEIGHT/2) + 5 : y1 - (ROW_HEIGHT/2) - 5;
+                        d += ` L ${midX} ${midY} L ${x2 - 10} ${midY} L ${x2 - 10} ${y2} L ${x2} ${y2}`;
+                    }
+
+                    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                    path.setAttribute("d", d);
+                    path.setAttribute("class", "arrow-line");
+                    path.setAttribute("marker-end", "url(#arrowhead)");
+                    
+                    svg.appendChild(path);
+                }
+            }
+        });
     }
-    ctx.stroke();
-}
-
-function drawUI() {
-    ctx.fillStyle = 'black';
-    ctx.font = '24px Arial';
-    ctx.fillText('得分: ' + score, 20, 40);
-    
-    // 血條
-    ctx.fillStyle = 'red';
-    ctx.fillRect(20, 50, 100, 10);
-    ctx.fillStyle = 'lime';
-    ctx.fillRect(20, 50, player.health, 10);
-    ctx.strokeStyle = 'black';
-    ctx.strokeRect(20, 50, 100, 10);
-
-    if (gameState === 'gameover') {
-        ctx.fillStyle = 'rgba(0,0,0,0.7)';
-        ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
-        ctx.fillStyle = 'white';
-        ctx.font = '48px Arial';
-        ctx.textAlign = 'center';
-        ctx.fillText('遊戲結束', GAME_WIDTH / 2, GAME_HEIGHT / 2);
-        ctx.font = '24px Arial';
-        ctx.fillText('最終得分: ' + score, GAME_WIDTH / 2, GAME_HEIGHT / 2 + 40);
-        ctx.fillText('重新整理頁面再試一次', GAME_WIDTH / 2, GAME_HEIGHT / 2 + 80);
-    }
-}
-
-// ===========================
-// 主遊戲迴圈
-// ===========================
-
-function gameLoop() {
-    ctx.clearRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
-
-    if (gameState === 'playing') {
-        drawBackground();
-        player.update();
-        player.draw(ctx);
-        handleEnemies();
-    }
-    
-    drawUI();
-    requestAnimationFrame(gameLoop);
-}
-
-// ===========================
-// 事件監聽器 (輸入控制)
-// ===========================
-
-window.addEventListener('keydown', (e) => {
-    if (e.code === 'ArrowRight') keys.ArrowRight = true;
-    if (e.code === 'ArrowLeft') keys.ArrowLeft = true;
-    if (e.code === 'Space') {
-        keys.Space = true;
-        e.preventDefault(); // 防止空白鍵捲動網頁
-    }
-});
-
-window.addEventListener('keyup', (e) => {
-    if (e.code === 'ArrowRight') keys.ArrowRight = false;
-    if (e.code === 'ArrowLeft') keys.ArrowLeft = false;
-    if (e.code === 'Space') keys.Space = false;
-});
-
-// 開始遊戲
-gameLoop();
 
 </script>
+
 </body>
 </html>
