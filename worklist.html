@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>全功能甘特圖：存檔/讀檔/匯出圖片</title>
+    <title>全功能甘特圖：編輯/排程/多視角</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         :root {
@@ -13,250 +13,149 @@
             --border-color: #e2e8f0;
             --main-task-color: #3b82f6;
             --sub-task-color: #10b981;
-            --day-width: 40px;
+            --weekend-color: #e2e8f0; 
+            
+            /* 動態變數 */
+            --column-width: 40px; 
             --row-height: 42px;
         }
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            margin: 0;
-            padding: 20px;
-            background-color: var(--bg-color);
-            color: #333;
+            margin: 0; padding: 20px;
+            background-color: var(--bg-color); color: #333;
             user-select: none;
         }
 
         .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            max-width: 1400px; margin: 0 auto;
+            background: white; padding: 20px;
+            border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
         }
 
         h2 { border-bottom: 2px solid var(--border-color); padding-bottom: 10px; margin-top: 0; }
 
-        /* 工具列區域 */
+        /* 工具列 */
         .toolbar {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-            padding: 10px;
-            background: #e0f2fe;
-            border-radius: 6px;
-            align-items: center;
+            display: flex; gap: 10px; margin-bottom: 20px; padding: 10px;
+            background: #eff6ff; border-radius: 6px; align-items: center; flex-wrap: wrap;
         }
-        
         .btn-tool {
-            padding: 8px 15px;
-            border: 1px solid #0284c7;
-            background: white;
-            color: #0284c7;
-            border-radius: 4px;
-            cursor: pointer;
-            font-weight: bold;
-            display: flex;
-            align-items: center;
-            gap: 5px;
+            padding: 8px 15px; border: 1px solid #bfdbfe; background: white; color: #1e40af;
+            border-radius: 4px; cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 5px;
         }
-        .btn-tool:hover { background: #0284c7; color: white; }
-        .btn-export-img { border-color: #059669; color: #059669; }
-        .btn-export-img:hover { background: #059669; color: white; }
-
-        /* 輸入區域 */
-        .input-group {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-            gap: 15px;
-            margin-bottom: 20px;
-            align-items: end;
-            background: #f1f5f9;
-            padding: 15px;
-            border-radius: 6px;
-        }
-
-        .form-control { display: flex; flex-direction: column; }
-        label { margin-bottom: 5px; font-weight: 600; font-size: 0.9em; }
-        input, select { padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+        .btn-tool:hover { background: #dbeafe; }
         
-        button { cursor: pointer; transition: 0.2s; }
-        .btn-add { padding: 10px 20px; border: none; border-radius: 4px; background-color: var(--primary-color); color: white; font-weight: bold;}
-        .btn-add:hover { background-color: #1d4ed8; }
-        .btn-generate { padding: 12px; border: none; border-radius: 4px; background-color: #0f172a; color: white; width: 100%; margin-top: 10px; font-weight: bold; font-size: 1.1em;}
-        .btn-delete { background-color: #ef4444; border: none; border-radius: 4px; color: white; padding: 5px 10px; font-size: 0.8em; }
+        .view-switcher {
+            display: flex; background: #fff; border: 1px solid #ccc; border-radius: 4px; overflow: hidden; margin-left: 20px;
+        }
+        .view-btn {
+            border: none; background: #fff; padding: 8px 15px; cursor: pointer; border-right: 1px solid #ccc;
+        }
+        .view-btn:last-child { border-right: none; }
+        .view-btn.active { background: #2563eb; color: white; }
 
-        /* 任務列表 */
+        /* 輸入區 */
+        .input-group {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+            gap: 15px; margin-bottom: 20px; align-items: end;
+            background: #f1f5f9; padding: 15px; border-radius: 6px; border: 1px solid #e2e8f0;
+        }
+        .form-control { display: flex; flex-direction: column; }
+        label { margin-bottom: 5px; font-weight: 600; font-size: 0.85em; }
+        input, select { padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+        input[disabled] { background-color: #e2e2e2; cursor: not-allowed; }
+
+        .btn-action { padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; color: white; }
+        .btn-add { background-color: var(--primary-color); }
+        .btn-update { background-color: #d97706; display: none; } /* 預設隱藏 */
+        .btn-cancel { background-color: #64748b; margin-left: 5px; display: none; }
+
+        /* 列表區 */
         .task-list-container {
-            max-height: 200px;
-            overflow-y: auto;
-            border: 1px solid var(--border-color);
-            margin-bottom: 20px;
+            max-height: 250px; overflow-y: auto; border: 1px solid var(--border-color); margin-bottom: 20px;
         }
         .task-list { width: 100%; border-collapse: collapse; }
-        .task-list th { position: sticky; top: 0; background: #eee; z-index: 2; }
-        .task-list th, .task-list td { padding: 8px 10px; border-bottom: 1px solid var(--border-color); text-align: left; font-size: 0.9em; }
+        .task-list th { position: sticky; top: 0; background: #eee; z-index: 2; padding: 10px; text-align: left; }
+        .task-list td { padding: 8px 10px; border-bottom: 1px solid var(--border-color); font-size: 0.9em; }
         .type-main { font-weight: bold; color: var(--primary-color); }
         .type-sub { padding-left: 20px; color: var(--secondary-color); }
+        
+        .action-cell button { margin-right: 5px; padding: 4px 8px; border: none; border-radius: 3px; cursor: pointer; color: white; font-size: 0.8em; }
+        .btn-edit { background-color: #f59e0b; }
+        .btn-del { background-color: #ef4444; }
 
-        /* 甘特圖顯示區域 */
+        .btn-generate { width: 100%; padding: 12px; background: #0f172a; color: white; font-weight: bold; border: none; border-radius: 4px; font-size: 1.1em; cursor: pointer; }
+
+        /* 甘特圖核心 */
         #gantt-chart-view {
-            display: none;
-            border: 1px solid var(--border-color);
-            background: white;
-            margin-top: 20px;
-            position: relative;
-            /* overflow: hidden; */ 
-            /* 注意：為了截圖，這裡不能隨意 hidden，結構由下方 wrapper 控制 */
+            display: none; border: 1px solid var(--border-color); background: white; margin-top: 20px; position: relative;
         }
-
-        .gantt-header {
-            display: flex;
-            border-bottom: 1px solid #ddd;
-            background: #f8f9fa;
-            height: 40px;
-        }
-
-        .gantt-sidebar-header {
-            min-width: 200px;
-            width: 200px;
-            padding: 10px;
-            font-weight: bold;
-            border-right: 1px solid #ddd;
-            background: #f8f9fa;
-            box-sizing: border-box;
-            z-index: 20;
-        }
-
-        .timeline-header-container {
-            overflow: hidden; 
-            flex-grow: 1;
-            position: relative;
-        }
+        .gantt-header { display: flex; border-bottom: 1px solid #ddd; background: #f8f9fa; height: 40px; }
+        .gantt-sidebar-header { min-width: 200px; width: 200px; padding: 10px; font-weight: bold; border-right: 1px solid #ddd; background: #f8f9fa; z-index: 20; box-sizing: border-box; }
         
+        .timeline-header-container { overflow: hidden; flex-grow: 1; position: relative; }
         .timeline-header { display: flex; }
-
-        .day-cell {
-            min-width: var(--day-width);
-            width: var(--day-width);
-            text-align: center;
-            border-right: 1px solid #eee;
-            font-size: 0.8em;
-            padding: 10px 0;
-            box-sizing: border-box;
-        }
-
-        /* 捲動區域 */
-        .gantt-scroll-wrapper {
-            display: flex;
-            overflow-x: auto;
-            overflow-y: auto;
-            max-height: 500px;
-            position: relative;
-        }
-
-        .gantt-sidebar {
-            min-width: 200px;
-            width: 200px;
-            position: sticky;
-            left: 0;
-            background: white;
-            z-index: 10;
-            border-right: 1px solid #ddd;
-            box-shadow: 2px 0 5px rgba(0,0,0,0.05);
-        }
-
-        .task-name-cell {
-            height: var(--row-height);
-            padding: 0 10px;
-            border-bottom: 1px solid #f0f0f0;
-            display: flex;
-            align-items: center;
-            overflow: hidden;
-            white-space: nowrap;
-            text-overflow: ellipsis;
-            box-sizing: border-box;
-        }
-
-        .gantt-timeline-area {
-            position: relative;
-            flex-grow: 1;
-        }
-
-        .grid-background {
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            display: flex;
-            z-index: 0;
-            pointer-events: none;
-        }
-        .grid-line {
-            min-width: var(--day-width);
-            width: var(--day-width);
-            border-right: 1px solid #f5f5f5;
-            height: 100%;
-            box-sizing: border-box;
-        }
-
-        #arrow-layer {
-            position: absolute;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            z-index: 1;
-            pointer-events: none;
-        }
         
-        .arrow-line { stroke: #94a3b8; stroke-width: 2; fill: none; }
-        .arrow-head { fill: #94a3b8; }
-
-        .bar-row {
-            height: var(--row-height);
-            border-bottom: 1px solid transparent;
-            position: relative;
-            box-sizing: border-box;
+        .header-cell {
+            min-width: var(--column-width); width: var(--column-width);
+            text-align: center; border-right: 1px solid #eee; font-size: 0.8em; padding: 10px 0; box-sizing: border-box;
+            white-space: nowrap; overflow: hidden;
         }
 
+        .gantt-scroll-wrapper { display: flex; overflow: auto; max-height: 500px; position: relative; }
+        .gantt-sidebar { min-width: 200px; width: 200px; position: sticky; left: 0; background: white; z-index: 10; border-right: 1px solid #ddd; }
+        .task-name-cell { height: var(--row-height); padding: 0 10px; border-bottom: 1px solid #f0f0f0; display: flex; align-items: center; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; box-sizing: border-box; }
+        
+        .gantt-timeline-area { position: relative; flex-grow: 1; }
+        .grid-background { position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; z-index: 0; pointer-events: none; }
+        .grid-line {
+            min-width: var(--column-width); width: var(--column-width);
+            border-right: 1px solid #f5f5f5; height: 100%; box-sizing: border-box;
+        }
+        /* 週末樣式 */
+        .weekend { background-color: var(--weekend-color); }
+
+        #arrow-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none; }
+        .arrow-line { stroke: #94a3b8; stroke-width: 2; fill: none; }
+        
+        .bar-row { height: var(--row-height); border-bottom: 1px solid transparent; position: relative; box-sizing: border-box; }
         .bar {
-            position: absolute;
-            height: 24px;
-            top: 9px;
-            border-radius: 4px;
-            color: white;
-            font-size: 12px;
-            display: flex;
-            align-items: center;
-            padding-left: 8px;
-            white-space: nowrap;
-            overflow: hidden;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-            cursor: grab;
-            z-index: 5;
+            position: absolute; height: 24px; top: 9px; border-radius: 4px; color: white; font-size: 12px;
+            display: flex; align-items: center; padding-left: 8px; white-space: nowrap; overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2); cursor: grab; z-index: 5;
         }
         .bar:active { cursor: grabbing; opacity: 0.8; }
         .bar.main { background-color: var(--main-task-color); }
         .bar.sub { background-color: var(--sub-task-color); }
-
-        .weekend { background-color: #f8fafc; }
 
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>專案甘特圖繪製工具</h2>
+    <h2>專案管理甘特圖 (Expert Edition)</h2>
 
     <div class="toolbar">
-        <button class="btn-tool" onclick="saveProject()">💾 儲存專案 (JSON)</button>
-        <button class="btn-tool" onclick="document.getElementById('fileInput').click()">📂 讀取專案</button>
+        <button class="btn-tool" onclick="saveProject()">💾 存檔 (JSON)</button>
+        <button class="btn-tool" onclick="document.getElementById('fileInput').click()">📂 讀檔</button>
         <input type="file" id="fileInput" accept=".json" style="display: none;" onchange="loadProject(this)">
-        <div style="flex-grow: 1;"></div>
-        <button class="btn-tool btn-export-img" onclick="exportToImage()">📷 匯出圖片 (PNG)</button>
+        <button class="btn-tool" onclick="exportToImage()">📷 匯出圖片</button>
+
+        <div style="flex-grow:1"></div>
+        
+        <span>顯示模式：</span>
+        <div class="view-switcher">
+            <button class="view-btn active" onclick="switchView('day')" id="view-day">日</button>
+            <button class="view-btn" onclick="switchView('week')" id="view-week">週</button>
+            <button class="view-btn" onclick="switchView('month')" id="view-month">月</button>
+        </div>
     </div>
 
     <div class="input-group">
-        <div class="form-control">
+        <input type="hidden" id="taskId"> <div class="form-control">
             <label>任務名稱</label>
-            <input type="text" id="taskName" placeholder="任務名稱">
+            <input type="text" id="taskName" placeholder="輸入任務名稱">
         </div>
         <div class="form-control">
             <label>類型</label>
@@ -266,20 +165,25 @@
             </select>
         </div>
         <div class="form-control">
+            <label>前置任務</label>
+            <select id="predecessor" onchange="checkPredecessor(this)">
+                <option value="">(無)</option>
+            </select>
+        </div>
+        <div class="form-control">
             <label>開始日期</label>
             <input type="date" id="startDate">
         </div>
         <div class="form-control">
             <label>天數</label>
-            <input type="number" id="duration" min="1" value="3" style="width: 60px;">
+            <input type="number" id="duration" min="1" value="3">
         </div>
-        <div class="form-control">
-            <label>前置任務</label>
-            <select id="predecessor">
-                <option value="">(無)</option>
-            </select>
+        
+        <div style="display:flex;">
+            <button class="btn-action btn-add" id="btnAdd" onclick="addOrUpdateTask()">+ 加入清單</button>
+            <button class="btn-action btn-update" id="btnUpdate" onclick="addOrUpdateTask()">更新任務</button>
+            <button class="btn-action btn-cancel" id="btnCancel" onclick="cancelEdit()">取消</button>
         </div>
-        <button class="btn-add" onclick="addTask()">+ 加入</button>
     </div>
 
     <div class="task-list-container">
@@ -288,9 +192,10 @@
                 <tr>
                     <th width="30%">任務名稱</th>
                     <th>開始日期</th>
+                    <th>結束日期</th>
                     <th>天數</th>
-                    <th>前置任務</th>
-                    <th>操作</th>
+                    <th>前置</th>
+                    <th width="120">操作</th>
                 </tr>
             </thead>
             <tbody id="taskListBody"></tbody>
@@ -320,141 +225,168 @@
 
 <script>
     let tasks = [];
-    const DAY_WIDTH = 40;
-    const ROW_HEIGHT = 42;
-    let minDate, totalDays;
+    
+    // 視圖設定
+    let currentView = 'day'; // day, week, month
+    const VIEW_CONFIG = {
+        day: { pxPerDay: 40, labelFormat: 'MM/dd' },
+        week: { pxPerDay: 15, labelFormat: 'Week' },  // 一週約 105px
+        month: { pxPerDay: 5, labelFormat: 'Month' }  // 一月約 150px
+    };
 
+    const ROW_HEIGHT = 42;
+
+    // 初始化
     document.getElementById('startDate').valueAsDate = new Date();
 
-    // ----------------------
-    //  存檔與讀檔功能
-    // ----------------------
-
-    function saveProject() {
-        if (tasks.length === 0) {
-            alert("目前沒有任何任務可供儲存。");
-            return;
-        }
-        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(tasks));
-        const downloadAnchorNode = document.createElement('a');
-        downloadAnchorNode.setAttribute("href", dataStr);
-        downloadAnchorNode.setAttribute("download", "gantt_project.json");
-        document.body.appendChild(downloadAnchorNode); // required for firefox
-        downloadAnchorNode.click();
-        downloadAnchorNode.remove();
-    }
-
-    function loadProject(input) {
-        const file = input.files[0];
-        if (!file) return;
-
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            try {
-                const loadedTasks = JSON.parse(e.target.result);
-                if (Array.isArray(loadedTasks)) {
-                    tasks = loadedTasks;
-                    updateUI();
-                    alert("專案讀取成功！請點擊「產出甘特圖」來查看。");
-                } else {
-                    alert("檔案格式錯誤");
-                }
-            } catch (err) {
-                alert("無法讀取檔案，請確認是否為正確的 JSON 檔。");
-            }
-        };
-        reader.readAsText(file);
-        // 清空 input 讓同檔名可重複觸發
-        input.value = '';
-    }
-
-    // ----------------------
-    //  匯出圖片功能
-    // ----------------------
-    
-    function exportToImage() {
-        const chartElement = document.getElementById("gantt-chart-view");
-        if (chartElement.style.display === "none") {
-            alert("請先產出甘特圖！");
-            return;
-        }
-
-        // 截圖前的準備：為了截到完整寬度，需要暫時修改樣式
-        const scrollWrapper = document.getElementById("ganttScrollWrapper");
-        const timelineHeaderContainer = document.getElementById("timelineHeaderContainer");
-        
-        // 紀錄原始樣式
-        const originalOverflow = scrollWrapper.style.overflow;
-        const originalWidth = scrollWrapper.style.width;
-        
-        // 強制展開捲軸區域，讓 html2canvas 能抓到全部內容
-        // 這裡設定固定寬度為內容的 scrollWidth
-        const fullWidth = scrollWrapper.scrollWidth;
-        
-        // 為了避免 sticky 定位在截圖時跑版，通常建議截圖時暫時移除 sticky 或確保視窗夠大
-        // 這裡我們嘗試直接截取，如果 sticky 跑掉，通常是因為 html2canvas 對 sticky 支援度有限
-        // 一個解法是截圖當下把 sticky 改成 static (但這樣列表會跑上去)，或直接截大圖
-        
-        // 這裡採用一個簡單策略：暫時把外框撐大
-        chartElement.style.width = (fullWidth + 210) + "px"; // 200 sidebar + buffer
-        scrollWrapper.style.overflow = "visible";
-        timelineHeaderContainer.style.overflow = "visible";
-
-        html2canvas(chartElement, {
-            scale: 2, // 提高解析度
-            backgroundColor: "#ffffff"
-        }).then(canvas => {
-            // 復原樣式
-            chartElement.style.width = "";
-            scrollWrapper.style.overflow = "";
-            timelineHeaderContainer.style.overflow = "";
-
-            // 下載圖片
-            const link = document.createElement('a');
-            link.download = 'gantt_chart.png';
-            link.href = canvas.toDataURL();
-            link.click();
-        }).catch(err => {
-            console.error(err);
-            alert("圖片匯出失敗，請檢查瀏覽器主控台。");
-            // 發生錯誤也要復原
-            chartElement.style.width = "";
-            scrollWrapper.style.overflow = "";
-            timelineHeaderContainer.style.overflow = "";
-        });
-    }
-
-
-    // ----------------------
-    //  基本邏輯 (同前版)
-    // ----------------------
-
+    // ----------------------------
+    // 工具函式
+    // ----------------------------
     function formatDate(date) { return date.toISOString().split('T')[0]; }
+    function addDays(dateStr, days) {
+        const d = new Date(dateStr);
+        d.setDate(d.getDate() + days);
+        return d;
+    }
+    
+    // 檢查是否有選前置任務，若有則鎖定日期並自動計算
+    function checkPredecessor(select) {
+        const predId = select.value;
+        const dateInput = document.getElementById('startDate');
+        
+        if (predId) {
+            const predTask = tasks.find(t => t.id === predId);
+            if (predTask) {
+                // 規則：開始日期 = 前置任務開始 + 天數 (即前置任務結束的隔天，或當天，這裡設為接續)
+                const newStart = addDays(predTask.start, predTask.duration);
+                dateInput.value = formatDate(newStart);
+                dateInput.disabled = true; // 鎖定
+                dateInput.title = "由前置任務自動決定";
+            }
+        } else {
+            dateInput.disabled = false;
+            dateInput.title = "";
+        }
+    }
 
-    function addTask() {
+    // ----------------------------
+    // 核心資料操作 (CRUD)
+    // ----------------------------
+
+    function addOrUpdateTask() {
+        const id = document.getElementById('taskId').value;
         const name = document.getElementById('taskName').value;
         const type = document.getElementById('taskType').value;
-        const start = document.getElementById('startDate').value;
+        let start = document.getElementById('startDate').value;
         const duration = parseInt(document.getElementById('duration').value);
-        const predecessorId = document.getElementById('predecessor').value;
+        const predecessorId = document.getElementById('predecessor').value || null;
 
         if (!name || !start || !duration) { alert("請填寫完整資訊"); return; }
 
-        const task = {
-            id: Date.now().toString(),
-            name, type, start, duration,
-            predecessorId: predecessorId || null
-        };
+        // 如果有前置任務，強制覆寫開始時間 (後端防護)
+        if (predecessorId) {
+            const predTask = tasks.find(t => t.id === predecessorId);
+            if (predTask) {
+                const calculatedDate = addDays(predTask.start, predTask.duration);
+                start = formatDate(calculatedDate);
+            }
+        }
 
-        tasks.push(task);
+        if (id) {
+            // 更新模式
+            const taskIndex = tasks.findIndex(t => t.id === id);
+            if (taskIndex > -1) {
+                tasks[taskIndex] = { id, name, type, start, duration, predecessorId };
+            }
+            cancelEdit(); // 恢復按鈕狀態
+        } else {
+            // 新增模式
+            const newTask = {
+                id: Date.now().toString(),
+                name, type, start, duration, predecessorId
+            };
+            tasks.push(newTask);
+        }
+
+        // 強制重算所有關聯日期 (Cascade Update)
+        recalculateAllDates();
         updateUI();
+        
+        if (!id) {
+            document.getElementById('taskName').value = '';
+            document.getElementById('taskName').focus();
+        }
+    }
+
+    // 遞迴重算日期 (解決連鎖相依性)
+    function recalculateAllDates() {
+        // 簡單的多次掃描法 (適合少量數據)
+        let changed = true;
+        let loops = 0;
+        while(changed && loops < tasks.length + 1) {
+            changed = false;
+            tasks.forEach(task => {
+                if (task.predecessorId) {
+                    const parent = tasks.find(t => t.id === task.predecessorId);
+                    if (parent) {
+                        const newStart = formatDate(addDays(parent.start, parent.duration));
+                        if (task.start !== newStart) {
+                            task.start = newStart;
+                            changed = true;
+                        }
+                    }
+                }
+            });
+            loops++;
+        }
+    }
+
+    function editTask(id) {
+        const task = tasks.find(t => t.id === id);
+        if (!task) return;
+
+        document.getElementById('taskId').value = task.id;
+        document.getElementById('taskName').value = task.name;
+        document.getElementById('taskType').value = task.type;
+        document.getElementById('duration').value = task.duration;
+        
+        // 更新下拉選單 (避免自己選自己)
+        updatePredecessorSelect(task.id); 
+        document.getElementById('predecessor').value = task.predecessorId || "";
+        
+        // 設定日期並觸發鎖定檢查
+        document.getElementById('startDate').value = task.start;
+        checkPredecessor(document.getElementById('predecessor'));
+
+        // 切換按鈕
+        document.getElementById('btnAdd').style.display = 'none';
+        document.getElementById('btnUpdate').style.display = 'inline-block';
+        document.getElementById('btnCancel').style.display = 'inline-block';
+    }
+
+    function cancelEdit() {
+        document.getElementById('taskId').value = '';
         document.getElementById('taskName').value = '';
-        document.getElementById('taskName').focus();
+        document.getElementById('duration').value = '3';
+        document.getElementById('predecessor').value = '';
+        document.getElementById('startDate').disabled = false;
+        
+        document.getElementById('btnAdd').style.display = 'inline-block';
+        document.getElementById('btnUpdate').style.display = 'none';
+        document.getElementById('btnCancel').style.display = 'none';
+        
+        updatePredecessorSelect(); // 恢復完整的下拉選單
     }
 
     function removeTask(id) {
+        if(!confirm("確定刪除此任務？")) return;
         tasks = tasks.filter(t => t.id !== id);
+        // 清除別人的相依
         tasks.forEach(t => { if (t.predecessorId === id) t.predecessorId = null; });
+        
+        // 如果正在編輯這個被刪除的任務，取消編輯
+        if(document.getElementById('taskId').value === id) cancelEdit();
+        
         updateUI();
     }
 
@@ -463,15 +395,19 @@
         updatePredecessorSelect();
     }
 
-    function updatePredecessorSelect() {
+    function updatePredecessorSelect(excludeId = null) {
         const select = document.getElementById('predecessor');
+        const currentVal = select.value;
         select.innerHTML = '<option value="">(無)</option>';
         tasks.forEach(task => {
+            if (task.id === excludeId) return; // 編輯時不能選自己
             const option = document.createElement('option');
             option.value = task.id;
             option.textContent = task.name;
             select.appendChild(option);
         });
+        // 嘗試恢復選取
+        if(currentVal && currentVal !== excludeId) select.value = currentVal;
     }
 
     function renderTaskList() {
@@ -480,25 +416,61 @@
         tasks.forEach(task => {
             const predTask = tasks.find(t => t.id === task.predecessorId);
             const predName = predTask ? predTask.name : '-';
+            const endDate = formatDate(addDays(task.start, task.duration));
+            
             const tr = document.createElement('tr');
             const nameClass = task.type === 'main' ? 'type-main' : 'type-sub';
             const prefix = task.type === 'sub' ? '└ ' : '';
+            
             tr.innerHTML = `
                 <td class="${nameClass}">${prefix}${task.name}</td>
-                <td id="list-date-${task.id}">${task.start}</td>
+                <td>${task.start}</td>
+                <td style="color:#666; font-size:0.85em">${endDate}</td>
                 <td>${task.duration}</td>
                 <td>${predName}</td>
-                <td><button class="btn-delete" onclick="removeTask('${task.id}')">X</button></td>
+                <td class="action-cell">
+                    <button class="btn-edit" onclick="editTask('${task.id}')">修改</button>
+                    <button class="btn-del" onclick="removeTask('${task.id}')">刪除</button>
+                </td>
             `;
             tbody.appendChild(tr);
         });
     }
 
+    // ----------------------------
+    // 甘特圖繪製邏輯
+    // ----------------------------
+
+    function switchView(mode) {
+        currentView = mode;
+        // 更新按鈕樣式
+        document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById(`view-${mode}`).classList.add('active');
+        
+        // 更新 CSS 變數中的欄位寬度
+        const pxPerDay = VIEW_CONFIG[mode].pxPerDay;
+        let colWidth = 40; // 預設
+        
+        if (mode === 'day') colWidth = 40;
+        else if (mode === 'week') colWidth = pxPerDay * 7; // 一格一週
+        else if (mode === 'month') colWidth = pxPerDay * 30; // 粗略一格一月
+        
+        // 這裡我們主要依賴 pxPerDay 來算位置，CSS 的 --column-width 用於 Grid 繪製
+        // 為了讓 Grid 對齊，我們在 generateGantt 裡動態生成 Grid，不完全依賴 CSS repeat
+        
+        if(tasks.length > 0) generateGantt();
+    }
+
     function generateGantt() {
         if (tasks.length === 0) return;
+        recalculateAllDates(); // 繪製前確保日期正確
+
         const chartView = document.getElementById('gantt-chart-view');
         chartView.style.display = 'block';
+        
+        const pxPerDay = VIEW_CONFIG[currentView].pxPerDay;
 
+        // 計算時間範圍
         let minTime = new Date(tasks[0].start).getTime();
         let maxTime = new Date(tasks[0].start).getTime();
 
@@ -510,16 +482,22 @@
             if (e.getTime() > maxTime) maxTime = e.getTime();
         });
 
-        minDate = new Date(minTime);
-        minDate.setDate(minDate.getDate() - 3);
+        const minDate = new Date(minTime);
+        minDate.setDate(minDate.getDate() - 7); // 緩衝
         const finalDate = new Date(maxTime);
-        finalDate.setDate(finalDate.getDate() + 10);
-        totalDays = Math.ceil((finalDate - minDate) / (1000 * 60 * 60 * 24));
+        finalDate.setDate(finalDate.getDate() + 30); // 緩衝
 
-        buildTimelineHeader(totalDays);
-        buildChartBody(totalDays);
-        drawArrows();
+        const totalDays = Math.ceil((finalDate - minDate) / (1000 * 60 * 60 * 24));
+        
+        // 設定 CSS 變數給 Grid 用 (只有 Day mode 需要嚴格對齊 CSS grid，其他模式我們手繪 div)
+        document.documentElement.style.setProperty('--column-width', `${pxPerDay}px`);
 
+        // 建構
+        buildHeaderAndGrid(minDate, totalDays, pxPerDay);
+        buildBars(minDate, pxPerDay);
+        drawArrows(minDate, pxPerDay);
+        
+        // 同步捲動
         const scrollWrapper = document.getElementById('ganttScrollWrapper');
         const headerContainer = document.getElementById('timelineHeaderContainer');
         scrollWrapper.onscroll = function() {
@@ -527,77 +505,174 @@
         };
     }
 
-    function buildTimelineHeader(days) {
+    function buildHeaderAndGrid(minDate, totalDays, pxPerDay) {
         const header = document.getElementById('timelineHeader');
+        const gridBg = document.getElementById('gridBackground');
         header.innerHTML = '';
-        for (let i = 0; i < days; i++) {
-            const current = new Date(minDate);
-            current.setDate(current.getDate() + i);
-            const div = document.createElement('div');
-            div.className = 'day-cell';
-            div.innerText = `${current.getMonth() + 1}/${current.getDate()}`;
-            if (current.getDay() === 0 || current.getDay() === 6) div.style.backgroundColor = '#f1f5f9';
-            header.appendChild(div);
+        gridBg.innerHTML = '';
+        
+        let totalWidth = totalDays * pxPerDay;
+        
+        // 根據不同視圖產生 Header 和 Grid
+        if (currentView === 'day') {
+            for (let i = 0; i < totalDays; i++) {
+                const d = new Date(minDate);
+                d.setDate(d.getDate() + i);
+                
+                // Header Cell
+                const cell = document.createElement('div');
+                cell.className = 'header-cell';
+                cell.style.width = `${pxPerDay}px`;
+                cell.innerText = `${d.getMonth()+1}/${d.getDate()}`;
+                
+                // Grid Line
+                const line = document.createElement('div');
+                line.className = 'grid-line';
+                line.style.width = `${pxPerDay}px`;
+                
+                // 假日顏色判斷
+                const day = d.getDay();
+                if (day === 0 || day === 6) {
+                    cell.style.backgroundColor = '#f1f5f9';
+                    line.classList.add('weekend');
+                }
+                
+                header.appendChild(cell);
+                gridBg.appendChild(line);
+            }
+        } 
+        else if (currentView === 'week') {
+            // 週檢視：Header 顯示每週的開始，Grid 一格一週
+            const weeks = Math.ceil(totalDays / 7);
+            totalWidth = weeks * (pxPerDay * 7);
+            
+            for (let i = 0; i < weeks; i++) {
+                const d = new Date(minDate);
+                d.setDate(d.getDate() + (i * 7));
+                
+                const wWidth = pxPerDay * 7;
+                
+                const cell = document.createElement('div');
+                cell.className = 'header-cell';
+                cell.style.width = `${wWidth}px`;
+                cell.innerText = `W${getWeekNumber(d)} (${d.getMonth()+1}/${d.getDate()})`;
+                
+                const line = document.createElement('div');
+                line.className = 'grid-line';
+                line.style.width = `${wWidth}px`;
+                
+                header.appendChild(cell);
+                gridBg.appendChild(line);
+            }
         }
+        else if (currentView === 'month') {
+            // 月檢視：簡單處理，loop totalDays，但只在每個月的一號畫線和標題
+            // 這種畫法比較複雜，為了對齊 Bar，我們用絕對定位的 Grid 比較好？
+            // 為了簡化邏輯，我們維持 "天" 的寬度，但 Header 合併顯示
+            
+            // 使用絕對定位畫 Grid 會比較準，但這裡為了維持 DOM 結構一致：
+            // 我們產生 "天" 的 Grid，但寬度很窄，Header 則動態計算
+            
+            // 修正策略：Header 使用絕對定位覆蓋
+            header.style.position = 'relative';
+            header.style.height = '40px';
+            
+            let currentMonth = -1;
+            
+            for (let i = 0; i < totalDays; i++) {
+                const d = new Date(minDate);
+                d.setDate(d.getDate() + i);
+                
+                // Grid 還是每天畫一條細線(或不畫)，這裡選擇只畫月分隔線
+                // 為了效能，我們只畫月分隔線
+                if (d.getDate() === 1 || i === 0) {
+                    // 月份 Header
+                    const mLabel = document.createElement('div');
+                    mLabel.style.position = 'absolute';
+                    mLabel.style.left = `${i * pxPerDay}px`;
+                    mLabel.style.width = '100px'; // 預估寬度
+                    mLabel.style.padding = '10px 5px';
+                    mLabel.style.fontSize = '0.8em';
+                    mLabel.style.borderLeft = '1px solid #ccc';
+                    mLabel.innerText = `${d.getFullYear()}-${d.getMonth()+1}`;
+                    header.appendChild(mLabel);
+                    
+                    // 月份 Grid Line
+                    const line = document.createElement('div');
+                    line.className = 'grid-line';
+                    line.style.position = 'absolute';
+                    line.style.left = `${i * pxPerDay}px`;
+                    line.style.width = '1px'; // 線寬
+                    line.style.height = '100%';
+                    line.style.borderRight = '1px solid #ddd';
+                    gridBg.appendChild(line);
+                }
+            }
+        }
+
+        // 設定容器寬度
+        gridBg.style.width = `${totalWidth}px`;
+        document.getElementById('arrow-layer').style.width = `${totalWidth}px`;
     }
 
-    function buildChartBody(days) {
+    function buildBars(minDate, pxPerDay) {
         const sidebar = document.getElementById('ganttSidebar');
         const barsContainer = document.getElementById('barsContainer');
-        const gridBackground = document.getElementById('gridBackground');
-        const arrowLayer = document.getElementById('arrow-layer');
         
-        sidebar.innerHTML = ''; barsContainer.innerHTML = ''; gridBackground.innerHTML = '';
-        
-        const totalWidth = days * DAY_WIDTH;
-        gridBackground.style.width = `${totalWidth}px`;
-        arrowLayer.style.width = `${totalWidth}px`;
-        arrowLayer.innerHTML = '';
-
-        for (let i = 0; i < days; i++) {
-            const line = document.createElement('div');
-            line.className = 'grid-line';
-            const current = new Date(minDate);
-            current.setDate(current.getDate() + i);
-            if (current.getDay() === 0 || current.getDay() === 6) line.classList.add('weekend');
-            gridBackground.appendChild(line);
-        }
+        sidebar.innerHTML = '';
+        barsContainer.innerHTML = '';
+        barsContainer.style.height = `${tasks.length * ROW_HEIGHT}px`;
+        document.getElementById('arrow-layer').style.height = `${tasks.length * ROW_HEIGHT}px`;
 
         tasks.forEach((task, index) => {
+            // 左側列表
             const nameDiv = document.createElement('div');
             nameDiv.className = 'task-name-cell';
             const prefix = task.type === 'sub' ? '&nbsp;&nbsp;└ ' : '';
             nameDiv.innerHTML = `<span class="${task.type === 'main' ? 'type-main' : 'type-sub'}">${prefix}${task.name}</span>`;
             sidebar.appendChild(nameDiv);
 
+            // 條狀圖列
             const rowDiv = document.createElement('div');
             rowDiv.className = 'bar-row';
             barsContainer.appendChild(rowDiv);
 
+            // Bar
             const bar = document.createElement('div');
             bar.className = `bar ${task.type}`;
             bar.id = `bar-${task.id}`;
-            bar.innerText = `${task.duration}天`;
+            bar.innerText = currentView === 'month' ? '' : `${task.duration}天`; // 月檢視太擠不顯示文字
             
             const diffTime = new Date(task.start) - minDate;
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            const diffDays = diffTime / (1000 * 60 * 60 * 24); // 支援小數點
             
-            bar.style.left = `${diffDays * DAY_WIDTH}px`;
-            bar.style.width = `${task.duration * DAY_WIDTH - 6}px`;
+            bar.style.left = `${diffDays * pxPerDay}px`;
+            bar.style.width = `${Math.max(task.duration * pxPerDay - 2, 2)}px`;
             bar.style.top = `${(index * ROW_HEIGHT) + 9}px`;
+            
+            // 拖拉資料綁定
             bar.dataset.taskId = task.id;
+            bar.dataset.minDate = minDate.getTime();
             
             bar.addEventListener('mousedown', handleDragStart);
             barsContainer.appendChild(bar);
         });
-        
-        const totalHeight = tasks.length * ROW_HEIGHT;
-        arrowLayer.style.height = `${totalHeight}px`;
-        barsContainer.style.height = `${totalHeight}px`;
     }
 
+    // ----------------------------
+    // 拖拉邏輯 (更新版，支援不同 View)
+    // ----------------------------
     let draggedBar = null, startX = 0, originalLeft = 0;
+    
     function handleDragStart(e) {
+        // 如果有前置任務，禁止拖拉（因為日期被鎖定）
+        const taskId = e.target.dataset.taskId;
+        const task = tasks.find(t => t.id === taskId);
+        if (task && task.predecessorId) {
+            alert("此任務受前置任務限制，無法手動拖移。請調整前置任務。");
+            return;
+        }
+
         draggedBar = e.target;
         startX = e.clientX;
         originalLeft = parseFloat(draggedBar.style.left || 0);
@@ -605,42 +680,59 @@
         document.addEventListener('mouseup', handleDragEnd);
         draggedBar.style.opacity = '0.7';
     }
+
     function handleDragMove(e) {
         if (!draggedBar) return;
         const deltaX = e.clientX - startX;
         let newLeft = originalLeft + deltaX;
         if (newLeft < 0) newLeft = 0;
         draggedBar.style.left = `${newLeft}px`;
-        requestAnimationFrame(drawArrows);
+        requestAnimationFrame(() => drawArrows(null, VIEW_CONFIG[currentView].pxPerDay, true)); // 簡易重繪
     }
+
     function handleDragEnd(e) {
         if (!draggedBar) return;
         document.removeEventListener('mousemove', handleDragMove);
         document.removeEventListener('mouseup', handleDragEnd);
         
+        const pxPerDay = VIEW_CONFIG[currentView].pxPerDay;
         const currentLeft = parseFloat(draggedBar.style.left || 0);
-        const dayIndex = Math.round(currentLeft / DAY_WIDTH);
-        const snappedLeft = dayIndex * DAY_WIDTH;
+        
+        // 磁吸計算
+        const dayIndex = Math.round(currentLeft / pxPerDay);
+        const snappedLeft = dayIndex * pxPerDay;
         
         draggedBar.style.left = `${snappedLeft}px`;
         draggedBar.style.opacity = '1';
 
         const taskId = draggedBar.dataset.taskId;
+        const minDateTs = parseInt(draggedBar.dataset.minDate);
         const task = tasks.find(t => t.id === taskId);
+        
         if (task) {
-            const newDate = new Date(minDate);
+            const newDate = new Date(minDateTs);
             newDate.setDate(newDate.getDate() + dayIndex);
             task.start = formatDate(newDate);
-            const listDateCell = document.getElementById(`list-date-${taskId}`);
-            if (listDateCell) listDateCell.innerText = task.start;
+            
+            // 拖拉後可能影響後續任務，需全域重算
+            recalculateAllDates();
+            updateUI(); // 更新列表日期
+            generateGantt(); // 重新繪製圖表 (確保連動的 Bar 也跟著動)
         }
-        drawArrows();
         draggedBar = null;
     }
 
-    function drawArrows() {
+    // ----------------------------
+    // 連線繪製 (SVG)
+    // ----------------------------
+    function drawArrows(minDateObj = null, pxPerDay = 40, simpleMode = false) {
+        // 如果是 simpleMode (拖拉中)，不需重算 minDate，直接抓 DOM 位置即可
+        // 但為了箭頭準確，我們通常在 generateGantt 時已經傳入正確參數
+        
         const svg = document.getElementById('arrow-layer');
         svg.innerHTML = '';
+        
+        // 定義箭頭
         const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
         const marker = document.createElementNS("http://www.w3.org/2000/svg", "marker");
         marker.setAttribute("id", "arrowhead");
@@ -660,19 +752,25 @@
             if (task.predecessorId) {
                 const currentBar = document.getElementById(`bar-${task.id}`);
                 const predBar = document.getElementById(`bar-${task.predecessorId}`);
+                
                 if (currentBar && predBar) {
                     const x1 = parseFloat(predBar.style.left) + parseFloat(predBar.style.width);
                     const y1 = parseFloat(predBar.style.top) + 12;
                     const x2 = parseFloat(currentBar.style.left);
                     const y2 = parseFloat(currentBar.style.top) + 12;
-                    const midX = x1 + 15;
+                    
+                    const midX = x1 + 10;
+                    
                     let d = `M ${x1} ${y1} L ${midX} ${y1}`;
+                    
                     if (x2 > midX) {
                         d += ` L ${midX} ${y2} L ${x2} ${y2}`;
                     } else {
-                        const midY = y2 > y1 ? y1 + (ROW_HEIGHT/2) + 5 : y1 - (ROW_HEIGHT/2) - 5;
+                        // 迴轉路徑
+                        const midY = y2 > y1 ? y1 + 20 : y1 - 20;
                         d += ` L ${midX} ${midY} L ${x2 - 10} ${midY} L ${x2 - 10} ${y2} L ${x2} ${y2}`;
                     }
+                    
                     const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
                     path.setAttribute("d", d);
                     path.setAttribute("class", "arrow-line");
@@ -680,6 +778,57 @@
                     svg.appendChild(path);
                 }
             }
+        });
+    }
+
+    function getWeekNumber(d) {
+        const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+        const dayNum = date.getUTCDay() || 7;
+        date.setUTCDate(date.getUTCDate() + 4 - dayNum);
+        const yearStart = new Date(Date.UTC(date.getUTCFullYear(),0,1));
+        return Math.ceil((((date - yearStart) / 86400000) + 1)/7);
+    }
+
+    // 存取檔功能 (維持原樣)
+    function saveProject() {
+        if(tasks.length===0) return alert("無資料");
+        const a = document.createElement('a');
+        a.href = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(tasks));
+        a.download = "project.json";
+        a.click();
+    }
+    function loadProject(inp) {
+        const r = new FileReader();
+        r.onload = e => {
+            try { tasks = JSON.parse(e.target.result); updateUI(); alert("讀取成功"); } 
+            catch { alert("格式錯誤"); }
+        };
+        if(inp.files[0]) r.readAsText(inp.files[0]);
+        inp.value='';
+    }
+    function exportToImage() {
+        const el = document.getElementById("gantt-chart-view");
+        if(el.style.display==='none') return alert("請先產出圖表");
+        
+        const wrapper = document.getElementById("ganttScrollWrapper");
+        const header = document.getElementById("timelineHeaderContainer");
+        const origW = el.style.width;
+        
+        // 暫時展開
+        el.style.width = (wrapper.scrollWidth + 220) + "px";
+        wrapper.style.overflow = "visible";
+        header.style.overflow = "visible";
+        
+        html2canvas(el, { scale: 2 }).then(c => {
+            const link = document.createElement('a');
+            link.download = 'gantt.png';
+            link.href = c.toDataURL();
+            link.click();
+            
+            // 復原
+            el.style.width = origW;
+            wrapper.style.overflow = "";
+            header.style.overflow = "";
         });
     }
 </script>
