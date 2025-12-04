@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>鬼滅之刃：無限城決戰 RPG (音效覺醒版)</title>
+    <title>鬼滅之刃：無限城決戰 RPG (高傷害版)</title>
     <style>
         /* --- 全局設定 --- */
         body {
@@ -52,14 +52,32 @@
             position: relative;
             cursor: pointer;
             display: flex; justify-content: center; align-items: center;
+            font-size: 14px;
         }
         
-        .tile.obstacle { background-color: #555; cursor: not-allowed; border: 1px solid #444; }
-        .tile.obstacle::after { content: ''; display: block; width: 60%; height: 60%; background: #333; transform: rotate(45deg); }
+        /* 障礙物顯著標示 */
+        .tile.obstacle { 
+            background-color: #3a3a3a; 
+            cursor: not-allowed; 
+            border: 1px solid #555;
+            color: #777;
+        }
         
         .tile.movable { background-color: rgba(0, 191, 255, 0.25); box-shadow: inset 0 0 4px #00bfff; }
         .tile.attackable { background-color: rgba(255, 69, 0, 0.3); box-shadow: inset 0 0 4px #ff4500; }
         .tile.healable { background-color: rgba(50, 255, 50, 0.25); box-shadow: inset 0 0 4px #00ff00; }
+        
+        .tile.danger-zone { 
+            background-color: rgba(255, 0, 0, 0.6) !important; 
+            box-shadow: inset 0 0 10px #ff0000;
+            animation: dangerPulse 0.3s infinite alternate;
+        }
+        .tile.summon-zone {
+            background-color: rgba(128, 0, 128, 0.6) !important;
+            box-shadow: inset 0 0 10px #800080;
+            animation: dangerPulse 0.3s infinite alternate;
+        }
+        @keyframes dangerPulse { from { opacity: 0.6; } to { opacity: 1; } }
 
         /* --- 單位樣式 --- */
         .unit {
@@ -67,7 +85,8 @@
             border-radius: 50%;
             display: flex; justify-content: center; align-items: center;
             font-weight: bold; font-size: 11px;
-            z-index: 5; position: relative;
+            z-index: 5; position: absolute;
+            top: 3px; left: 3px;
             box-shadow: 1px 1px 2px #000;
             transition: transform 0.2s;
             border-width: 2px; border-style: solid;
@@ -80,13 +99,14 @@
         .unit.nezuko  { background: radial-gradient(#ff99cc, #cc0055); border-color: #ff3366; color: #fff; }
         .unit.giyu    { background: radial-gradient(#3366cc, #001133); border-color: #88ccff; color: #fff; }
         .unit.rengoku { background: radial-gradient(#ffaa00, #aa0000); border-color: #ffff00; color: #fff; }
-        .unit.uzui    { background: radial-gradient(#e0e0e0, #888); border-color: #ff00ff; color: #000; } /* 音柱 */
-        .unit.himejima{ background: radial-gradient(#8b4513, #3e2723); border-color: #aaaaaa; color: #fff; } /* 岩柱 */
+        .unit.uzui    { background: radial-gradient(#e0e0e0, #888); border-color: #ff00ff; color: #000; }
+        .unit.himejima{ background: radial-gradient(#8b4513, #3e2723); border-color: #aaaaaa; color: #fff; }
 
         .unit.demon { background: radial-gradient(#444, #111); border-color: #f00; color: #bbb; font-size: 10px; }
         .unit.demon-range { background: radial-gradient(#4a2c5a, #200020); border-color: #a0f; color: #eef; }
-        .unit.boss { background: radial-gradient(#a00, #300); border-color: #ff0000; color: #fff; font-size: 13px; box-shadow: 0 0 6px #f00; }
+        .unit.demon-healer { background: radial-gradient(#006400, #003300); border-color: #00ff00; color: #cfc; font-size: 9px; box-shadow: 0 0 4px #0f0; } 
         
+        .unit.boss { background: radial-gradient(#a00, #300); border-color: #ff0000; color: #fff; font-size: 13px; box-shadow: 0 0 6px #f00; }
         .unit.boss-awakened { 
             background: radial-gradient(#ff0000, #500); 
             border-color: #fff; 
@@ -100,7 +120,8 @@
 
         .hp-bar-bg { position: absolute; bottom: -3px; width: 100%; height: 3px; background: #000; border-radius: 2px; }
         .hp-bar-fill { height: 100%; background: #0f0; transition: width 0.3s; }
-        .unit.demon .hp-bar-fill { background: #f00; }
+        .unit.demon .hp-bar-fill, .unit.demon-range .hp-bar-fill { background: #f00; }
+        .unit.demon-healer .hp-bar-fill { background: #00ff00; }
         .unit.boss-awakened .hp-bar-fill { background: #ff00ff; }
         .lvl-tag { position: absolute; top: -5px; right: -5px; font-size: 8px; background: #000; padding: 0 1px; border-radius: 2px; color: #fff; border: 1px solid #666; transform: scale(0.9); }
 
@@ -134,6 +155,7 @@
         .log-sys { color: #ffd700; }
         .log-xp { color: #00bfff; font-style: italic; }
         .log-danger { color: #ff0000; font-weight: bold; background: #330000; padding: 2px; border: 1px solid #f00; }
+        .log-summon { color: #d0f; font-weight: bold; border-left: 3px solid #d0f; padding-left: 5px; }
         .log-join { color: #00ffea; font-weight: bold; border-top: 1px solid #00ffea; padding-top:2px; }
 
         #btn-end-turn { width: 100%; padding: 10px; background: #8b0000; color: #fff; font-weight: bold; border: none; cursor: pointer; margin-top: 5px; font-size: 0.9em; }
@@ -166,8 +188,8 @@
             <div class="panel">
                 <div class="panel-header">系統</div>
                 <div class="btn-group">
-                    <button class="btn-system" id="btn-save-local">💾 瀏覽器存檔</button>
-                    <button class="btn-system" id="btn-load-local">📂 讀取存檔</button>
+                    <button class="btn-system" id="btn-save-local">💾 存檔</button>
+                    <button class="btn-system" id="btn-load-local">📂 讀取</button>
                     <div style="display:flex; gap:2px;">
                         <button class="btn-system" id="btn-save-file" style="flex:1;">⬇ 下載</button>
                         <button class="btn-system" onclick="document.getElementById('file-input').click()" style="flex:1;">⬆ 讀取</button>
@@ -187,69 +209,39 @@
     </div>
 
 <script>
-    // --- 音效系統 (Web Audio API) ---
+    // --- 音效 ---
     const AudioContext = window.AudioContext || window.webkitAudioContext;
     let audioCtx = new AudioContext();
-
     function playSound(type) {
-        if (audioCtx.state === 'suspended') { audioCtx.resume(); } // 確保音效啟動
+        if (audioCtx.state === 'suspended') audioCtx.resume();
         const osc = audioCtx.createOscillator();
         const gainNode = audioCtx.createGain();
-        osc.connect(gainNode);
-        gainNode.connect(audioCtx.destination);
-
+        osc.connect(gainNode); gainNode.connect(audioCtx.destination);
         if (type === 'attack') {
-            // 攻擊：短促的噪音/高頻掃描
-            osc.type = 'sawtooth';
-            osc.frequency.setValueAtTime(400, audioCtx.currentTime);
-            osc.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.1);
-            gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
-            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
-            osc.start();
-            osc.stop(audioCtx.currentTime + 0.1);
+            osc.type = 'sawtooth'; osc.frequency.setValueAtTime(400, audioCtx.currentTime); osc.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime+0.1);
+            gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime); gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime+0.1);
+            osc.start(); osc.stop(audioCtx.currentTime+0.1);
         } else if (type === 'damage') {
-            // 受傷：低頻撞擊
-            osc.type = 'square';
-            osc.frequency.setValueAtTime(150, audioCtx.currentTime);
-            osc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.15);
-            gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime);
-            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
-            osc.start();
-            osc.stop(audioCtx.currentTime + 0.15);
-        } else if (type === 'heal') {
-            // 治療：清脆上升
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(400, audioCtx.currentTime);
-            osc.frequency.linearRampToValueAtTime(800, audioCtx.currentTime + 0.2);
-            gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
-            gainNode.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.2);
-            osc.start();
-            osc.stop(audioCtx.currentTime + 0.2);
-        } else if (type === 'level') {
-            // 升級：雙音
-            osc.type = 'triangle';
-            osc.frequency.setValueAtTime(500, audioCtx.currentTime);
-            osc.frequency.setValueAtTime(800, audioCtx.currentTime + 0.1);
-            gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
-            gainNode.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.3);
-            osc.start();
-            osc.stop(audioCtx.currentTime + 0.3);
+            osc.type = 'square'; osc.frequency.setValueAtTime(150, audioCtx.currentTime); osc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime+0.15);
+            gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime); gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime+0.15);
+            osc.start(); osc.stop(audioCtx.currentTime+0.15);
+        } else if (type === 'summon') {
+            osc.type = 'triangle'; osc.frequency.setValueAtTime(100, audioCtx.currentTime); osc.frequency.linearRampToValueAtTime(50, audioCtx.currentTime+0.5);
+            gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime); gainNode.gain.linearRampToValueAtTime(0, audioCtx.currentTime+0.5);
+            osc.start(); osc.stop(audioCtx.currentTime+0.5);
         }
     }
 
     // --- 遊戲常數 ---
-    const COLS = 24;
-    const ROWS = 18;
-    const MAX_LEVEL = 18; // 等級上限降為 18
-    const TILE_SIZE = 30;
+    const COLS = 24; ROWS = 18; MAX_LEVEL = 18; TILE_SIZE = 30;
     
-    // --- 技能資料庫 (新增 音柱 & 岩柱) ---
+    // --- 技能資料庫 ---
     const SKILL_DB = {
         tanjiro: [
             { name: "水之呼吸·壹之型", reqLv: 1, range: 1, val: 1.2, cost: 0, aoe: false },
-            { name: "火之神神樂", reqLv: 3, range: 1, val: 1.6, cost: 0, aoe: true },
+            { name: "火之神神樂", reqLv: 3, range: 1, val: 1.6, cost: 0, aoe: false },
             { name: "日之呼吸·陽華突", reqLv: 6, range: 2, val: 2.2, cost: 0, aoe: false },
-            { name: "奧義·第十三型", reqLv: 9, range: 4, val: 4.0, cost: 0, aoe: false, ult: true }
+            { name: "奧義·第十三型", reqLv: 9, range: 3, val: 3.5, cost: 0, aoe: false, ult: true } 
         ],
         zenitsu: [
             { name: "霹靂一閃", reqLv: 1, range: 3, val: 1.1, cost: 0, aoe: false },
@@ -260,8 +252,8 @@
         inosuke: [
             { name: "獸之呼吸·獠牙", reqLv: 1, range: 1, val: 1.0, cost: 0, aoe: true },
             { name: "空間感知·殺", reqLv: 3, range: 1, val: 1.5, cost: 0, aoe: true },
-            { name: "爆裂猛進", reqLv: 6, range: 2, val: 2.5, cost: 0, aoe: true },
-            { name: "奧義·靈魂衝撞", reqLv: 9, range: 2, val: 3.5, cost: 0, aoe: true, ult: true }
+            { name: "爆裂猛進", reqLv: 6, range: 1, val: 2.5, cost: 0, aoe: true },
+            { name: "奧義·靈魂衝撞", reqLv: 9, range: 3, val: 3.0, cost: 0, aoe: true, ult: true } 
         ],
         nezuko: [
             { name: "再生回復", reqLv: 1, range: 2, val: 50, cost: 0, aoe: false, isHeal: true }, 
@@ -270,202 +262,120 @@
             { name: "奧義·完全覺醒", reqLv: 9, range: 2, val: 3.5, cost: 0, aoe: true, isHeal: false, ult: true }
         ],
         giyu: [
-            { name: "凪", reqLv: 1, range: 2, val: 1.5, cost: 0, aoe: true },
+            { name: "凪", reqLv: 1, range: 1, val: 1.5, cost: 0, aoe: false },
             { name: "生生流轉", reqLv: 3, range: 2, val: 2.0, cost: 0, aoe: false },
-            { name: "水之呼吸·拾壹之型", reqLv: 6, range: 3, val: 2.8, cost: 0, aoe: true },
+            { name: "水之呼吸·拾壹之型", reqLv: 6, range: 1, val: 2.8, cost: 0, aoe: true },
             { name: "奧義·驚濤駭浪", reqLv: 9, range: 3, val: 3.5, cost: 0, aoe: true, ult: true }
         ],
         rengoku: [
             { name: "不知火", reqLv: 1, range: 2, val: 1.8, cost: 0, aoe: false },
-            { name: "盛炎之漩渦", reqLv: 3, range: 2, val: 2.2, cost: 0, aoe: true },
+            { name: "盛炎之漩渦", reqLv: 3, range: 1, val: 2.2, cost: 0, aoe: true },
             { name: "炎虎", reqLv: 6, range: 2, val: 3.0, cost: 0, aoe: false },
-            { name: "奧義·煉獄", reqLv: 9, range: 2, val: 4.5, cost: 0, aoe: true, ult: true }
+            { name: "奧義·煉獄", reqLv: 9, range: 3, val: 4.5, cost: 0, aoe: true, ult: true } 
         ],
-        uzui: [ // 音柱
+        uzui: [ 
             { name: "鳴弦奏奏", reqLv: 1, range: 2, val: 2.0, cost: 0, aoe: true },
-            { name: "轟", reqLv: 3, range: 2, val: 2.5, cost: 0, aoe: true },
+            { name: "轟", reqLv: 3, range: 1, val: 2.5, cost: 0, aoe: true },
             { name: "譜面完成", reqLv: 6, range: 3, val: 3.2, cost: 0, aoe: false },
             { name: "奧義·華麗大爆炸", reqLv: 9, range: 2, val: 4.0, cost: 0, aoe: true, ult: true }
         ],
-        himejima: [ // 岩柱
+        himejima: [ 
             { name: "蛇紋岩·雙極", reqLv: 1, range: 2, val: 2.5, cost: 0, aoe: false },
-            { name: "天面碎", reqLv: 3, range: 2, val: 3.0, cost: 0, aoe: true },
-            { name: "岩軀之膚", reqLv: 6, range: 3, val: 3.5, cost: 0, aoe: false },
+            { name: "天面碎", reqLv: 3, range: 1, val: 3.0, cost: 0, aoe: true },
+            { name: "岩軀之膚", reqLv: 6, range: 1, val: 3.5, cost: 0, aoe: false },
             { name: "奧義·流紋岩·速征", reqLv: 9, range: 3, val: 5.0, cost: 0, aoe: true, ult: true }
         ]
     };
 
-    // --- 類別定義 ---
+    // --- 類別 ---
     class Unit {
         constructor(id, name, type, role, x, y, stats) {
-            this.id = id;
-            this.name = name;
-            this.type = type;
-            this.role = role;
-            this.x = x;
-            this.y = y;
-            
+            this.id = id; this.name = name; this.type = type; this.role = role; this.x = x; this.y = y;
             this.level = stats.level || 1;
-            this.maxHp = stats.hp;
-            this.hp = stats.hp;
-            this.atk = stats.atk;
-            this.def = stats.def;
+            this.maxHp = stats.hp; this.hp = stats.hp; this.atk = stats.atk; this.def = stats.def;
             
-            // --- 移動力邏輯 (Lv5->3, Lv9->4) ---
             let baseMove = 2;
-            if (this.level >= 9) baseMove = 4;
-            else if (this.level >= 5) baseMove = 3;
+            if (this.level >= 9) baseMove = 4; else if (this.level >= 5) baseMove = 3;
             this.moveRange = baseMove;
             
             this.range = stats.range || 1; 
             this.aoeRange = stats.aoeRange || 0; 
             this.awakened = stats.awakened || false; 
+            this.turnCount = stats.turnCount || 0; // 追蹤回合數
             
-            this.hasActed = false;
-            this.xp = stats.xp || 0;
-            this.maxXp = stats.maxXp || (100 * this.level);
-            this.prevX = x; 
-            this.prevY = y;
+            this.hasActed = false; this.xp = stats.xp || 0; this.maxXp = stats.maxXp || (100 * this.level);
+            this.prevX = x; this.prevY = y;
         }
-
-        getSkills() {
-            if (this.type === 'demon') return [];
-            return SKILL_DB[this.role].filter(s => this.level >= s.reqLv);
-        }
-
-        gainXp(amount) {
-            if (this.type !== 'slayer') return;
-            this.xp += amount;
-            if (this.xp >= this.maxXp) this.levelUp();
-        }
-
+        getSkills() { if (this.type === 'demon') return []; return SKILL_DB[this.role].filter(s => this.level >= s.reqLv); }
+        gainXp(amount) { if (this.type !== 'slayer') return; this.xp += amount; if (this.xp >= this.maxXp) this.levelUp(); }
         levelUp() {
             if (this.level >= MAX_LEVEL) return;
-            this.level++;
-            this.xp = 0;
-            this.maxXp = Math.floor(this.maxXp * 1.25);
-            this.maxHp = Math.floor(this.maxHp * 1.15);
-            this.atk = Math.floor(this.atk * 1.12);
-            this.def = Math.floor(this.def * 1.12);
+            this.level++; this.xp = 0;
+            this.maxXp = Math.floor(this.maxXp * 1.25); this.maxHp = Math.floor(this.maxHp * 1.15);
+            this.atk = Math.floor(this.atk * 1.12); this.def = Math.floor(this.def * 1.12);
             this.hp = this.maxHp;
-            
-            if (this.level === 5) {
-                this.moveRange = 3;
-                log(`🚀 ${this.name} 速度覺醒 (移動3)！`, 'log-sys');
-            } else if (this.level === 9) {
-                this.moveRange = 4;
-                log(`⚡ ${this.name} 柱級身法 (移動4)！`, 'log-sys');
-            }
-
-            playSound('level');
-            let msg = `✨ ${this.name} 升級 Lv.${this.level}！`;
-            if (this.level === 9) msg += " 奧義覺醒！";
-            log(msg, 'log-sys');
-            renderMap();
+            if (this.level === 5 || this.level === 9) { if(this.level===5) this.moveRange=3; if(this.level===9) this.moveRange=4; }
+            log(`✨ ${this.name} 升級 Lv.${this.level}！`, 'log-sys'); renderMap();
         }
     }
 
-    // --- 全局變數 ---
-    let gridElements = []; 
-    let gridMap = []; 
-    let allies = [];
-    let enemies = [];
-    let currentLevel = 1;
-    let phase = 'PLAYER';
-    
-    let selectedUnit = null;
-    let selectionState = 'NONE';
-    let activeSkill = null;
+    // --- 全局 ---
+    let gridElements = [], gridMap = [], allies = [], enemies = [], currentLevel = 1, phase = 'PLAYER';
+    let selectedUnit = null, selectionState = 'NONE', activeSkill = null;
+    let nextEnemyId = 1000; // 召喚用 ID
 
     // --- 初始化 ---
     function initGame() {
         const container = document.getElementById('grid-container');
         container.style.gridTemplateColumns = `repeat(${COLS}, ${TILE_SIZE}px)`;
         container.style.gridTemplateRows = `repeat(${ROWS}, ${TILE_SIZE}px)`;
-
-        // 綁定事件
+        
         document.getElementById('btn-end-turn').onclick = endPlayerPhase;
         document.getElementById('btn-attack').onclick = () => prepAttack(false);
         document.getElementById('btn-skill-menu').onclick = toggleSkillMenu;
         document.getElementById('btn-wait').onclick = () => finalizeAction(true);
         document.getElementById('btn-cancel-move').onclick = cancelMovement;
-        
-        // 系統按鈕
         document.getElementById('btn-save-local').onclick = saveGameLocal;
         document.getElementById('btn-load-local').onclick = loadGameLocal;
         document.getElementById('btn-save-file').onclick = saveGameFile;
         document.getElementById('file-input').addEventListener('change', loadGameFile, false);
-        document.getElementById('btn-reset').onclick = () => { if(confirm("確定要重置遊戲嗎？")) location.reload(); };
+        document.getElementById('btn-reset').onclick = () => { if(confirm("確定重置？")) location.reload(); };
 
         startNewGame();
     }
 
     function startNewGame() {
+        // 更新初始數值
         allies = [
-            new Unit(1, '炭治郎', 'slayer', 'tanjiro', 0, 0, { hp: 120, atk: 32, def: 12 }),
+            new Unit(1, '炭治郎', 'slayer', 'tanjiro', 0, 0, { hp: 120, atk: 33, def: 15 }),
             new Unit(2, '善逸', 'slayer', 'zenitsu', 0, 0, { hp: 90, atk: 35, def: 6 }),
-            new Unit(3, '伊之助', 'slayer', 'inosuke', 0, 0, { hp: 130, atk: 25, def: 12 }),
+            new Unit(3, '伊之助', 'slayer', 'inosuke', 0, 0, { hp: 130, atk: 25, def: 17 }),
             new Unit(4, '禰豆子', 'slayer', 'nezuko', 0, 0, { hp: 140, atk: 20, def: 15 })
         ];
         startLevel(1);
     }
 
-    // --- 存檔系統 (省略詳細代碼以節省篇幅，與前版相同) ---
-    function getGameState() { return { level: currentLevel, allies: allies, enemies: enemies, gridMap: gridMap }; }
-    function restoreGameState(data) {
-        currentLevel = data.level; gridMap = data.gridMap;
-        const container = document.getElementById('grid-container'); container.innerHTML = ''; gridElements = [];
+    // --- 地圖與關卡 ---
+    function createMap() {
+        const container = document.getElementById('grid-container'); container.innerHTML = '';
+        gridElements = []; gridMap = [];
         for (let y = 0; y < ROWS; y++) {
-            let rowEl = [];
+            let rowEl = []; let rowMap = [];
             for (let x = 0; x < COLS; x++) {
                 let div = document.createElement('div'); div.className = 'tile'; div.onclick = () => onTileClick(x, y);
-                if (gridMap[y][x] === 1) div.classList.add('obstacle');
-                container.appendChild(div); rowEl.push(div);
+                // 隨機障礙物
+                let isObstacle = false; 
+                if (x > 3 && x < COLS - 3) { 
+                    if (Math.random() < 0.15) { 
+                        isObstacle = true; 
+                        div.classList.add('obstacle');
+                        div.innerText = '🪨'; 
+                    } 
+                }
+                
+                container.appendChild(div); rowEl.push(div); rowMap.push(isObstacle ? 1 : 0);
             }
-            gridElements.push(rowEl);
-        }
-        allies = data.allies.map(d => { let u = new Unit(d.id, d.name, d.type, d.role, d.x, d.y, {}); Object.assign(u, d); return u; });
-        enemies = data.enemies.map(d => { let u = new Unit(d.id, d.name, d.type, d.role, d.x, d.y, {}); Object.assign(u, d); return u; });
-        startPlayerPhase(); log("📂 遊戲讀取成功！", 'log-sys');
-    }
-    function saveGameLocal() { localStorage.setItem('demonSlayerSave_v2', JSON.stringify(getGameState())); alert("已保存！"); }
-    function loadGameLocal() { 
-        const data = localStorage.getItem('demonSlayerSave_v2'); 
-        if(!data){alert("無存檔");return;} 
-        if(confirm("確定讀取？")) restoreGameState(JSON.parse(data)); 
-    }
-    function saveGameFile() {
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(new Blob([JSON.stringify(getGameState(), null, 2)], {type: "application/json"}));
-        a.download = `demon_slayer_lv${currentLevel}.json`; a.click();
-    }
-    function loadGameFile(e) {
-        const reader = new FileReader();
-        reader.onload = (e) => restoreGameState(JSON.parse(e.target.result));
-        if(e.target.files[0]) reader.readAsText(e.target.files[0]);
-    }
-
-    // --- 關卡生成 ---
-    function createMap() {
-        const container = document.getElementById('grid-container');
-        container.innerHTML = '';
-        gridElements = [];
-        gridMap = [];
-        for (let y = 0; y < ROWS; y++) {
-            let rowEl = [];
-            let rowMap = [];
-            for (let x = 0; x < COLS; x++) {
-                let div = document.createElement('div');
-                div.className = 'tile';
-                div.onclick = () => onTileClick(x, y);
-                let isObstacle = false;
-                if (x > 3 && x < COLS - 3) { if (Math.random() < 0.15) { isObstacle = true; div.classList.add('obstacle'); } }
-                container.appendChild(div);
-                rowEl.push(div);
-                rowMap.push(isObstacle ? 1 : 0);
-            }
-            gridElements.push(rowEl);
-            gridMap.push(rowMap);
+            gridElements.push(rowEl); gridMap.push(rowMap);
         }
     }
 
@@ -473,28 +383,25 @@
         currentLevel = lvl;
         document.getElementById('phase-banner').innerText = `第 ${lvl} 關 - 無限城深處`;
         log(`=== 第 ${lvl} 關 開始 ===`, 'log-sys');
-        
         createMap();
 
-        // 增援邏輯
         if (lvl === 3 && !allies.find(u => u.role === 'giyu')) {
-            allies.push(new Unit(5, '富岡義勇', 'slayer', 'giyu', 0, 0, { hp: 180, atk: 40, def: 20, level: 3 }));
-            log("🌊 水柱・富岡義勇 加入戰場！", 'log-join');
+            allies.push(new Unit(5, '富岡義勇', 'slayer', 'giyu', 0, 0, { hp: 220, atk: 50, def: 25, level: 3 }));
+            log("🌊 水柱・富岡義勇 (強化狀態) 加入戰場！", 'log-join');
         }
         if (lvl === 5 && !allies.find(u => u.role === 'rengoku')) {
             allies.push(new Unit(6, '煉獄杏壽郎', 'slayer', 'rengoku', 0, 0, { hp: 200, atk: 55, def: 15, level: 5 }));
             log("🔥 炎柱・煉獄杏壽郎 加入戰場！", 'log-join');
         }
-        if (lvl === 7 && !allies.find(u => u.role === 'uzui')) { // 音柱加入
-            allies.push(new Unit(7, '宇隨天元', 'slayer', 'uzui', 0, 0, { hp: 220, atk: 50, def: 18, level: 7 }));
+        if (lvl === 7 && !allies.find(u => u.role === 'uzui')) {
+            allies.push(new Unit(7, '宇隨天元', 'slayer', 'uzui', 0, 0, { hp: 220, atk: 70, def: 18, level: 7 }));
             log("🎵 音柱・宇隨天元 華麗登場！", 'log-join');
         }
-        if (lvl === 9 && !allies.find(u => u.role === 'himejima')) { // 岩柱加入
-            allies.push(new Unit(8, '悲鳴嶼行冥', 'slayer', 'himejima', 0, 0, { hp: 350, atk: 70, def: 30, level: 9 }));
+        if (lvl === 9 && !allies.find(u => u.role === 'himejima')) {
+            allies.push(new Unit(8, '悲鳴嶼行冥', 'slayer', 'himejima', 0, 0, { hp: 350, atk: 85, def: 30, level: 9 }));
             log("📿 岩柱・悲鳴嶼行冥 參戰！", 'log-join');
         }
 
-        // 站位
         allies.forEach((u, i) => {
             u.x = 1; u.y = 4 + i;
             if (u.y >= ROWS) { u.x = 2; u.y = u.y - ROWS + 4; } 
@@ -502,26 +409,26 @@
         });
 
         enemies = [];
-        // 敵人成長幅度增加 (0.15 -> 0.25)
         let difficulty = 1 + (lvl * 0.25);
         let gruntCount = 10 + Math.floor(lvl * 1.5); 
-        
-        for(let i=0; i<gruntCount; i++) {
-            let ex = 5 + Math.floor(Math.random() * (COLS - 5));
-            let ey = Math.floor(Math.random() * ROWS);
-            if (gridMap[ey][ex] === 1) continue; 
+        let currentId = 100;
 
+        for(let i=0; i<gruntCount; i++) {
+            let ex = 5 + Math.floor(Math.random() * (COLS - 5)); let ey = Math.floor(Math.random() * ROWS);
+            if (gridMap[ey][ex] === 1 || isOccupied(ex, ey)) continue; 
             let isRanged = Math.random() < 0.3;
-            let name = isRanged ? '蜘蛛鬼' : '雜魚鬼';
-            let role = isRanged ? 'demon-range' : 'demon';
-            let range = isRanged ? 3 : 1;
-            
-            if(!isOccupied(ex, ey)) {
-                enemies.push(new Unit(100+i, name, role, 'grunt', ex, ey, {
-                    hp: Math.floor(40 * difficulty), atk: Math.floor(12 * difficulty), def: Math.floor(2 * difficulty), 
-                    level: lvl, range: range
-                }));
-            }
+            enemies.push(new Unit(currentId++, isRanged ? '蜘蛛鬼' : '雜魚鬼', isRanged ? 'demon-range' : 'demon', 'grunt', ex, ey, {
+                hp: Math.floor(40 * difficulty), atk: Math.floor(12 * difficulty), def: Math.floor(2 * difficulty), level: lvl, range: isRanged ? 3 : 1
+            }));
+        }
+
+        let healerCount = 3 + Math.floor(Math.random() * 4); 
+        for(let i=0; i<healerCount; i++) {
+            let ex = 8 + Math.floor(Math.random() * (COLS - 8)); let ey = Math.floor(Math.random() * ROWS);
+            if (gridMap[ey][ex] === 1 || isOccupied(ex, ey)) continue;
+            enemies.push(new Unit(currentId++, "再生鬼", "demon-healer", 'grunt', ex, ey, {
+                hp: Math.floor(60 * difficulty), atk: Math.floor(20 * difficulty), def: Math.floor(5 * difficulty), level: lvl, range: 6 
+            }));
         }
         
         const doubleBossLevels = [2, 4, 6, 8, 9];
@@ -529,47 +436,38 @@
         if (doubleBossLevels.includes(lvl)) bosses.push(getBossName(lvl, 2));
 
         bosses.forEach((bName, idx) => {
-            let bx = COLS - 3 - idx;
-            let by = Math.floor(ROWS / 2) + (idx===0?-2:2);
+            let bx = COLS - 3 - idx; let by = Math.floor(ROWS / 2) + (idx===0?-2:2);
             while (gridMap[by][bx] === 1) bx--; 
-
             enemies.push(new Unit(200+idx, bName, 'demon', 'boss', bx, by, {
-                hp: Math.floor(200 * difficulty * 3), // Boss HP 再次強化
-                atk: Math.floor(35 * difficulty), 
-                def: Math.floor(10 * difficulty), 
-                level: lvl+2, range: 1, aoeRange: (lvl>=7?3:2)
+                hp: Math.floor(200 * difficulty * 3), atk: Math.floor(35 * difficulty), def: Math.floor(10 * difficulty), 
+                level: lvl+2, range: 3, move: 3, aoeRange: (lvl>=7?3:2)
             }));
         });
 
         startPlayerPhase();
     }
 
+    // --- 輔助函數 ---
     function isOccupied(x, y) { return [...allies, ...enemies].some(u => u.x === x && u.y === y && u.hp > 0); }
     function getUnitAt(x, y) { return [...allies, ...enemies].find(u => u.x === x && u.y === y && u.hp > 0); }
     function isWalkable(x, y) { return x >= 0 && x < COLS && y >= 0 && y < ROWS && gridMap[y][x] === 0; }
-
+    
+    // --- 遊戲流程 ---
     function startPlayerPhase() {
-        phase = 'PLAYER';
+        phase = 'PLAYER'; document.getElementById('phase-banner').className = 'phase-player'; document.getElementById('btn-end-turn').disabled = false;
         document.getElementById('phase-banner').innerText = `第 ${currentLevel} 關 - 我方回合`;
-        document.getElementById('phase-banner').className = 'phase-player';
-        document.getElementById('btn-end-turn').disabled = false;
         allies.forEach(u => { u.hasActed = false; u.prevX = u.x; u.prevY = u.y; });
         resetSelection(); renderMap();
     }
-
     function endPlayerPhase() { if (phase !== 'PLAYER') return; resetSelection(); startEnemyPhase(); }
 
     async function startEnemyPhase() {
-        phase = 'ENEMY';
-        document.getElementById('phase-banner').innerText = "敵方行動中...";
-        document.getElementById('phase-banner').className = 'phase-enemy';
-        document.getElementById('btn-end-turn').disabled = true;
+        phase = 'ENEMY'; document.getElementById('phase-banner').innerText = "敵方行動中..."; document.getElementById('phase-banner').className = 'phase-enemy'; document.getElementById('btn-end-turn').disabled = true;
         renderMap();
-
         for (const demon of enemies) {
             if (demon.hp > 0) {
-                await new Promise(r => setTimeout(r, 50)); 
-                runEnemyAI(demon);
+                await new Promise(r => setTimeout(r, 30)); 
+                await runEnemyAI(demon); 
                 renderMap();
             }
         }
@@ -577,194 +475,199 @@
         startPlayerPhase();
     }
 
+    // --- AI ---
+    async function runEnemyAI(demon) {
+        demon.turnCount++; 
+
+        // 1. 召喚
+        if (demon.role === 'boss') {
+            let summonNow = false;
+            let summonType = 'grunt';
+            let spawnCount = 3;
+            
+            if (demon.name.includes("無慘")) {
+                if (demon.turnCount % 10 === 0) { summonNow = true; summonType = 'boss'; spawnCount = 1; }
+                else if (demon.turnCount % 3 === 0) { summonNow = true; summonType = 'grunt'; spawnCount = 3; }
+            } else {
+                if (demon.turnCount % 3 === 0) { summonNow = true; summonType = 'grunt'; spawnCount = 3; }
+            }
+
+            if (summonNow) {
+                log(`🟣 ${demon.name} 正在召喚援軍...`, 'log-summon');
+                for(let dy=-1; dy<=1; dy++) { for(let dx=-1; dx<=1; dx++) { let sx = demon.x+dx, sy = demon.y+dy; if(isWalkable(sx, sy)) gridElements[sy][sx].classList.add('summon-zone'); } }
+                await new Promise(r => setTimeout(r, 400));
+                document.querySelectorAll('.summon-zone').forEach(el => el.classList.remove('summon-zone'));
+                playSound('summon');
+
+                let placed = 0;
+                let difficulty = 1 + (currentLevel * 0.25);
+                
+                for (let r = 1; r <= 3; r++) { 
+                    for (let dy = -r; dy <= r; dy++) {
+                        for (let dx = -r; dx <= r; dx++) {
+                            if (placed >= spawnCount) break;
+                            let sx = demon.x + dx, sy = demon.y + dy;
+                            if (isWalkable(sx, sy) && !isOccupied(sx, sy)) {
+                                if (summonType === 'boss') {
+                                    let randBoss = getBossName(Math.floor(Math.random()*8)+1, 1);
+                                    enemies.push(new Unit(nextEnemyId++, randBoss, 'demon', 'boss', sx, sy, {
+                                        hp: Math.floor(150 * difficulty), atk: Math.floor(30 * difficulty), def: Math.floor(8 * difficulty), 
+                                        level: currentLevel+2, range: 3, move: 3, aoeRange: 2
+                                    }));
+                                    log(`😱 召喚了 ${randBoss}！`, 'log-danger');
+                                } else {
+                                    enemies.push(new Unit(nextEnemyId++, "召喚鬼", 'demon', 'grunt', sx, sy, {
+                                        hp: Math.floor(30 * difficulty), atk: Math.floor(10 * difficulty), def: 2, level: currentLevel, range: 1
+                                    }));
+                                }
+                                placed++;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 2. 補血
+        if (demon.role === 'demon-healer') {
+            let healTarget = enemies.find(e => e.hp > 0 && e.hp < e.maxHp && (Math.abs(e.x-demon.x)+Math.abs(e.y-demon.y) <= demon.range));
+            if (healTarget) {
+                let healAmt = Math.floor(demon.atk * 1.5);
+                healTarget.hp = Math.min(healTarget.maxHp, healTarget.hp + healAmt);
+                log(`${demon.name} 治療 ${healTarget.name} +${healAmt}`, 'log-heal');
+                return;
+            }
+        }
+
+        // 3. 攻擊移動
+        let target = null, minDist = 999;
+        allies.forEach(a => { if (a.hp > 0) { let d = Math.abs(a.x - demon.x) + Math.abs(a.y - demon.y); if (d < minDist) { minDist = d; target = a; } } });
+        if (!target) return;
+
+        let dist = Math.abs(target.x - demon.x) + Math.abs(target.y - demon.y);
+        
+        if (dist > demon.range) {
+            let moves = demon.moveRange; 
+            for (let i=0; i<moves; i++) {
+                let dx = Math.sign(target.x - demon.x), dy = Math.sign(target.y - demon.y);
+                let tx = demon.x + dx, ty = demon.y;
+                if (!isWalkable(tx, ty) || isOccupied(tx, ty)) { tx = demon.x; ty = demon.y + dy; } 
+                if (isWalkable(tx, ty) && !isOccupied(tx, ty)) { demon.x = tx; demon.y = ty; }
+                if (Math.abs(target.x - demon.x) + Math.abs(target.y - demon.y) <= demon.range) break;
+            }
+            dist = Math.abs(target.x - demon.x) + Math.abs(target.y - demon.y);
+        }
+
+        if (dist <= demon.range) {
+            // 公式修正：恢復為 Atk - (Def * 0.5)
+            let dmg = Math.max(1, Math.floor(demon.atk - (target.def * 0.5)));
+            
+            if (demon.role === 'boss' && demon.aoeRange > 0) {
+                log(`⚠️ ${demon.name} 鎖定攻擊範圍...`, 'log-danger');
+                allies.forEach(a => { if (a.hp > 0 && Math.abs(a.x - target.x) + Math.abs(a.y - target.y) <= demon.aoeRange) gridElements[a.y][a.x].classList.add('danger-zone'); });
+                await new Promise(r => setTimeout(r, 400));
+                document.querySelectorAll('.danger-zone').forEach(el => el.classList.remove('danger-zone'));
+                
+                playSound('attack');
+                allies.forEach(a => {
+                    if (a.hp > 0 && Math.abs(a.x - target.x) + Math.abs(a.y - target.y) <= demon.aoeRange) {
+                        let aoeDmg = Math.max(1, Math.floor(demon.atk - (a.def * 0.5))); // AOE 公式同步
+                        a.hp -= aoeDmg; log(`${a.name} 受損 ${aoeDmg}`, 'log-dmg'); if (a.hp <= 0) playSound('damage');
+                    }
+                });
+            } else {
+                playSound('attack');
+                target.hp -= dmg; log(`${demon.name} 攻擊 ${target.name} ${dmg}`, 'log-dmg'); if (target.hp <= 0) playSound('damage');
+            }
+        }
+    }
+
+    // --- 標準 UI/操作函數 ---
     function getMovableTiles(unit) {
-        let moves = [];
-        let range = unit.moveRange;
-        let queue = [{x: unit.x, y: unit.y, steps: 0}];
-        let visited = new Set([`${unit.x},${unit.y}`]);
+        let moves = [], range = unit.moveRange, queue = [{x: unit.x, y: unit.y, steps: 0}], visited = new Set([`${unit.x},${unit.y}`]);
         while(queue.length > 0) {
             let curr = queue.shift();
             if (curr.steps > 0) moves.push({x: curr.x, y: curr.y}); 
             if (curr.steps < range) {
                 [[0,1], [0,-1], [1,0], [-1,0]].forEach(([dx, dy]) => {
                     let nx = curr.x + dx, ny = curr.y + dy;
-                    if (isWalkable(nx, ny) && !isOccupied(nx, ny) && !visited.has(`${nx},${ny}`)) {
-                        visited.add(`${nx},${ny}`); queue.push({x: nx, y: ny, steps: curr.steps + 1});
-                    }
+                    if (isWalkable(nx, ny) && !isOccupied(nx, ny) && !visited.has(`${nx},${ny}`)) { visited.add(`${nx},${ny}`); queue.push({x: nx, y: ny, steps: curr.steps + 1}); }
                 });
             }
         }
         return moves;
     }
-
     function onTileClick(x, y) {
         if (phase !== 'PLAYER') return;
         const targetUnit = getUnitAt(x, y);
-
-        if (selectionState === 'NONE') {
-            if (targetUnit && targetUnit.type === 'slayer' && !targetUnit.hasActed) selectUnit(targetUnit);
-            else if (targetUnit) showUnitInfo(targetUnit);
-            return;
-        }
-
+        if (selectionState === 'NONE') { if (targetUnit && targetUnit.type === 'slayer' && !targetUnit.hasActed) selectUnit(targetUnit); else if (targetUnit) showUnitInfo(targetUnit); return; }
         if (selectionState === 'MOVING') {
             if (gridElements[y][x].classList.contains('movable')) executeMove(selectedUnit, x, y);
             else if (x === selectedUnit.x && y === selectedUnit.y) executeMove(selectedUnit, x, y);
-            else { resetSelection(); if (targetUnit && targetUnit.type === 'slayer' && !targetUnit.hasActed) selectUnit(targetUnit); }
-            return;
+            else { resetSelection(); if (targetUnit && targetUnit.type === 'slayer' && !targetUnit.hasActed) selectUnit(targetUnit); } return;
         }
-
         if (selectionState === 'TARGETING') {
-            const el = gridElements[y][x];
-            if (el.classList.contains('attackable') || el.classList.contains('healable')) {
+            if (gridElements[y][x].classList.contains('attackable') || gridElements[y][x].classList.contains('healable')) {
                 const hitUnit = getUnitAt(x, y);
                 if (activeSkill && activeSkill.global) executeSkillAction(selectedUnit, null, activeSkill);
                 else if (hitUnit) executeSkillAction(selectedUnit, hitUnit, activeSkill);
                 else if (activeSkill && activeSkill.aoe) executeSkillAction(selectedUnit, {x:x, y:y, name:"地面"}, activeSkill);
-            } else { openActionMenu(); }
+            } else openActionMenu();
         }
     }
-
-    function selectUnit(unit) {
-        selectedUnit = unit; selectionState = 'MOVING';
-        showUnitInfo(unit); renderMap();
-        let validMoves = getMovableTiles(unit);
-        validMoves.forEach(pos => gridElements[pos.y][pos.x].classList.add('movable'));
-    }
-
+    function selectUnit(unit) { selectedUnit = unit; selectionState = 'MOVING'; showUnitInfo(unit); renderMap(); getMovableTiles(unit).forEach(pos => gridElements[pos.y][pos.x].classList.add('movable')); }
     function executeMove(unit, x, y) { unit.x = x; unit.y = y; renderMap(); openActionMenu(); }
     function cancelMovement() { if (!selectedUnit) return; unit = selectedUnit; unit.x = unit.prevX; unit.y = unit.prevY; resetSelection(); renderMap(); }
     function openActionMenu() { selectionState = 'MENU'; document.getElementById('action-panel').style.display = 'block'; document.getElementById('skill-list').style.display = 'none'; }
-
     function toggleSkillMenu() {
-        const list = document.getElementById('skill-list');
-        list.style.display = (list.style.display === 'flex') ? 'none' : 'flex';
-        list.innerHTML = '';
-        const skills = selectedUnit.getSkills();
-        skills.forEach(skill => {
-            let btn = document.createElement('button'); btn.className = 'skill-item';
-            if(skill.isHeal) btn.classList.add('skill-heal'); if(skill.ult) btn.classList.add('skill-ult');
+        const list = document.getElementById('skill-list'); list.style.display = (list.style.display === 'flex') ? 'none' : 'flex'; list.innerHTML = '';
+        selectedUnit.getSkills().forEach(skill => {
+            let btn = document.createElement('button'); btn.className = 'skill-item'; if(skill.isHeal) btn.classList.add('skill-heal'); if(skill.ult) btn.classList.add('skill-ult');
             let rangeTxt = skill.global ? "全體" : `距${skill.range}`; if(skill.aoe && !skill.global) rangeTxt += "/範圍";
-            btn.innerHTML = `${skill.name} <small>(${rangeTxt})</small>`;
-            btn.onclick = () => { activeSkill = skill; prepAttack(true); };
-            list.appendChild(btn);
+            btn.innerHTML = `${skill.name} <small>(${rangeTxt})</small>`; btn.onclick = () => { activeSkill = skill; prepAttack(true); }; list.appendChild(btn);
         });
     }
-
     function prepAttack(isSkill) {
-        if (!isSkill) activeSkill = null;
-        selectionState = 'TARGETING';
-        document.getElementById('action-panel').style.display = 'none';
-        renderMap();
-        const range = isSkill ? activeSkill.range : 1; 
-        const isHeal = isSkill && activeSkill.isHeal;
-        const isGlobal = isSkill && activeSkill.global;
-        if (isGlobal) { allies.forEach(a => { if(a.hp > 0) gridElements[a.y][a.x].classList.add('healable'); }); log("請點擊任意隊友...", 'log-sys'); return; }
-
-        for(let y=0; y<ROWS; y++) {
-            for(let x=0; x<COLS; x++) {
-                const dist = Math.abs(x - selectedUnit.x) + Math.abs(y - selectedUnit.y);
-                if (dist <= range && (dist > 0 || isHeal)) {
-                    const unitHere = getUnitAt(x, y);
-                    if (isHeal) { if (unitHere && unitHere.type === 'slayer') gridElements[y][x].classList.add('healable'); } 
-                    else { gridElements[y][x].classList.add('attackable'); }
-                }
+        if (!isSkill) activeSkill = null; selectionState = 'TARGETING'; document.getElementById('action-panel').style.display = 'none'; renderMap();
+        const range = isSkill ? activeSkill.range : 1; const isHeal = isSkill && activeSkill.isHeal; const isGlobal = isSkill && activeSkill.global;
+        if (isGlobal) { allies.forEach(a => { if(a.hp > 0) gridElements[a.y][a.x].classList.add('healable'); }); log("選擇全體...", 'log-sys'); return; }
+        for(let y=0; y<ROWS; y++) { for(let x=0; x<COLS; x++) {
+            const dist = Math.abs(x - selectedUnit.x) + Math.abs(y - selectedUnit.y);
+            if (dist <= range && (dist > 0 || isHeal)) {
+                const unitHere = getUnitAt(x, y);
+                if (isHeal) { if (unitHere && unitHere.type === 'slayer') gridElements[y][x].classList.add('healable'); } else gridElements[y][x].classList.add('attackable');
             }
-        }
-        log(isHeal ? "選擇治療對象..." : "選擇攻擊目標...", 'log-sys');
+        }}
     }
-
     function executeSkillAction(attacker, targetObj, skill) {
-        let targets = [];
-        const isHeal = skill && skill.isHeal;
-        let totalXp = 0;
-
-        if (skill && skill.global && isHeal) { targets = allies.filter(a => a.hp > 0); log(`${attacker.name} 發動：${skill.name}！`, 'log-heal'); } 
+        let targets = []; const isHeal = skill && skill.isHeal; let totalXp = 0;
+        if (skill && skill.global && isHeal) targets = allies.filter(a => a.hp > 0);
         else if (skill && skill.aoe && !isHeal) {
             let cx = targetObj.x; let cy = targetObj.y;
             for(let dy=-1; dy<=1; dy++){ for(let dx=-1; dx<=1; dx++){ let u = getUnitAt(cx+dx, cy+dy); if (u && u.type === 'demon') targets.push(u); } }
-            log(`${attacker.name} 施放 ${skill ? skill.name : '範圍攻擊'}！`, 'log-dmg');
         } else { if (targetObj) targets.push(targetObj); }
-
-        if (targets.length > 0) playSound(isHeal ? 'heal' : 'attack'); // 播放音效
-
+        if (targets.length > 0) playSound(isHeal ? 'heal' : 'attack');
         targets.forEach(t => {
             let val = 0;
-            if (isHeal) {
-                val = Math.floor(skill.val + attacker.atk * 0.5); t.hp = Math.min(t.maxHp, t.hp + val);
-                log(`${t.name} 回復 ${val} HP`, 'log-heal'); totalXp += 15;
-            } else {
-                let mult = skill ? skill.val : 1.0;
-                let raw = attacker.atk * mult - (t.def * 0.5);
-                val = Math.max(1, Math.floor(raw * (0.9 + Math.random()*0.2)));
-                t.hp -= val;
-                log(`${t.name} 受到 ${val} 傷害`, 'log-dmg'); totalXp += 10;
-                if (t.hp <= 0) {
-                    playSound('damage'); // 擊殺音效
-                    if (t.role === 'boss' && !t.awakened && Math.random() < 0.4) { 
-                        t.awakened = true; t.maxHp *= 2; t.hp = t.maxHp; t.atk *= 2; t.name = "覺醒·" + t.name;
-                        log(`⚠️⚠️ ${t.name} 瀕死覺醒！力量暴增！ ⚠️⚠️`, 'log-danger');
-                    } else {
-                        t.hp = 0; log(`${t.name} 被消滅！`, 'log-sys'); totalXp += (35 + t.level*5 + (t.role==='boss'?100:0));
-                    }
-                }
+            if (isHeal) { val = Math.floor(skill.val + attacker.atk * 0.5); t.hp = Math.min(t.maxHp, t.hp + val); log(`${t.name} +${val}`, 'log-heal'); totalXp += 15; }
+            else {
+                let mult = skill ? skill.val : 1.0; 
+                // 公式修正：Atk * Mult - (Def * 0.5)
+                val = Math.max(1, Math.floor(attacker.atk * mult - (t.def * 0.5)));
+                t.hp -= val; log(`${t.name} -${val}`, 'log-dmg'); totalXp += 10;
+                if (t.hp <= 0) { playSound('damage'); if (t.role === 'boss' && !t.awakened && Math.random() < 0.4) { t.awakened = true; t.maxHp *= 2; t.hp = t.maxHp; t.atk *= 2; t.name = "覺醒·" + t.name; log(`⚠️覺醒！`, 'log-danger'); } else { t.hp = 0; log(`擊殺 ${t.name}`, 'log-sys'); totalXp += 50; } }
             }
         });
-
-        if (totalXp > 0) attacker.gainXp(totalXp);
-        finalizeAction(false);
+        if (totalXp > 0) attacker.gainXp(totalXp); finalizeAction(false);
     }
-
-    function finalizeAction(isWait) { if (selectedUnit) { selectedUnit.hasActed = true; if (isWait) log(`${selectedUnit.name} 待機`, 'log-sys'); } resetSelection(); renderMap(); }
-    function resetSelection() { selectedUnit = null; selectionState = 'NONE'; activeSkill = null; document.getElementById('action-panel').style.display = 'none'; document.querySelectorAll('.tile').forEach(t => t.classList.remove('movable', 'attackable', 'healable')); }
-
-    function runEnemyAI(demon) {
-        let target = null; let minDist = 999;
-        allies.forEach(a => { if (a.hp > 0) { let d = Math.abs(a.x - demon.x) + Math.abs(a.y - demon.y); if (d < minDist) { minDist = d; target = a; } } });
-        if (!target) return;
-
-        let dist = Math.abs(target.x - demon.x) + Math.abs(target.y - demon.y);
-        let attackRange = demon.range;
-
-        if (dist > attackRange) {
-            let bestX = demon.x, bestY = demon.y;
-            let moves = demon.moveRange; 
-            for (let i=0; i<moves; i++) {
-                let dx = Math.sign(target.x - bestX); let dy = Math.sign(target.y - bestY);
-                let tx = bestX + dx, ty = bestY;
-                if (!isWalkable(tx, ty) || isOccupied(tx, ty)) { tx = bestX; ty = bestY + dy; } 
-                if (isWalkable(tx, ty) && !isOccupied(tx, ty)) { bestX = tx; bestY = ty; }
-                if (Math.abs(target.x - bestX) + Math.abs(target.y - bestY) <= attackRange) break;
-            }
-            demon.x = bestX; demon.y = bestY;
-            dist = Math.abs(target.x - demon.x) + Math.abs(target.y - demon.y);
-        }
-
-        if (dist <= attackRange) {
-            playSound('attack');
-            let dmg = Math.max(1, Math.floor((demon.atk - target.def*0.5) * 0.9));
-            if (demon.role === 'boss' && demon.aoeRange > 0) {
-                log(`${demon.name} 使用範圍血鬼術！`, 'log-danger');
-                allies.forEach(a => {
-                    if (a.hp > 0 && Math.abs(a.x - target.x) + Math.abs(a.y - target.y) <= demon.aoeRange) {
-                        a.hp -= dmg; log(`${a.name} 受損 ${dmg}`, 'log-dmg');
-                    }
-                });
-            } else {
-                target.hp -= dmg; log(`${demon.name} 攻擊 ${target.name}，傷害 ${dmg}`, 'log-dmg');
-            }
-            playSound('damage');
-        }
-    }
-
+    function finalizeAction(isWait) { if (selectedUnit) { selectedUnit.hasActed = true; if(isWait) log("待機", 'log-sys'); } resetSelection(); renderMap(); }
+    function resetSelection() { selectedUnit = null; selectionState = 'NONE'; activeSkill = null; document.getElementById('action-panel').style.display = 'none'; document.querySelectorAll('.tile').forEach(t => {t.classList.remove('movable', 'attackable', 'healable', 'danger-zone');}); }
     function renderMap() {
         document.querySelectorAll('.unit').forEach(e => e.remove());
         [...enemies, ...allies].forEach(u => {
             if (u.hp <= 0) return;
-            let div = document.createElement('div');
-            div.className = `unit ${u.role}`;
+            let div = document.createElement('div'); div.className = `unit ${u.role}`;
             if (u.awakened) div.classList.add('boss-awakened');
-            if (u.type === 'demon' && u.range > 1 && u.role !== 'boss') div.classList.add('demon-range');
             if (u.hasActed && u.type === 'slayer') div.classList.add('done');
             if (u === selectedUnit) div.classList.add('selected');
             div.innerText = u.name[0];
@@ -775,23 +678,39 @@
             gridElements[u.y][u.x].appendChild(div);
         });
     }
-
     function showUnitInfo(u) {
         let skills = u.getSkills ? u.getSkills().map(s=>s.name).join(', ') : "無";
-        let html = `<strong style="color:${u.type==='slayer'?'#4da6ff':'#ff4d4d'}">${u.name} (Lv.${u.level})</strong><br>HP: ${u.hp}/${u.maxHp} | ATK: ${u.atk}<br>MOVE: ${u.moveRange} | RANGE: ${u.range}<br>${u.type==='slayer' ? `EXP: ${u.xp}/${u.maxXp}` : ''}`;
+        let html = `<strong style="color:${u.type==='slayer'?'#4da6ff':'#ff4d4d'}">${u.name} (Lv.${u.level})</strong><br>HP: ${u.hp}/${u.maxHp} | ATK: ${u.atk} | DEF: ${u.def}<br>MOVE: ${u.moveRange} | RANGE: ${u.range}<br>${u.type==='slayer' ? `EXP: ${u.xp}/${u.maxXp}` : ''}`;
         document.getElementById('unit-info').innerHTML = html;
     }
-
     function log(msg, type) { const box = document.getElementById('log-box'); box.innerHTML += `<div class="${type}">${msg}</div>`; box.scrollTop = box.scrollHeight; }
-    function checkWinLose() {
-        if (allies.every(u => u.hp <= 0)) { alert("全軍覆沒..."); location.reload(); return true; }
-        if (enemies.every(u => u.hp <= 0)) { setTimeout(() => { if (currentLevel >= MAX_LEVEL) alert("恭喜通關！無限城崩塌！"); else startLevel(currentLevel + 1); }, 500); return true; }
-        return false;
+    function checkWinLose() { if (allies.every(u => u.hp <= 0)) { alert("全軍覆沒..."); location.reload(); return true; } if (enemies.every(u => u.hp <= 0)) { setTimeout(() => { if (currentLevel >= MAX_LEVEL) alert("恭喜通關！"); else startLevel(currentLevel + 1); }, 500); return true; } return false; }
+    function getBossName(l, index) { const bossMap = { 1: ["下弦之陸"], 2: ["下弦之伍", "下弦之壹"], 3: ["墮姬"], 4: ["墮姬", "妓夫太郎"], 5: ["玉壺"], 6: ["半天狗", "憎珀天"], 7: ["猗窩座"], 8: ["童磨", "猗窩座"], 9: ["黑死牟", "鬼舞辻無慘"] }; const list = bossMap[l] || ["無慘"]; return list[index - 1] || list[0]; }
+    
+    // 存檔功能保留
+    function getGameState() { return { level: currentLevel, allies: allies, enemies: enemies, gridMap: gridMap }; }
+    function restoreGameState(data) { 
+        currentLevel = data.level; gridMap = data.gridMap;
+        const container = document.getElementById('grid-container'); container.innerHTML = ''; gridElements = [];
+        for (let y = 0; y < ROWS; y++) {
+            let rowEl = []; for (let x = 0; x < COLS; x++) {
+                let div = document.createElement('div'); div.className = 'tile'; div.onclick = () => onTileClick(x, y);
+                // 恢復障礙物顯示
+                if (gridMap[y][x] === 1) { div.classList.add('obstacle'); div.innerText = '🪨'; }
+                container.appendChild(div); rowEl.push(div);
+            }
+            gridElements.push(rowEl);
+        }
+        allies = data.allies.map(d => { let u = new Unit(d.id, d.name, d.type, d.role, d.x, d.y, {}); Object.assign(u, d); return u; });
+        enemies = data.enemies.map(d => { let u = new Unit(d.id, d.name, d.type, d.role, d.x, d.y, {}); Object.assign(u, d); return u; });
+        startPlayerPhase(); log("📂 遊戲讀取成功！", 'log-sys');
     }
-    function getBossName(l, index) { const bossMap = { 1: ["響凱下弦之陸"], 2: ["累下弦之伍", "魘夢下弦之壹"], 3: ["墮姬"], 4: ["墮姬", "妓夫太郎"], 5: ["玉壺"], 6: ["半天狗", "憎珀天"], 7: ["猗窩座"], 8: ["童磨", "猗窩座"], 9: ["黑死牟", "鬼舞辻無慘"] }; const list = bossMap[l] || ["無慘分身"]; return list[index - 1] || list[0]; }
+    function saveGameLocal() { localStorage.setItem('demonSlayerSave_v3', JSON.stringify(getGameState())); alert("已保存"); }
+    function loadGameLocal() { const data = localStorage.getItem('demonSlayerSave_v3'); if(data && confirm("讀取?")) restoreGameState(JSON.parse(data)); }
+    function saveGameFile() { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(getGameState(), null, 2)], {type: "application/json"})); a.download = `demon_slayer_lv${currentLevel}.json`; a.click(); }
+    function loadGameFile(e) { const reader = new FileReader(); reader.onload = (e) => restoreGameState(JSON.parse(e.target.result)); if(e.target.files[0]) reader.readAsText(e.target.files[0]); }
 
     initGame();
-
 </script>
 </body>
 </html>
