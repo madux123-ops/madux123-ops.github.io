@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>鬼滅之刃：無限城決戰 RPG (委任系統版)</title>
+    <title>鬼滅之刃：無限城決戰 RPG (全自動委任版)</title>
     <style>
         /* --- 全局設定 --- */
         body {
@@ -125,6 +125,12 @@
         .unit.demon-clone .hp-bar-fill { background: #9370db; }
         .unit.boss-awakened .hp-bar-fill { background: #ff00ff; }
         .lvl-tag { position: absolute; top: -5px; right: -5px; font-size: 8px; background: #000; padding: 0 1px; border-radius: 2px; color: #fff; border: 1px solid #666; transform: scale(0.9); }
+        
+        /* 委任標記 */
+        .auto-badge {
+            position: absolute; top: -10px; left: -5px; font-size: 10px; 
+            text-shadow: 0 0 2px #000; z-index: 6;
+        }
 
         /* --- UI 面板 --- */
         #ui-panel { width: 220px; display: flex; flex-direction: column; gap: 8px; }
@@ -145,6 +151,7 @@
         /* 委任按鈕 */
         .btn-delegate { background: #004444; border-color: #00aaaa; color: #00ffff; }
         .btn-delegate:hover { background: #006666; }
+        .btn-delegate.active { background: #006666; border-color: #fff; box-shadow: inset 0 0 5px #0ff; }
 
         .btn-system { background: #003344; border-color: #005566; color: #aaddff; font-size: 0.8em; text-align: center; }
         .btn-system:hover { background: #004455; }
@@ -307,10 +314,14 @@
             this.range = stats.range || 1; 
             this.aoeRange = stats.aoeRange || 0; 
             this.awakened = stats.awakened || false; 
-            this.turnCount = stats.turnCount || 0; // 追蹤回合數
+            this.turnCount = stats.turnCount || 0; 
             
             this.hasActed = false; this.xp = stats.xp || 0; this.maxXp = stats.maxXp || (100 * this.level);
             this.prevX = x; this.prevY = y;
+            
+            // 委任系統
+            this.isAuto = stats.isAuto || false; // 是否委任中
+            this.autoSkillIdx = 0; // 用於輪替技能
         }
         getSkills() { if (this.type === 'demon') return []; return SKILL_DB[this.role].filter(s => this.level >= s.reqLv); }
         gainXp(amount) { if (this.type !== 'slayer') return; this.xp += amount; if (this.xp >= this.maxXp) this.levelUp(); }
@@ -328,7 +339,7 @@
     // --- 全局 ---
     let gridElements = [], gridMap = [], allies = [], enemies = [], currentLevel = 1, phase = 'PLAYER';
     let selectedUnit = null, selectionState = 'NONE', activeSkill = null;
-    let nextEnemyId = 1000; // 召喚用 ID
+    let nextEnemyId = 1000; 
 
     // --- 初始化 ---
     function initGame() {
@@ -339,7 +350,7 @@
         document.getElementById('btn-end-turn').onclick = endPlayerPhase;
         document.getElementById('btn-attack').onclick = () => prepAttack(false);
         document.getElementById('btn-skill-menu').onclick = toggleSkillMenu;
-        document.getElementById('btn-delegate').onclick = () => runPlayerAuto(selectedUnit); // 委任按鈕
+        document.getElementById('btn-delegate').onclick = toggleAutoMode; // 委任切換
         document.getElementById('btn-wait').onclick = () => finalizeAction(true);
         document.getElementById('btn-cancel-move').onclick = cancelMovement;
         document.getElementById('btn-save-local').onclick = saveGameLocal;
@@ -352,7 +363,6 @@
     }
 
     function startNewGame() {
-        // 更新初始數值
         allies = [
             new Unit(1, '炭治郎', 'slayer', 'tanjiro', 0, 0, { hp: 120, atk: 33, def: 15 }),
             new Unit(2, '善逸', 'slayer', 'zenitsu', 0, 0, { hp: 90, atk: 35, def: 6 }),
@@ -370,16 +380,8 @@
             let rowEl = []; let rowMap = [];
             for (let x = 0; x < COLS; x++) {
                 let div = document.createElement('div'); div.className = 'tile'; div.onclick = () => onTileClick(x, y);
-                // 隨機障礙物
                 let isObstacle = false; 
-                if (x > 3 && x < COLS - 3) { 
-                    if (Math.random() < 0.15) { 
-                        isObstacle = true; 
-                        div.classList.add('obstacle');
-                        div.innerText = '🪨'; 
-                    } 
-                }
-                
+                if (x > 3 && x < COLS - 3) { if (Math.random() < 0.15) { isObstacle = true; div.classList.add('obstacle'); div.innerText = '🪨'; } }
                 container.appendChild(div); rowEl.push(div); rowMap.push(isObstacle ? 1 : 0);
             }
             gridElements.push(rowEl); gridMap.push(rowMap);
@@ -423,19 +425,10 @@
         for(let i=0; i<gruntCount; i++) {
             let ex = 5 + Math.floor(Math.random() * (COLS - 5)); let ey = Math.floor(Math.random() * ROWS);
             if (gridMap[ey][ex] === 1 || isOccupied(ex, ey)) continue; 
-            
-            // 加入分身鬼
             let typeRand = Math.random();
-            let role = 'demon';
-            let name = '雜魚鬼';
-            let range = 1;
-            
-            if (typeRand < 0.1) {
-                role = 'demon-clone'; name = '分身鬼'; range = 1;
-            } else if (typeRand < 0.4) {
-                role = 'demon-range'; name = '蜘蛛鬼'; range = 3;
-            }
-
+            let role = 'demon'; let name = '雜魚鬼'; let range = 1;
+            if (typeRand < 0.1) { role = 'demon-clone'; name = '分身鬼'; range = 1; } 
+            else if (typeRand < 0.4) { role = 'demon-range'; name = '蜘蛛鬼'; range = 3; }
             enemies.push(new Unit(currentId++, name, role, 'grunt', ex, ey, {
                 hp: Math.floor(40 * difficulty), atk: Math.floor(12 * difficulty), def: Math.floor(2 * difficulty), level: lvl, range: range
             }));
@@ -472,12 +465,16 @@
     function isWalkable(x, y) { return x >= 0 && x < COLS && y >= 0 && y < ROWS && gridMap[y][x] === 0; }
     
     // --- 遊戲流程 ---
-    function startPlayerPhase() {
+    async function startPlayerPhase() {
         phase = 'PLAYER'; document.getElementById('phase-banner').className = 'phase-player'; document.getElementById('btn-end-turn').disabled = false;
         document.getElementById('phase-banner').innerText = `第 ${currentLevel} 關 - 我方回合`;
         allies.forEach(u => { u.hasActed = false; u.prevX = u.x; u.prevY = u.y; });
         resetSelection(); renderMap();
+
+        // 執行委任 AI
+        await executeAutoTurn();
     }
+
     function endPlayerPhase() { if (phase !== 'PLAYER') return; resetSelection(); startEnemyPhase(); }
 
     async function startEnemyPhase() {
@@ -494,10 +491,35 @@
         startPlayerPhase();
     }
 
-    // --- 我方 AI (委任) ---
-    async function runPlayerAuto(unit) {
-        document.getElementById('action-panel').style.display = 'none';
+    // --- 委任 AI 系統 ---
+    function toggleAutoMode() {
+        if (!selectedUnit) return;
+        selectedUnit.isAuto = !selectedUnit.isAuto;
+        log(`${selectedUnit.name} 委任模式: ${selectedUnit.isAuto ? '開啟' : '關閉'}`, 'log-sys');
+        renderMap();
+        showUnitInfo(selectedUnit); // 更新按鈕文字
+    }
+
+    async function executeAutoTurn() {
+        let hasAutoUnits = allies.some(u => u.isAuto && u.hp > 0);
+        if (!hasAutoUnits) return;
+
+        // 鎖定 UI
+        document.getElementById('game-wrapper').style.pointerEvents = 'none';
         
+        for (const unit of allies) {
+            if (unit.isAuto && unit.hp > 0 && !unit.hasActed) {
+                await runPlayerAuto(unit);
+                renderMap();
+                await new Promise(r => setTimeout(r, 200)); // 每個角色間隔
+            }
+        }
+        
+        // 解鎖 UI
+        document.getElementById('game-wrapper').style.pointerEvents = 'auto';
+    }
+
+    async function runPlayerAuto(unit) {
         // 1. 找最近敵人
         let target = null;
         let minDist = 999;
@@ -509,20 +531,40 @@
         });
 
         if (!target) {
-            log(`${unit.name} 找不到目標，待機。`, 'log-sys');
-            finalizeAction(true);
+            unit.hasActed = true;
+            log(`${unit.name} (委任) 待機`, 'log-sys');
             return;
         }
 
-        // 2. 移動 (使用 unit.range)
-        let dist = Math.abs(target.x - unit.x) + Math.abs(target.y - unit.y);
-        let range = unit.range || 1; // 假設普攻距離為1，除非有特殊設定，不過這裡簡化為1
-        // 其實應該用 unit 的 range 屬性，這裡我們讀取它。
-        // 但注意：getSkills() 中的奧義可能有更遠距離，但 AI 預設只用普攻。
-        // 為了讓善逸等遠程角色有效，我們檢查第一招技能距離或預設 1
-        let baseSkill = SKILL_DB[unit.role][0];
-        if(baseSkill) range = Math.max(range, baseSkill.range);
+        // 2. 判斷技能 (輪替)
+        let skills = unit.getSkills();
+        let selectedSkill = null;
+        
+        // 嘗試從當前 index 開始找可用的招式
+        if (skills.length > 0) {
+            // 嘗試多次以免卡在一個距離不符的技能上
+            for(let i=0; i<skills.length; i++) {
+                let idx = (unit.autoSkillIdx + i) % skills.length;
+                let s = skills[idx];
+                // 檢查是否打得到
+                // 這裡為了簡化，如果目標距離 <= 技能距離，就認為可以用
+                let distToTarget = Math.abs(target.x - unit.x) + Math.abs(target.y - unit.y);
+                // AI 移動會貼近，我們假設移動後距離
+                // 先移動再決定技能比較好，但為了簡單，我們假設 AI 會貼到普攻距離(1)或技能距離
+                // 這裡簡化：AI 總是嘗試貼近敵人。
+                
+                // 暫定選中這個技能
+                selectedSkill = s;
+                // 更新 index 給下次
+                unit.autoSkillIdx = (idx + 1) % skills.length;
+                break; 
+            }
+        }
+        
+        let range = selectedSkill ? selectedSkill.range : 1; 
 
+        // 3. 移動
+        let dist = Math.abs(target.x - unit.x) + Math.abs(target.y - unit.y);
         if (dist > range) {
             let moves = unit.moveRange;
             for(let i=0; i<moves; i++) {
@@ -533,39 +575,25 @@
                 if (isWalkable(tx, ty) && !isOccupied(tx, ty)) { unit.x = tx; unit.y = ty; }
                 if (Math.abs(target.x - unit.x) + Math.abs(target.y - unit.y) <= range) break;
             }
-            renderMap();
-            await new Promise(r => setTimeout(r, 200));
         }
 
-        // 3. 攻擊
+        // 4. 攻擊
         dist = Math.abs(target.x - unit.x) + Math.abs(target.y - unit.y);
         if (dist <= range) {
-            playSound('attack');
-            // 公式: Atk - (Def * 0.5)
-            let dmg = Math.max(1, Math.floor(unit.atk - (target.def * 0.5)));
-            target.hp -= dmg;
-            log(`${unit.name} (委任) 攻擊 ${target.name}，傷害 ${dmg}`, 'log-dmg');
-            
-            unit.gainXp(10);
-
-            if (target.hp <= 0) {
-                playSound('damage');
-                if (target.role === 'boss' && !target.awakened && Math.random() < 0.4) {
-                     target.awakened = true; 
-                     target.maxHp *= 2; target.hp = target.maxHp; target.atk *= 2; 
-                     target.name = "覺醒·" + target.name;
-                     log(`⚠️覺醒！`, 'log-danger');
-                } else {
-                    target.hp = 0;
-                    log(`擊殺 ${target.name}`, 'log-sys');
-                    unit.gainXp(50);
-                }
+            // 執行技能
+            if (selectedSkill) {
+                // 判斷技能類型
+                if (selectedSkill.global) executeSkillAction(unit, null, selectedSkill); // 全體
+                else if (selectedSkill.aoe) executeSkillAction(unit, {x:target.x, y:target.y}, selectedSkill); // 範圍
+                else executeSkillAction(unit, target, selectedSkill); // 單體
+            } else {
+                // 普攻
+                executeSkillAction(unit, target, null);
             }
         } else {
-            log(`${unit.name} 移動後仍無法攻擊。`, 'log-sys');
+            unit.hasActed = true;
+            log(`${unit.name} (委任) 移動但距離不足`, 'log-sys');
         }
-
-        finalizeAction(true);
     }
 
     // --- 敵方 AI ---
@@ -621,7 +649,7 @@
             }
         }
 
-        // 2. 分身鬼邏輯 (每3回合分裂)
+        // 2. 分身
         if (demon.role === 'demon-clone' && demon.turnCount % 3 === 0) {
             log(`🟣 分身鬼正在分裂！`, 'log-summon');
             let spawned = false;
@@ -729,7 +757,20 @@
     function selectUnit(unit) { selectedUnit = unit; selectionState = 'MOVING'; showUnitInfo(unit); renderMap(); getMovableTiles(unit).forEach(pos => gridElements[pos.y][pos.x].classList.add('movable')); }
     function executeMove(unit, x, y) { unit.x = x; unit.y = y; renderMap(); openActionMenu(); }
     function cancelMovement() { if (!selectedUnit) return; unit = selectedUnit; unit.x = unit.prevX; unit.y = unit.prevY; resetSelection(); renderMap(); }
-    function openActionMenu() { selectionState = 'MENU'; document.getElementById('action-panel').style.display = 'block'; document.getElementById('skill-list').style.display = 'none'; }
+    function openActionMenu() { 
+        selectionState = 'MENU'; 
+        document.getElementById('action-panel').style.display = 'block'; 
+        document.getElementById('skill-list').style.display = 'none'; 
+        // 更新委任按鈕文字
+        const btn = document.getElementById('btn-delegate');
+        if (selectedUnit.isAuto) {
+            btn.innerText = "❌ 取消委任";
+            btn.classList.add('active');
+        } else {
+            btn.innerText = "🤖 委任戰鬥 (Auto)";
+            btn.classList.remove('active');
+        }
+    }
     function toggleSkillMenu() {
         const list = document.getElementById('skill-list'); list.style.display = (list.style.display === 'flex') ? 'none' : 'flex'; list.innerHTML = '';
         selectedUnit.getSkills().forEach(skill => {
@@ -768,7 +809,11 @@
                 if (t.hp <= 0) { playSound('damage'); if (t.role === 'boss' && !t.awakened && Math.random() < 0.4) { t.awakened = true; t.maxHp *= 2; t.hp = t.maxHp; t.atk *= 2; t.name = "覺醒·" + t.name; log(`⚠️覺醒！`, 'log-danger'); } else { t.hp = 0; log(`擊殺 ${t.name}`, 'log-sys'); totalXp += 50; } }
             }
         });
-        if (totalXp > 0) attacker.gainXp(totalXp); finalizeAction(false);
+        if (totalXp > 0) attacker.gainXp(totalXp); 
+        
+        // 如果是手動操作(非委任)，結束行動
+        if (attacker === selectedUnit) finalizeAction(false);
+        else attacker.hasActed = true; // AI 委任時直接標記
     }
     function finalizeAction(isWait) { if (selectedUnit) { selectedUnit.hasActed = true; if(isWait) log("待機", 'log-sys'); } resetSelection(); renderMap(); }
     function resetSelection() { selectedUnit = null; selectionState = 'NONE'; activeSkill = null; document.getElementById('action-panel').style.display = 'none'; document.querySelectorAll('.tile').forEach(t => {t.classList.remove('movable', 'attackable', 'healable', 'danger-zone');}); }
@@ -780,6 +825,12 @@
             if (u.awakened) div.classList.add('boss-awakened');
             if (u.hasActed && u.type === 'slayer') div.classList.add('done');
             if (u === selectedUnit) div.classList.add('selected');
+            if (u.isAuto && u.type === 'slayer') {
+                let badge = document.createElement('div');
+                badge.className = 'auto-badge';
+                badge.innerText = '🤖';
+                div.appendChild(badge);
+            }
             div.innerText = u.name[0];
             let hpBg = document.createElement('div'); hpBg.className = 'hp-bar-bg';
             let hpFill = document.createElement('div'); hpFill.className = 'hp-bar-fill';
@@ -790,7 +841,7 @@
     }
     function showUnitInfo(u) {
         let skills = u.getSkills ? u.getSkills().map(s=>s.name).join(', ') : "無";
-        let html = `<strong style="color:${u.type==='slayer'?'#4da6ff':'#ff4d4d'}">${u.name} (Lv.${u.level})</strong><br>HP: ${u.hp}/${u.maxHp} | ATK: ${u.atk} | DEF: ${u.def}<br>MOVE: ${u.moveRange} | RANGE: ${u.range}<br>${u.type==='slayer' ? `EXP: ${u.xp}/${u.maxXp}` : ''}`;
+        let html = `<strong style="color:${u.type==='slayer'?'#4da6ff':'#ff4d4d'}">${u.name} (Lv.${u.level}) ${u.isAuto ? ' [委任中]' : ''}</strong><br>HP: ${u.hp}/${u.maxHp} | ATK: ${u.atk} | DEF: ${u.def}<br>MOVE: ${u.moveRange} | RANGE: ${u.range}<br>${u.type==='slayer' ? `EXP: ${u.xp}/${u.maxXp}` : ''}`;
         document.getElementById('unit-info').innerHTML = html;
     }
     function log(msg, type) { const box = document.getElementById('log-box'); box.innerHTML += `<div class="${type}">${msg}</div>`; box.scrollTop = box.scrollHeight; }
@@ -805,7 +856,6 @@
         for (let y = 0; y < ROWS; y++) {
             let rowEl = []; for (let x = 0; x < COLS; x++) {
                 let div = document.createElement('div'); div.className = 'tile'; div.onclick = () => onTileClick(x, y);
-                // 恢復障礙物顯示
                 if (gridMap[y][x] === 1) { div.classList.add('obstacle'); div.innerText = '🪨'; }
                 container.appendChild(div); rowEl.push(div);
             }
