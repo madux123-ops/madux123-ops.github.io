@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>鬼滅之刃：無限城決戰 RPG (智慧委任版)</title>
+    <title>鬼滅之刃：無限城決戰 RPG (技能特化版)</title>
     <style>
         /* --- 全局設定 --- */
         body {
@@ -253,7 +253,7 @@
         tanjiro: [
             { name: "水之呼吸·壹之型", reqLv: 1, range: 1, val: 1.2, cost: 0, aoe: false },
             { name: "火之神神樂", reqLv: 3, range: 1, val: 1.6, cost: 0, aoe: false },
-            { name: "日之呼吸·陽華突", reqLv: 6, range: 2, val: 2.2, cost: 0, aoe: false },
+            { name: "日之呼吸·陽華突", reqLv: 6, range: 2, val: 2.2, cost: 0, aoe: true }, // Lv6 改為範圍 AOE
             { name: "奧義·第十三型", reqLv: 9, range: 3, val: 3.5, cost: 0, aoe: false, ult: true } 
         ],
         zenitsu: [
@@ -265,7 +265,7 @@
         inosuke: [
             { name: "獸之呼吸·獠牙", reqLv: 1, range: 1, val: 1.0, cost: 0, aoe: true },
             { name: "空間感知·殺", reqLv: 3, range: 1, val: 1.5, cost: 0, aoe: true },
-            { name: "爆裂猛進", reqLv: 6, range: 1, val: 2.5, cost: 0, aoe: true },
+            { name: "投擲炸裂", reqLv: 6, range: 3, val: 2.5, cost: 0, aoe: false }, // Lv6 改為遠程單體
             { name: "奧義·靈魂衝撞", reqLv: 9, range: 3, val: 3.0, cost: 0, aoe: true, ult: true } 
         ],
         nezuko: [
@@ -283,19 +283,19 @@
         rengoku: [
             { name: "不知火", reqLv: 1, range: 2, val: 1.8, cost: 0, aoe: false },
             { name: "盛炎之漩渦", reqLv: 3, range: 1, val: 2.2, cost: 0, aoe: true },
-            { name: "炎虎", reqLv: 6, range: 2, val: 3.0, cost: 0, aoe: false },
+            { name: "炎虎", reqLv: 6, range: 4, val: 3.0, cost: 0, aoe: false }, // Lv6 距離改為 4
             { name: "奧義·煉獄", reqLv: 9, range: 3, val: 4.5, cost: 0, aoe: true, ult: true } 
         ],
         uzui: [ 
             { name: "鳴弦奏奏", reqLv: 1, range: 2, val: 2.0, cost: 0, aoe: true },
             { name: "轟", reqLv: 3, range: 1, val: 2.5, cost: 0, aoe: true },
             { name: "譜面完成", reqLv: 6, range: 3, val: 3.2, cost: 0, aoe: false },
-            { name: "奧義·華麗大爆炸", reqLv: 9, range: 2, val: 4.0, cost: 0, aoe: true, ult: true }
+            { name: "奧義·華麗大爆炸", reqLv: 9, range: 3, val: 4.0, cost: 0, aoe: true, ult: true } // Lv9 距離改為 3
         ],
         himejima: [ 
             { name: "蛇紋岩·雙極", reqLv: 1, range: 2, val: 2.5, cost: 0, aoe: false },
             { name: "天面碎", reqLv: 3, range: 1, val: 3.0, cost: 0, aoe: true },
-            { name: "岩軀之膚", reqLv: 6, range: 1, val: 3.5, cost: 0, aoe: false },
+            { name: "岩軀之膚", reqLv: 6, range: 3, val: 3.5, cost: 0, aoe: false }, // Lv6 距離改為 3
             { name: "奧義·流紋岩·速征", reqLv: 9, range: 3, val: 5.0, cost: 0, aoe: true, ult: true }
         ]
     };
@@ -458,6 +458,7 @@
         startPlayerPhase();
     }
 
+    // --- 輔助函數 ---
     function isOccupied(x, y) { return [...allies, ...enemies].some(u => u.x === x && u.y === y && u.hp > 0); }
     function getUnitAt(x, y) { return [...allies, ...enemies].find(u => u.x === x && u.y === y && u.hp > 0); }
     function isWalkable(x, y) { return x >= 0 && x < COLS && y >= 0 && y < ROWS && gridMap[y][x] === 0; }
@@ -468,7 +469,7 @@
         document.getElementById('phase-banner').innerText = `第 ${currentLevel} 關 - 我方回合`;
         allies.forEach(u => { u.hasActed = false; u.prevX = u.x; u.prevY = u.y; });
         resetSelection(); renderMap();
-        await executeAutoTurn(); // 自動執行委任角色
+        await executeAutoTurn();
     }
 
     function endPlayerPhase() { if (phase !== 'PLAYER') return; resetSelection(); startEnemyPhase(); }
@@ -487,28 +488,20 @@
         startPlayerPhase();
     }
 
-    // --- 委任 AI 系統 ---
+    // --- 委任 AI ---
     function toggleAutoMode() {
         if (!selectedUnit) return;
         selectedUnit.isAuto = !selectedUnit.isAuto;
         log(`${selectedUnit.name} 委任模式: ${selectedUnit.isAuto ? '開啟' : '關閉'}`, 'log-sys');
         renderMap();
-        
-        // 更新按鈕狀態
         const btn = document.getElementById('btn-delegate');
         if(selectedUnit.isAuto) { btn.innerText = "❌ 取消委任"; btn.classList.add('active'); }
         else { btn.innerText = "🤖 委任戰鬥 (Auto)"; btn.classList.remove('active'); }
-        
-        // 如果開啟了委任且還沒行動，立即執行
-        if (selectedUnit.isAuto && !selectedUnit.hasActed && phase === 'PLAYER') {
-            runPlayerAuto(selectedUnit);
-        }
+        if (selectedUnit.isAuto && !selectedUnit.hasActed && phase === 'PLAYER') { runPlayerAuto(selectedUnit); }
     }
 
     async function executeAutoTurn() {
-        // 鎖定 UI
         document.getElementById('game-wrapper').style.pointerEvents = 'none';
-        
         for (const unit of allies) {
             if (unit.isAuto && unit.hp > 0 && !unit.hasActed) {
                 await runPlayerAuto(unit);
@@ -516,33 +509,28 @@
                 await new Promise(r => setTimeout(r, 200)); 
             }
         }
-        // 解鎖 UI，讓玩家可以操作剩餘角色或點擊取消委任
         document.getElementById('game-wrapper').style.pointerEvents = 'auto';
     }
 
     async function runPlayerAuto(unit) {
         let target = null; let minDist = 999;
         enemies.forEach(e => { if (e.hp > 0) { let d = Math.abs(e.x - unit.x) + Math.abs(e.y - unit.y); if (d < minDist) { minDist = d; target = e; } } });
-
         if (!target) { unit.hasActed = true; log(`${unit.name} (委任) 待機`, 'log-sys'); return; }
 
-        // 智慧選擇技能
         let skills = unit.getSkills();
         let selectedSkill = null;
         if (skills.length > 0) {
             let idx = unit.autoSkillIdx % skills.length;
             selectedSkill = skills[idx];
-            unit.autoSkillIdx++; // 下次換招
+            unit.autoSkillIdx++; 
         }
-        
         let range = selectedSkill ? selectedSkill.range : 1; 
 
-        // 移動
         let dist = Math.abs(target.x - unit.x) + Math.abs(target.y - unit.y);
         if (dist > range) {
             let moves = unit.moveRange;
             for(let i=0; i<moves; i++) {
-                let dx = Math.sign(target.x - unit.x), dy = Math.sign(target.y - unit.y);
+                let dx = Math.sign(target.x - unit.x); let dy = Math.sign(target.y - unit.y);
                 let tx = unit.x + dx, ty = unit.y;
                 if (!isWalkable(tx, ty) || isOccupied(tx, ty)) { tx = unit.x; ty = unit.y + dy; }
                 if (isWalkable(tx, ty) && !isOccupied(tx, ty)) { unit.x = tx; unit.y = ty; }
@@ -550,19 +538,112 @@
             }
         }
 
-        // 攻擊
         dist = Math.abs(target.x - unit.x) + Math.abs(target.y - unit.y);
         if (dist <= range) {
             if (selectedSkill) {
                 if (selectedSkill.global) executeSkillAction(unit, null, selectedSkill); 
                 else if (selectedSkill.aoe) executeSkillAction(unit, {x:target.x, y:target.y}, selectedSkill); 
                 else executeSkillAction(unit, target, selectedSkill); 
-            } else {
-                executeSkillAction(unit, target, null);
+            } else { executeSkillAction(unit, target, null); }
+        } else { unit.hasActed = true; log(`${unit.name} (委任) 移動但距離不足`, 'log-sys'); }
+    }
+
+    // --- 敵方 AI ---
+    async function runEnemyAI(demon) {
+        demon.turnCount++; 
+        // 1. 召喚
+        if (demon.role === 'boss') {
+            let summonNow = false; let summonType = 'grunt'; let spawnCount = 3;
+            if (demon.name.includes("無慘")) {
+                if (demon.turnCount % 6 === 0) { summonNow = true; summonType = 'boss'; spawnCount = 1; }
+                else if (demon.turnCount % 3 === 0) { summonNow = true; summonType = 'grunt'; spawnCount = 3; }
+            } else { if (demon.turnCount % 3 === 0) { summonNow = true; summonType = 'grunt'; spawnCount = 3; } }
+
+            if (summonNow) {
+                log(`🟣 ${demon.name} 正在召喚...`, 'log-summon');
+                for(let dy=-1; dy<=1; dy++) { for(let dx=-1; dx<=1; dx++) { let sx = demon.x+dx, sy = demon.y+dy; if(isWalkable(sx, sy)) gridElements[sy][sx].classList.add('summon-zone'); } }
+                await new Promise(r => setTimeout(r, 400));
+                document.querySelectorAll('.summon-zone').forEach(el => el.classList.remove('summon-zone'));
+                playSound('summon');
+                let placed = 0; let difficulty = 1 + (currentLevel * 0.25);
+                for (let r = 1; r <= 3; r++) { 
+                    for (let dy = -r; dy <= r; dy++) { for (let dx = -r; dx <= r; dx++) {
+                        if (placed >= spawnCount) break;
+                        let sx = demon.x + dx, sy = demon.y + dy;
+                        if (isWalkable(sx, sy) && !isOccupied(sx, sy)) {
+                            if (summonType === 'boss') {
+                                let randBoss = getBossName(Math.floor(Math.random()*8)+1, 1);
+                                enemies.push(new Unit(nextEnemyId++, randBoss, 'demon', 'boss', sx, sy, {
+                                    hp: Math.floor(150 * difficulty), atk: Math.floor(30 * difficulty), def: Math.floor(8 * difficulty), 
+                                    level: currentLevel+2, range: 3, move: 3, aoeRange: 2
+                                }));
+                                log(`😱 召喚了 ${randBoss}！`, 'log-danger');
+                            } else {
+                                enemies.push(new Unit(nextEnemyId++, "召喚鬼", 'demon', 'grunt', sx, sy, {
+                                    hp: Math.floor(30 * difficulty), atk: Math.floor(10 * difficulty), def: 2, level: currentLevel, range: 1
+                                }));
+                            }
+                            placed++;
+                        }
+                    }}
+                }
             }
-        } else {
-            unit.hasActed = true;
-            log(`${unit.name} (委任) 移動但距離不足`, 'log-sys');
+        }
+        // 2. 分身
+        if (demon.role === 'demon-clone' && demon.turnCount % 3 === 0) {
+            log(`🟣 分身鬼正在分裂！`, 'log-summon');
+            let spawned = false;
+            for (let dy = -1; dy <= 1; dy++) { for (let dx = -1; dx <= 1; dx++) {
+                let sx = demon.x + dx, sy = demon.y + dy;
+                if (isWalkable(sx, sy) && !isOccupied(sx, sy)) {
+                    enemies.push(new Unit(nextEnemyId++, "分身鬼", "demon-clone", 'grunt', sx, sy, {
+                        hp: demon.maxHp, atk: demon.atk, def: demon.def, level: demon.level, range: 1
+                    })); spawned = true; break;
+                }
+            } if(spawned) break; }
+        }
+        // 3. 補血
+        if (demon.role === 'demon-healer') {
+            let healTarget = enemies.find(e => e.hp > 0 && e.hp < e.maxHp && (Math.abs(e.x-demon.x)+Math.abs(e.y-demon.y) <= demon.range));
+            if (healTarget) {
+                let healAmt = Math.floor(demon.atk * 1.5); healTarget.hp = Math.min(healTarget.maxHp, healTarget.hp + healAmt);
+                log(`${demon.name} 治療 ${healTarget.name} +${healAmt}`, 'log-heal'); return;
+            }
+        }
+        // 4. 攻擊移動
+        let target = null, minDist = 999;
+        allies.forEach(a => { if (a.hp > 0) { let d = Math.abs(a.x - demon.x) + Math.abs(a.y - demon.y); if (d < minDist) { minDist = d; target = a; } } });
+        if (!target) return;
+        let dist = Math.abs(target.x - demon.x) + Math.abs(target.y - demon.y);
+        if (dist > demon.range) {
+            let moves = demon.moveRange; 
+            for (let i=0; i<moves; i++) {
+                let dx = Math.sign(target.x - demon.x), dy = Math.sign(target.y - demon.y);
+                let tx = demon.x + dx, ty = demon.y;
+                if (!isWalkable(tx, ty) || isOccupied(tx, ty)) { tx = demon.x; ty = demon.y + dy; } 
+                if (isWalkable(tx, ty) && !isOccupied(tx, ty)) { demon.x = tx; demon.y = ty; }
+                if (Math.abs(target.x - demon.x) + Math.abs(target.y - demon.y) <= demon.range) break;
+            }
+            dist = Math.abs(target.x - demon.x) + Math.abs(target.y - demon.y);
+        }
+        if (dist <= demon.range) {
+            let dmg = Math.max(1, Math.floor(demon.atk - (target.def * 0.5)));
+            if (demon.role === 'boss' && demon.aoeRange > 0) {
+                log(`⚠️ ${demon.name} 鎖定攻擊範圍...`, 'log-danger');
+                allies.forEach(a => { if (a.hp > 0 && Math.abs(a.x - target.x) + Math.abs(a.y - target.y) <= demon.aoeRange) gridElements[a.y][a.x].classList.add('danger-zone'); });
+                await new Promise(r => setTimeout(r, 400));
+                document.querySelectorAll('.danger-zone').forEach(el => el.classList.remove('danger-zone'));
+                playSound('attack');
+                allies.forEach(a => {
+                    if (a.hp > 0 && Math.abs(a.x - target.x) + Math.abs(a.y - target.y) <= demon.aoeRange) {
+                        let aoeDmg = Math.max(1, Math.floor(demon.atk - (a.def * 0.5)));
+                        a.hp -= aoeDmg; log(`${a.name} 受損 ${aoeDmg}`, 'log-dmg'); if (a.hp <= 0) playSound('damage');
+                    }
+                });
+            } else {
+                playSound('attack');
+                target.hp -= dmg; log(`${demon.name} 攻擊 ${target.name} ${dmg}`, 'log-dmg'); if (target.hp <= 0) playSound('damage');
+            }
         }
     }
 
@@ -582,33 +663,27 @@
         return moves;
     }
     
-    // --- 關鍵修正：點選已行動單位 ---
     function onTileClick(x, y) {
         if (phase !== 'PLAYER') return;
         const targetUnit = getUnitAt(x, y);
 
-        // 如果點到我方角色
         if (targetUnit && targetUnit.type === 'slayer') {
             if (targetUnit.hasActed) {
-                // 已行動角色：僅顯示狀態和「取消委任」按鈕
                 selectedUnit = targetUnit;
                 showUnitInfo(targetUnit);
                 openActionMenu();
-                // 隱藏操作按鈕，只留委任
+                // 隱藏非委任操作
                 document.getElementById('btn-attack').style.display = 'none';
                 document.getElementById('btn-skill-menu').style.display = 'none';
                 document.getElementById('btn-wait').style.display = 'none';
                 document.getElementById('btn-cancel-move').style.display = 'none';
             } else {
-                // 未行動角色：正常邏輯
                 selectUnit(targetUnit);
             }
             return;
         }
 
-        if (selectionState === 'NONE') {
-             if (targetUnit) showUnitInfo(targetUnit); return; 
-        }
+        if (selectionState === 'NONE') { if (targetUnit) showUnitInfo(targetUnit); return; }
         if (selectionState === 'MOVING') {
             if (gridElements[y][x].classList.contains('movable')) executeMove(selectedUnit, x, y);
             else if (x === selectedUnit.x && y === selectedUnit.y) executeMove(selectedUnit, x, y);
@@ -633,7 +708,6 @@
         document.getElementById('action-panel').style.display = 'block'; 
         document.getElementById('skill-list').style.display = 'none'; 
         
-        // 恢復按鈕顯示 (因為點擊已行動角色時可能隱藏了)
         if (!selectedUnit.hasActed) {
             document.getElementById('btn-attack').style.display = 'block';
             document.getElementById('btn-skill-menu').style.display = 'block';
@@ -641,7 +715,6 @@
             document.getElementById('btn-cancel-move').style.display = 'block';
         }
 
-        // 更新委任按鈕狀態
         const btn = document.getElementById('btn-delegate');
         if(selectedUnit.isAuto) { btn.innerText = "❌ 取消委任"; btn.classList.add('active'); }
         else { btn.innerText = "🤖 委任戰鬥 (Auto)"; btn.classList.remove('active'); }
@@ -686,8 +759,6 @@
             }
         });
         if (totalXp > 0) attacker.gainXp(totalXp); 
-        
-        // 動作結束處理
         if (attacker === selectedUnit) finalizeAction(false); 
         else attacker.hasActed = true;
     }
