@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>鬼滅之刃：無限城決戰 RPG (技能特化版)</title>
+    <title>鬼滅之刃：無限城決戰 RPG (純手動版)</title>
     <style>
         /* --- 全局設定 --- */
         body {
@@ -125,12 +125,6 @@
         .unit.demon-clone .hp-bar-fill { background: #9370db; }
         .unit.boss-awakened .hp-bar-fill { background: #ff00ff; }
         .lvl-tag { position: absolute; top: -5px; right: -5px; font-size: 8px; background: #000; padding: 0 1px; border-radius: 2px; color: #fff; border: 1px solid #666; transform: scale(0.9); }
-        
-        /* 委任標記 */
-        .auto-badge {
-            position: absolute; top: -12px; left: -2px; font-size: 12px; 
-            text-shadow: 0 0 2px #000; z-index: 6;
-        }
 
         /* --- UI 面板 --- */
         #ui-panel { width: 220px; display: flex; flex-direction: column; gap: 8px; }
@@ -147,11 +141,6 @@
         button:disabled { opacity: 0.3; cursor: default; }
         .btn-skill { border-left: 3px solid #ff0055; }
         .btn-cancel { background: #331111; border-color: #552222; text-align: center; font-size: 0.8em; }
-        
-        /* 委任按鈕 */
-        .btn-delegate { background: #004444; border-color: #00aaaa; color: #00ffff; }
-        .btn-delegate:hover { background: #006666; }
-        .btn-delegate.active { background: #006666; border-color: #fff; box-shadow: inset 0 0 5px #0ff; }
 
         .btn-system { background: #003344; border-color: #005566; color: #aaddff; font-size: 0.8em; text-align: center; }
         .btn-system:hover { background: #004455; }
@@ -192,7 +181,6 @@
                     <button id="btn-attack">⚔️ 攻擊</button>
                     <button id="btn-skill-menu">🔥 戰技/奧義</button>
                     <div id="skill-list"></div>
-                    <button id="btn-delegate" class="btn-delegate">🤖 委任戰鬥 (Auto)</button>
                     <button id="btn-wait">✋ 待機</button>
                     <button id="btn-cancel-move" class="btn-cancel">↩ 取消移動</button>
                 </div>
@@ -318,9 +306,6 @@
             
             this.hasActed = false; this.xp = stats.xp || 0; this.maxXp = stats.maxXp || (100 * this.level);
             this.prevX = x; this.prevY = y;
-            
-            this.isAuto = stats.isAuto || false; 
-            this.autoSkillIdx = 0; 
         }
         getSkills() { if (this.type === 'demon') return []; return SKILL_DB[this.role].filter(s => this.level >= s.reqLv); }
         gainXp(amount) { if (this.type !== 'slayer') return; this.xp += amount; if (this.xp >= this.maxXp) this.levelUp(); }
@@ -349,7 +334,6 @@
         document.getElementById('btn-end-turn').onclick = endPlayerPhase;
         document.getElementById('btn-attack').onclick = () => prepAttack(false);
         document.getElementById('btn-skill-menu').onclick = toggleSkillMenu;
-        document.getElementById('btn-delegate').onclick = toggleAutoMode; 
         document.getElementById('btn-wait').onclick = () => finalizeAction(true);
         document.getElementById('btn-cancel-move').onclick = cancelMovement;
         document.getElementById('btn-save-local').onclick = saveGameLocal;
@@ -464,14 +448,12 @@
     function isWalkable(x, y) { return x >= 0 && x < COLS && y >= 0 && y < ROWS && gridMap[y][x] === 0; }
     
     // --- 遊戲流程 ---
-    async function startPlayerPhase() {
+    function startPlayerPhase() {
         phase = 'PLAYER'; document.getElementById('phase-banner').className = 'phase-player'; document.getElementById('btn-end-turn').disabled = false;
         document.getElementById('phase-banner').innerText = `第 ${currentLevel} 關 - 我方回合`;
         allies.forEach(u => { u.hasActed = false; u.prevX = u.x; u.prevY = u.y; });
         resetSelection(); renderMap();
-        await executeAutoTurn();
     }
-
     function endPlayerPhase() { if (phase !== 'PLAYER') return; resetSelection(); startEnemyPhase(); }
 
     async function startEnemyPhase() {
@@ -488,76 +470,22 @@
         startPlayerPhase();
     }
 
-    // --- 委任 AI ---
-    function toggleAutoMode() {
-        if (!selectedUnit) return;
-        selectedUnit.isAuto = !selectedUnit.isAuto;
-        log(`${selectedUnit.name} 委任模式: ${selectedUnit.isAuto ? '開啟' : '關閉'}`, 'log-sys');
-        renderMap();
-        const btn = document.getElementById('btn-delegate');
-        if(selectedUnit.isAuto) { btn.innerText = "❌ 取消委任"; btn.classList.add('active'); }
-        else { btn.innerText = "🤖 委任戰鬥 (Auto)"; btn.classList.remove('active'); }
-        if (selectedUnit.isAuto && !selectedUnit.hasActed && phase === 'PLAYER') { runPlayerAuto(selectedUnit); }
-    }
-
-    async function executeAutoTurn() {
-        document.getElementById('game-wrapper').style.pointerEvents = 'none';
-        for (const unit of allies) {
-            if (unit.isAuto && unit.hp > 0 && !unit.hasActed) {
-                await runPlayerAuto(unit);
-                renderMap();
-                await new Promise(r => setTimeout(r, 200)); 
-            }
-        }
-        document.getElementById('game-wrapper').style.pointerEvents = 'auto';
-    }
-
-    async function runPlayerAuto(unit) {
-        let target = null; let minDist = 999;
-        enemies.forEach(e => { if (e.hp > 0) { let d = Math.abs(e.x - unit.x) + Math.abs(e.y - unit.y); if (d < minDist) { minDist = d; target = e; } } });
-        if (!target) { unit.hasActed = true; log(`${unit.name} (委任) 待機`, 'log-sys'); return; }
-
-        let skills = unit.getSkills();
-        let selectedSkill = null;
-        if (skills.length > 0) {
-            let idx = unit.autoSkillIdx % skills.length;
-            selectedSkill = skills[idx];
-            unit.autoSkillIdx++; 
-        }
-        let range = selectedSkill ? selectedSkill.range : 1; 
-
-        let dist = Math.abs(target.x - unit.x) + Math.abs(target.y - unit.y);
-        if (dist > range) {
-            let moves = unit.moveRange;
-            for(let i=0; i<moves; i++) {
-                let dx = Math.sign(target.x - unit.x); let dy = Math.sign(target.y - unit.y);
-                let tx = unit.x + dx, ty = unit.y;
-                if (!isWalkable(tx, ty) || isOccupied(tx, ty)) { tx = unit.x; ty = unit.y + dy; }
-                if (isWalkable(tx, ty) && !isOccupied(tx, ty)) { unit.x = tx; unit.y = ty; }
-                if (Math.abs(target.x - unit.x) + Math.abs(target.y - unit.y) <= range) break;
-            }
-        }
-
-        dist = Math.abs(target.x - unit.x) + Math.abs(target.y - unit.y);
-        if (dist <= range) {
-            if (selectedSkill) {
-                if (selectedSkill.global) executeSkillAction(unit, null, selectedSkill); 
-                else if (selectedSkill.aoe) executeSkillAction(unit, {x:target.x, y:target.y}, selectedSkill); 
-                else executeSkillAction(unit, target, selectedSkill); 
-            } else { executeSkillAction(unit, target, null); }
-        } else { unit.hasActed = true; log(`${unit.name} (委任) 移動但距離不足`, 'log-sys'); }
-    }
-
     // --- 敵方 AI ---
     async function runEnemyAI(demon) {
         demon.turnCount++; 
+
         // 1. 召喚
         if (demon.role === 'boss') {
-            let summonNow = false; let summonType = 'grunt'; let spawnCount = 3;
+            let summonNow = false;
+            let summonType = 'grunt';
+            let spawnCount = 3;
+            
             if (demon.name.includes("無慘")) {
-                if (demon.turnCount % 6 === 0) { summonNow = true; summonType = 'boss'; spawnCount = 1; }
+                if (demon.turnCount % 6 === 0) { summonNow = true; summonType = 'boss'; spawnCount = 1; } // 無慘每6回合召喚BOSS
                 else if (demon.turnCount % 3 === 0) { summonNow = true; summonType = 'grunt'; spawnCount = 3; }
-            } else { if (demon.turnCount % 3 === 0) { summonNow = true; summonType = 'grunt'; spawnCount = 3; } }
+            } else {
+                if (demon.turnCount % 3 === 0) { summonNow = true; summonType = 'grunt'; spawnCount = 3; }
+            }
 
             if (summonNow) {
                 log(`🟣 ${demon.name} 正在召喚...`, 'log-summon');
@@ -565,56 +493,73 @@
                 await new Promise(r => setTimeout(r, 400));
                 document.querySelectorAll('.summon-zone').forEach(el => el.classList.remove('summon-zone'));
                 playSound('summon');
-                let placed = 0; let difficulty = 1 + (currentLevel * 0.25);
+
+                let placed = 0;
+                let difficulty = 1 + (currentLevel * 0.25);
+                
                 for (let r = 1; r <= 3; r++) { 
-                    for (let dy = -r; dy <= r; dy++) { for (let dx = -r; dx <= r; dx++) {
-                        if (placed >= spawnCount) break;
-                        let sx = demon.x + dx, sy = demon.y + dy;
-                        if (isWalkable(sx, sy) && !isOccupied(sx, sy)) {
-                            if (summonType === 'boss') {
-                                let randBoss = getBossName(Math.floor(Math.random()*8)+1, 1);
-                                enemies.push(new Unit(nextEnemyId++, randBoss, 'demon', 'boss', sx, sy, {
-                                    hp: Math.floor(150 * difficulty), atk: Math.floor(30 * difficulty), def: Math.floor(8 * difficulty), 
-                                    level: currentLevel+2, range: 3, move: 3, aoeRange: 2
-                                }));
-                                log(`😱 召喚了 ${randBoss}！`, 'log-danger');
-                            } else {
-                                enemies.push(new Unit(nextEnemyId++, "召喚鬼", 'demon', 'grunt', sx, sy, {
-                                    hp: Math.floor(30 * difficulty), atk: Math.floor(10 * difficulty), def: 2, level: currentLevel, range: 1
-                                }));
+                    for (let dy = -r; dy <= r; dy++) {
+                        for (let dx = -r; dx <= r; dx++) {
+                            if (placed >= spawnCount) break;
+                            let sx = demon.x + dx, sy = demon.y + dy;
+                            if (isWalkable(sx, sy) && !isOccupied(sx, sy)) {
+                                if (summonType === 'boss') {
+                                    let randBoss = getBossName(Math.floor(Math.random()*8)+1, 1);
+                                    enemies.push(new Unit(nextEnemyId++, randBoss, 'demon', 'boss', sx, sy, {
+                                        hp: Math.floor(150 * difficulty), atk: Math.floor(30 * difficulty), def: Math.floor(8 * difficulty), 
+                                        level: currentLevel+2, range: 3, move: 3, aoeRange: 2
+                                    }));
+                                    log(`😱 召喚了 ${randBoss}！`, 'log-danger');
+                                } else {
+                                    enemies.push(new Unit(nextEnemyId++, "召喚鬼", 'demon', 'grunt', sx, sy, {
+                                        hp: Math.floor(30 * difficulty), atk: Math.floor(10 * difficulty), def: 2, level: currentLevel, range: 1
+                                    }));
+                                }
+                                placed++;
                             }
-                            placed++;
                         }
-                    }}
+                    }
                 }
             }
         }
+
         // 2. 分身
         if (demon.role === 'demon-clone' && demon.turnCount % 3 === 0) {
             log(`🟣 分身鬼正在分裂！`, 'log-summon');
             let spawned = false;
-            for (let dy = -1; dy <= 1; dy++) { for (let dx = -1; dx <= 1; dx++) {
-                let sx = demon.x + dx, sy = demon.y + dy;
-                if (isWalkable(sx, sy) && !isOccupied(sx, sy)) {
-                    enemies.push(new Unit(nextEnemyId++, "分身鬼", "demon-clone", 'grunt', sx, sy, {
-                        hp: demon.maxHp, atk: demon.atk, def: demon.def, level: demon.level, range: 1
-                    })); spawned = true; break;
+            for (let dy = -1; dy <= 1; dy++) {
+                for (let dx = -1; dx <= 1; dx++) {
+                    let sx = demon.x + dx, sy = demon.y + dy;
+                    if (isWalkable(sx, sy) && !isOccupied(sx, sy)) {
+                        enemies.push(new Unit(nextEnemyId++, "分身鬼", "demon-clone", 'grunt', sx, sy, {
+                            hp: demon.maxHp, atk: demon.atk, def: demon.def, level: demon.level, range: 1
+                        }));
+                        spawned = true;
+                        break;
+                    }
                 }
-            } if(spawned) break; }
+                if(spawned) break;
+            }
         }
+
         // 3. 補血
         if (demon.role === 'demon-healer') {
             let healTarget = enemies.find(e => e.hp > 0 && e.hp < e.maxHp && (Math.abs(e.x-demon.x)+Math.abs(e.y-demon.y) <= demon.range));
             if (healTarget) {
-                let healAmt = Math.floor(demon.atk * 1.5); healTarget.hp = Math.min(healTarget.maxHp, healTarget.hp + healAmt);
-                log(`${demon.name} 治療 ${healTarget.name} +${healAmt}`, 'log-heal'); return;
+                let healAmt = Math.floor(demon.atk * 1.5);
+                healTarget.hp = Math.min(healTarget.maxHp, healTarget.hp + healAmt);
+                log(`${demon.name} 治療 ${healTarget.name} +${healAmt}`, 'log-heal');
+                return;
             }
         }
+
         // 4. 攻擊移動
         let target = null, minDist = 999;
         allies.forEach(a => { if (a.hp > 0) { let d = Math.abs(a.x - demon.x) + Math.abs(a.y - demon.y); if (d < minDist) { minDist = d; target = a; } } });
         if (!target) return;
+
         let dist = Math.abs(target.x - demon.x) + Math.abs(target.y - demon.y);
+        
         if (dist > demon.range) {
             let moves = demon.moveRange; 
             for (let i=0; i<moves; i++) {
@@ -626,13 +571,16 @@
             }
             dist = Math.abs(target.x - demon.x) + Math.abs(target.y - demon.y);
         }
+
         if (dist <= demon.range) {
             let dmg = Math.max(1, Math.floor(demon.atk - (target.def * 0.5)));
+            
             if (demon.role === 'boss' && demon.aoeRange > 0) {
                 log(`⚠️ ${demon.name} 鎖定攻擊範圍...`, 'log-danger');
                 allies.forEach(a => { if (a.hp > 0 && Math.abs(a.x - target.x) + Math.abs(a.y - target.y) <= demon.aoeRange) gridElements[a.y][a.x].classList.add('danger-zone'); });
                 await new Promise(r => setTimeout(r, 400));
                 document.querySelectorAll('.danger-zone').forEach(el => el.classList.remove('danger-zone'));
+                
                 playSound('attack');
                 allies.forEach(a => {
                     if (a.hp > 0 && Math.abs(a.x - target.x) + Math.abs(a.y - target.y) <= demon.aoeRange) {
@@ -662,28 +610,10 @@
         }
         return moves;
     }
-    
     function onTileClick(x, y) {
         if (phase !== 'PLAYER') return;
         const targetUnit = getUnitAt(x, y);
-
-        if (targetUnit && targetUnit.type === 'slayer') {
-            if (targetUnit.hasActed) {
-                selectedUnit = targetUnit;
-                showUnitInfo(targetUnit);
-                openActionMenu();
-                // 隱藏非委任操作
-                document.getElementById('btn-attack').style.display = 'none';
-                document.getElementById('btn-skill-menu').style.display = 'none';
-                document.getElementById('btn-wait').style.display = 'none';
-                document.getElementById('btn-cancel-move').style.display = 'none';
-            } else {
-                selectUnit(targetUnit);
-            }
-            return;
-        }
-
-        if (selectionState === 'NONE') { if (targetUnit) showUnitInfo(targetUnit); return; }
+        if (selectionState === 'NONE') { if (targetUnit && targetUnit.type === 'slayer' && !targetUnit.hasActed) selectUnit(targetUnit); else if (targetUnit) showUnitInfo(targetUnit); return; }
         if (selectionState === 'MOVING') {
             if (gridElements[y][x].classList.contains('movable')) executeMove(selectedUnit, x, y);
             else if (x === selectedUnit.x && y === selectedUnit.y) executeMove(selectedUnit, x, y);
@@ -698,28 +628,10 @@
             } else openActionMenu();
         }
     }
-
     function selectUnit(unit) { selectedUnit = unit; selectionState = 'MOVING'; showUnitInfo(unit); renderMap(); getMovableTiles(unit).forEach(pos => gridElements[pos.y][pos.x].classList.add('movable')); }
     function executeMove(unit, x, y) { unit.x = x; unit.y = y; renderMap(); openActionMenu(); }
     function cancelMovement() { if (!selectedUnit) return; unit = selectedUnit; unit.x = unit.prevX; unit.y = unit.prevY; resetSelection(); renderMap(); }
-    
-    function openActionMenu() { 
-        selectionState = 'MENU'; 
-        document.getElementById('action-panel').style.display = 'block'; 
-        document.getElementById('skill-list').style.display = 'none'; 
-        
-        if (!selectedUnit.hasActed) {
-            document.getElementById('btn-attack').style.display = 'block';
-            document.getElementById('btn-skill-menu').style.display = 'block';
-            document.getElementById('btn-wait').style.display = 'block';
-            document.getElementById('btn-cancel-move').style.display = 'block';
-        }
-
-        const btn = document.getElementById('btn-delegate');
-        if(selectedUnit.isAuto) { btn.innerText = "❌ 取消委任"; btn.classList.add('active'); }
-        else { btn.innerText = "🤖 委任戰鬥 (Auto)"; btn.classList.remove('active'); }
-    }
-
+    function openActionMenu() { selectionState = 'MENU'; document.getElementById('action-panel').style.display = 'block'; document.getElementById('skill-list').style.display = 'none'; }
     function toggleSkillMenu() {
         const list = document.getElementById('skill-list'); list.style.display = (list.style.display === 'flex') ? 'none' : 'flex'; list.innerHTML = '';
         selectedUnit.getSkills().forEach(skill => {
@@ -758,9 +670,7 @@
                 if (t.hp <= 0) { playSound('damage'); if (t.role === 'boss' && !t.awakened && Math.random() < 0.4) { t.awakened = true; t.maxHp *= 2; t.hp = t.maxHp; t.atk *= 2; t.name = "覺醒·" + t.name; log(`⚠️覺醒！`, 'log-danger'); } else { t.hp = 0; log(`擊殺 ${t.name}`, 'log-sys'); totalXp += 50; } }
             }
         });
-        if (totalXp > 0) attacker.gainXp(totalXp); 
-        if (attacker === selectedUnit) finalizeAction(false); 
-        else attacker.hasActed = true;
+        if (totalXp > 0) attacker.gainXp(totalXp); finalizeAction(false);
     }
     function finalizeAction(isWait) { if (selectedUnit) { selectedUnit.hasActed = true; if(isWait) log("待機", 'log-sys'); } resetSelection(); renderMap(); }
     function resetSelection() { selectedUnit = null; selectionState = 'NONE'; activeSkill = null; document.getElementById('action-panel').style.display = 'none'; document.querySelectorAll('.tile').forEach(t => {t.classList.remove('movable', 'attackable', 'healable', 'danger-zone');}); }
@@ -772,7 +682,6 @@
             if (u.awakened) div.classList.add('boss-awakened');
             if (u.hasActed && u.type === 'slayer') div.classList.add('done');
             if (u === selectedUnit) div.classList.add('selected');
-            if (u.isAuto && u.type === 'slayer') { let b = document.createElement('div'); b.className = 'auto-badge'; b.innerText = '🤖'; div.appendChild(b); }
             div.innerText = u.name[0];
             let hpBg = document.createElement('div'); hpBg.className = 'hp-bar-bg';
             let hpFill = document.createElement('div'); hpFill.className = 'hp-bar-fill';
@@ -783,7 +692,7 @@
     }
     function showUnitInfo(u) {
         let skills = u.getSkills ? u.getSkills().map(s=>s.name).join(', ') : "無";
-        let html = `<strong style="color:${u.type==='slayer'?'#4da6ff':'#ff4d4d'}">${u.name} (Lv.${u.level}) ${u.isAuto ? ' [委任中]' : ''}</strong><br>HP: ${u.hp}/${u.maxHp} | ATK: ${u.atk} | DEF: ${u.def}<br>MOVE: ${u.moveRange} | RANGE: ${u.range}<br>${u.type==='slayer' ? `EXP: ${u.xp}/${u.maxXp}` : ''}`;
+        let html = `<strong style="color:${u.type==='slayer'?'#4da6ff':'#ff4d4d'}">${u.name} (Lv.${u.level})</strong><br>HP: ${u.hp}/${u.maxHp} | ATK: ${u.atk} | DEF: ${u.def}<br>MOVE: ${u.moveRange} | RANGE: ${u.range}<br>${u.type==='slayer' ? `EXP: ${u.xp}/${u.maxXp}` : ''}`;
         document.getElementById('unit-info').innerHTML = html;
     }
     function log(msg, type) { const box = document.getElementById('log-box'); box.innerHTML += `<div class="${type}">${msg}</div>`; box.scrollTop = box.scrollHeight; }
@@ -798,6 +707,7 @@
         for (let y = 0; y < ROWS; y++) {
             let rowEl = []; for (let x = 0; x < COLS; x++) {
                 let div = document.createElement('div'); div.className = 'tile'; div.onclick = () => onTileClick(x, y);
+                // 恢復障礙物顯示
                 if (gridMap[y][x] === 1) { div.classList.add('obstacle'); div.innerText = '🪨'; }
                 container.appendChild(div); rowEl.push(div);
             }
