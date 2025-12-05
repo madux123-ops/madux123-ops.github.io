@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>鬼滅之刃：無限城決戰 RPG (無限增殖篇)</title>
+    <title>鬼滅之刃：無限城決戰 RPG (委任系統版)</title>
     <style>
         /* --- 全局設定 --- */
         body {
@@ -104,9 +104,8 @@
         .unit.demon { background: radial-gradient(#444, #111); border-color: #f00; color: #bbb; font-size: 10px; }
         .unit.demon-range { background: radial-gradient(#4a2c5a, #200020); border-color: #a0f; color: #eef; }
         .unit.demon-healer { background: radial-gradient(#006400, #003300); border-color: #00ff00; color: #cfc; font-size: 9px; box-shadow: 0 0 4px #0f0; } 
-        /* 分身鬼 */
         .unit.demon-clone { background: radial-gradient(#4b0082, #000); border-color: #9400d3; color: #d8bfd8; font-size: 9px; box-shadow: 0 0 4px #9400d3; }
-
+        
         .unit.boss { background: radial-gradient(#a00, #300); border-color: #ff0000; color: #fff; font-size: 13px; box-shadow: 0 0 6px #f00; }
         .unit.boss-awakened { 
             background: radial-gradient(#ff0000, #500); 
@@ -142,6 +141,10 @@
         button:disabled { opacity: 0.3; cursor: default; }
         .btn-skill { border-left: 3px solid #ff0055; }
         .btn-cancel { background: #331111; border-color: #552222; text-align: center; font-size: 0.8em; }
+        
+        /* 委任按鈕 */
+        .btn-delegate { background: #004444; border-color: #00aaaa; color: #00ffff; }
+        .btn-delegate:hover { background: #006666; }
 
         .btn-system { background: #003344; border-color: #005566; color: #aaddff; font-size: 0.8em; text-align: center; }
         .btn-system:hover { background: #004455; }
@@ -182,6 +185,7 @@
                     <button id="btn-attack">⚔️ 攻擊</button>
                     <button id="btn-skill-menu">🔥 戰技/奧義</button>
                     <div id="skill-list"></div>
+                    <button id="btn-delegate" class="btn-delegate">🤖 委任戰鬥 (Auto)</button>
                     <button id="btn-wait">✋ 待機</button>
                     <button id="btn-cancel-move" class="btn-cancel">↩ 取消移動</button>
                 </div>
@@ -335,6 +339,7 @@
         document.getElementById('btn-end-turn').onclick = endPlayerPhase;
         document.getElementById('btn-attack').onclick = () => prepAttack(false);
         document.getElementById('btn-skill-menu').onclick = toggleSkillMenu;
+        document.getElementById('btn-delegate').onclick = () => runPlayerAuto(selectedUnit); // 委任按鈕
         document.getElementById('btn-wait').onclick = () => finalizeAction(true);
         document.getElementById('btn-cancel-move').onclick = cancelMovement;
         document.getElementById('btn-save-local').onclick = saveGameLocal;
@@ -347,7 +352,7 @@
     }
 
     function startNewGame() {
-        // 初始隊伍
+        // 更新初始數值
         allies = [
             new Unit(1, '炭治郎', 'slayer', 'tanjiro', 0, 0, { hp: 120, atk: 33, def: 15 }),
             new Unit(2, '善逸', 'slayer', 'zenitsu', 0, 0, { hp: 90, atk: 35, def: 6 }),
@@ -365,6 +370,7 @@
             let rowEl = []; let rowMap = [];
             for (let x = 0; x < COLS; x++) {
                 let div = document.createElement('div'); div.className = 'tile'; div.onclick = () => onTileClick(x, y);
+                // 隨機障礙物
                 let isObstacle = false; 
                 if (x > 3 && x < COLS - 3) { 
                     if (Math.random() < 0.15) { 
@@ -373,6 +379,7 @@
                         div.innerText = '🪨'; 
                     } 
                 }
+                
                 container.appendChild(div); rowEl.push(div); rowMap.push(isObstacle ? 1 : 0);
             }
             gridElements.push(rowEl); gridMap.push(rowMap);
@@ -385,23 +392,19 @@
         log(`=== 第 ${lvl} 關 開始 ===`, 'log-sys');
         createMap();
 
-        // 柱的增援與強化
         if (lvl === 3 && !allies.find(u => u.role === 'giyu')) {
             allies.push(new Unit(5, '富岡義勇', 'slayer', 'giyu', 0, 0, { hp: 220, atk: 50, def: 25, level: 3 }));
             log("🌊 水柱・富岡義勇 (強化狀態) 加入戰場！", 'log-join');
         }
         if (lvl === 5 && !allies.find(u => u.role === 'rengoku')) {
-            // 煉獄強化
             allies.push(new Unit(6, '煉獄杏壽郎', 'slayer', 'rengoku', 0, 0, { hp: 240, atk: 65, def: 20, level: 5 }));
             log("🔥 炎柱・煉獄杏壽郎 加入戰場！", 'log-join');
         }
         if (lvl === 7 && !allies.find(u => u.role === 'uzui')) {
-            // 宇隨強化
             allies.push(new Unit(7, '宇隨天元', 'slayer', 'uzui', 0, 0, { hp: 260, atk: 58, def: 22, level: 7 }));
             log("🎵 音柱・宇隨天元 華麗登場！", 'log-join');
         }
         if (lvl === 9 && !allies.find(u => u.role === 'himejima')) {
-            // 悲鳴嶼強化
             allies.push(new Unit(8, '悲鳴嶼行冥', 'slayer', 'himejima', 0, 0, { hp: 420, atk: 85, def: 40, level: 9 }));
             log("📿 岩柱・悲鳴嶼行冥 參戰！", 'log-join');
         }
@@ -421,7 +424,7 @@
             let ex = 5 + Math.floor(Math.random() * (COLS - 5)); let ey = Math.floor(Math.random() * ROWS);
             if (gridMap[ey][ex] === 1 || isOccupied(ex, ey)) continue; 
             
-            // 加入分身鬼 (約 10% 機率是分身鬼)
+            // 加入分身鬼
             let typeRand = Math.random();
             let role = 'demon';
             let name = '雜魚鬼';
@@ -491,11 +494,85 @@
         startPlayerPhase();
     }
 
-    // --- AI ---
+    // --- 我方 AI (委任) ---
+    async function runPlayerAuto(unit) {
+        document.getElementById('action-panel').style.display = 'none';
+        
+        // 1. 找最近敵人
+        let target = null;
+        let minDist = 999;
+        enemies.forEach(e => {
+            if (e.hp > 0) {
+                let d = Math.abs(e.x - unit.x) + Math.abs(e.y - unit.y);
+                if (d < minDist) { minDist = d; target = e; }
+            }
+        });
+
+        if (!target) {
+            log(`${unit.name} 找不到目標，待機。`, 'log-sys');
+            finalizeAction(true);
+            return;
+        }
+
+        // 2. 移動 (使用 unit.range)
+        let dist = Math.abs(target.x - unit.x) + Math.abs(target.y - unit.y);
+        let range = unit.range || 1; // 假設普攻距離為1，除非有特殊設定，不過這裡簡化為1
+        // 其實應該用 unit 的 range 屬性，這裡我們讀取它。
+        // 但注意：getSkills() 中的奧義可能有更遠距離，但 AI 預設只用普攻。
+        // 為了讓善逸等遠程角色有效，我們檢查第一招技能距離或預設 1
+        let baseSkill = SKILL_DB[unit.role][0];
+        if(baseSkill) range = Math.max(range, baseSkill.range);
+
+        if (dist > range) {
+            let moves = unit.moveRange;
+            for(let i=0; i<moves; i++) {
+                let dx = Math.sign(target.x - unit.x);
+                let dy = Math.sign(target.y - unit.y);
+                let tx = unit.x + dx, ty = unit.y;
+                if (!isWalkable(tx, ty) || isOccupied(tx, ty)) { tx = unit.x; ty = unit.y + dy; }
+                if (isWalkable(tx, ty) && !isOccupied(tx, ty)) { unit.x = tx; unit.y = ty; }
+                if (Math.abs(target.x - unit.x) + Math.abs(target.y - unit.y) <= range) break;
+            }
+            renderMap();
+            await new Promise(r => setTimeout(r, 200));
+        }
+
+        // 3. 攻擊
+        dist = Math.abs(target.x - unit.x) + Math.abs(target.y - unit.y);
+        if (dist <= range) {
+            playSound('attack');
+            // 公式: Atk - (Def * 0.5)
+            let dmg = Math.max(1, Math.floor(unit.atk - (target.def * 0.5)));
+            target.hp -= dmg;
+            log(`${unit.name} (委任) 攻擊 ${target.name}，傷害 ${dmg}`, 'log-dmg');
+            
+            unit.gainXp(10);
+
+            if (target.hp <= 0) {
+                playSound('damage');
+                if (target.role === 'boss' && !target.awakened && Math.random() < 0.4) {
+                     target.awakened = true; 
+                     target.maxHp *= 2; target.hp = target.maxHp; target.atk *= 2; 
+                     target.name = "覺醒·" + target.name;
+                     log(`⚠️覺醒！`, 'log-danger');
+                } else {
+                    target.hp = 0;
+                    log(`擊殺 ${target.name}`, 'log-sys');
+                    unit.gainXp(50);
+                }
+            }
+        } else {
+            log(`${unit.name} 移動後仍無法攻擊。`, 'log-sys');
+        }
+
+        finalizeAction(true);
+    }
+
+    // --- 敵方 AI ---
     async function runEnemyAI(demon) {
         demon.turnCount++; 
 
-        // 1. 無慘 / 一般 BOSS 召喚
+        // 1. 召喚
         if (demon.role === 'boss') {
             let summonNow = false;
             let summonType = 'grunt';
@@ -548,7 +625,6 @@
         if (demon.role === 'demon-clone' && demon.turnCount % 3 === 0) {
             log(`🟣 分身鬼正在分裂！`, 'log-summon');
             let spawned = false;
-            // 找鄰近空格
             for (let dy = -1; dy <= 1; dy++) {
                 for (let dx = -1; dx <= 1; dx++) {
                     let sx = demon.x + dx, sy = demon.y + dy;
@@ -595,7 +671,6 @@
         }
 
         if (dist <= demon.range) {
-            // 公式: Atk - (Def * 0.5)
             let dmg = Math.max(1, Math.floor(demon.atk - (target.def * 0.5)));
             
             if (demon.role === 'boss' && demon.aoeRange > 0) {
@@ -618,7 +693,7 @@
         }
     }
 
-    // --- 標準 UI/操作函數 (保持不變) ---
+    // --- 標準 UI/操作函數 ---
     function getMovableTiles(unit) {
         let moves = [], range = unit.moveRange, queue = [{x: unit.x, y: unit.y, steps: 0}], visited = new Set([`${unit.x},${unit.y}`]);
         while(queue.length > 0) {
@@ -688,7 +763,6 @@
             if (isHeal) { val = Math.floor(skill.val + attacker.atk * 0.5); t.hp = Math.min(t.maxHp, t.hp + val); log(`${t.name} +${val}`, 'log-heal'); totalXp += 15; }
             else {
                 let mult = skill ? skill.val : 1.0; 
-                // 公式: Atk * Mult - (Def * 0.5)
                 val = Math.max(1, Math.floor(attacker.atk * mult - (t.def * 0.5)));
                 t.hp -= val; log(`${t.name} -${val}`, 'log-dmg'); totalXp += 10;
                 if (t.hp <= 0) { playSound('damage'); if (t.role === 'boss' && !t.awakened && Math.random() < 0.4) { t.awakened = true; t.maxHp *= 2; t.hp = t.maxHp; t.atk *= 2; t.name = "覺醒·" + t.name; log(`⚠️覺醒！`, 'log-danger'); } else { t.hp = 0; log(`擊殺 ${t.name}`, 'log-sys'); totalXp += 50; } }
