@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>鬼滅之刃：無限城決戰 RPG (戰術冷卻版)</title>
+    <title>鬼滅之刃：無限城決戰 RPG (CD調整版)</title>
     <style>
         /* --- 全局設定 --- */
         body {
@@ -139,9 +139,8 @@
         }
         button:hover { background: #444; border-color: #888; }
         button:disabled { opacity: 0.3; cursor: default; }
-        
         .btn-skill { border-left: 3px solid #ff0055; }
-        .btn-recover { border-left: 3px solid #00ff00; color: #ccffcc; } /* 療傷按鈕 */
+        .btn-recover { border-left: 3px solid #00ff00; color: #ccffcc; }
         .btn-cancel { background: #331111; border-color: #552222; text-align: center; font-size: 0.8em; }
 
         .btn-system { background: #003344; border-color: #005566; color: #aaddff; font-size: 0.8em; text-align: center; }
@@ -302,8 +301,10 @@
             this.level = stats.level || 1;
             this.maxHp = stats.hp; this.hp = stats.hp; this.atk = stats.atk; this.def = stats.def;
             
+            // 移動力邏輯 (基礎2, Lv5->3, Lv9->4, 天元+1)
             let baseMove = 2;
             if (this.level >= 9) baseMove = 4; else if (this.level >= 5) baseMove = 3;
+            if (this.role === 'uzui') baseMove += 1; // 天元特權
             this.moveRange = baseMove;
             
             this.range = stats.range || 1; 
@@ -313,9 +314,7 @@
             
             this.hasActed = false; this.xp = stats.xp || 0; this.maxXp = stats.maxXp || (100 * this.level);
             this.prevX = x; this.prevY = y;
-            
-            // CD 系統
-            this.cooldowns = {}; // { skillName: turns }
+            this.cooldowns = {}; 
         }
         getSkills() { if (this.type === 'demon') return []; return SKILL_DB[this.role].filter(s => this.level >= s.reqLv); }
         gainXp(amount) { if (this.type !== 'slayer') return; this.xp += amount; if (this.xp >= this.maxXp) this.levelUp(); }
@@ -325,7 +324,13 @@
             this.maxXp = Math.floor(this.maxXp * 1.25); this.maxHp = Math.floor(this.maxHp * 1.15);
             this.atk = Math.floor(this.atk * 1.12); this.def = Math.floor(this.def * 1.12);
             this.hp = this.maxHp;
-            if (this.level === 5 || this.level === 9) { if(this.level===5) this.moveRange=3; if(this.level===9) this.moveRange=4; }
+            
+            // 升級更新移動力
+            let newMove = 2;
+            if (this.level >= 9) newMove = 4; else if (this.level >= 5) newMove = 3;
+            if (this.role === 'uzui') newMove += 1;
+            this.moveRange = newMove;
+
             log(`✨ ${this.name} 升級 Lv.${this.level}！`, 'log-sys'); renderMap();
         }
         tickCooldowns() {
@@ -349,7 +354,7 @@
         document.getElementById('btn-end-turn').onclick = endPlayerPhase;
         document.getElementById('btn-attack').onclick = () => prepAttack(false);
         document.getElementById('btn-skill-menu').onclick = toggleSkillMenu;
-        document.getElementById('btn-recover').onclick = executeRecover; // 療傷按鈕
+        document.getElementById('btn-recover').onclick = executeRecover;
         document.getElementById('btn-wait').onclick = () => finalizeAction(true);
         document.getElementById('btn-cancel-move').onclick = cancelMovement;
         document.getElementById('btn-save-local').onclick = saveGameLocal;
@@ -402,7 +407,7 @@
             log("🔥 炎柱・煉獄杏壽郎 加入戰場！", 'log-join');
         }
         if (lvl === 7 && !allies.find(u => u.role === 'uzui')) {
-            // 宇隨強化 (HP 260->290, ATK 58->64, DEF 22->26)
+            // 宇隨強化
             allies.push(new Unit(7, '宇隨天元', 'slayer', 'uzui', 0, 0, { hp: 290, atk: 64, def: 26, level: 7 }));
             log("🎵 音柱・宇隨天元 華麗登場！", 'log-join');
         }
@@ -415,7 +420,7 @@
             u.x = 1; u.y = 4 + i;
             if (u.y >= ROWS) { u.x = 2; u.y = u.y - ROWS + 4; } 
             u.hasActed = false; u.prevX = u.x; u.prevY = u.y;
-            u.cooldowns = {}; // 重置CD
+            u.cooldowns = {};
         });
 
         enemies = [];
@@ -471,7 +476,7 @@
         document.getElementById('phase-banner').innerText = `第 ${currentLevel} 關 - 我方回合`;
         allies.forEach(u => { 
             u.hasActed = false; u.prevX = u.x; u.prevY = u.y; 
-            u.tickCooldowns(); // 玩家回合開始減 CD
+            u.tickCooldowns();
         });
         resetSelection(); renderMap();
     }
@@ -479,9 +484,6 @@
 
     async function startEnemyPhase() {
         phase = 'ENEMY'; document.getElementById('phase-banner').innerText = "敵方行動中..."; document.getElementById('phase-banner').className = 'phase-enemy'; document.getElementById('btn-end-turn').disabled = true;
-        
-        enemies.forEach(e => e.tickCooldowns()); // 敵方回合開始減 CD (目前敵方無技能CD，預留)
-
         renderMap();
         for (const demon of enemies) {
             if (demon.hp > 0) {
@@ -541,7 +543,7 @@
             
             let rangeTxt = skill.global ? "全體" : `距${skill.range}`; if(skill.aoe && !skill.global) rangeTxt += "/範圍";
             
-            // CD 檢查
+            // CD 顯示與禁用
             let cd = selectedUnit.cooldowns[skill.name] || 0;
             if (cd > 0) {
                 btn.innerHTML = `${skill.name} (CD:${cd})`;
@@ -582,10 +584,9 @@
         
         // 設定 CD
         if (skill) {
-            let cdTurns = 1; // 預設 1
-            if (skill.ult) cdTurns = 2; // 奧義 2
+            let cdTurns = 2; // 普通技 2
+            if (skill.ult) cdTurns = 3; // 奧義 3
             if (attacker.role === 'nezuko' && skill.isHeal) cdTurns = 0; // 禰豆子補血 0
-            
             if (cdTurns > 0) attacker.cooldowns[skill.name] = cdTurns;
         }
 
