@@ -408,7 +408,7 @@
     function startNewGame() {
         allies = [
             new Unit(1, '炭治郎', 'slayer', 'tanjiro', 0, 0, { hp: 120, atk: 33, def: 15 }),
-            new Unit(2, '善逸', 'slayer', 'zenitsu', 0, 0, { hp: 90, atk: 35, def: 6 }),
+            new Unit(2, '善逸', 'slayer', 'zenitsu', 0, 0, { hp: 90, atk: 40, def: 6 }),
             new Unit(3, '伊之助', 'slayer', 'inosuke', 0, 0, { hp: 130, atk: 25, def: 17 }),
             new Unit(4, '禰豆子', 'slayer', 'nezuko', 0, 0, { hp: 140, atk: 20, def: 15 })
         ];
@@ -442,12 +442,12 @@
             log("🌊 水柱・富岡義勇 (強化狀態) 加入戰場！", 'log-join');
         }
         if (lvl === 5 && !allies.find(u => u.role === 'rengoku')) {
-            allies.push(new Unit(6, '煉獄杏壽郎', 'slayer', 'rengoku', 0, 0, { hp: 240, atk: 65, def: 20, level: 5 }));
+            allies.push(new Unit(6, '煉獄杏壽郎', 'slayer', 'rengoku', 0, 0, { hp: 240, atk: 70, def: 20, level: 5 }));
             log("🔥 炎柱・煉獄杏壽郎 加入戰場！", 'log-join');
         }
         if (lvl === 7 && !allies.find(u => u.role === 'uzui')) {
             // 宇隨強化 (HP 260->290, ATK 58->64, DEF 22->26)
-            allies.push(new Unit(7, '宇隨天元', 'slayer', 'uzui', 0, 0, { hp: 290, atk: 64, def: 26, level: 7 }));
+            allies.push(new Unit(7, '宇隨天元', 'slayer', 'uzui', 0, 0, { hp: 290, atk: 69, def: 26, level: 7 }));
             log("🎵 音柱・宇隨天元 華麗登場！", 'log-join');
         }
         if (lvl === 9 && !allies.find(u => u.role === 'himejima')) {
