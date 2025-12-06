@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>鬼滅之刃：無限城決戰 RPG (CD調整版)</title>
+    <title>鬼滅之刃：無限城決戰 RPG (斑紋覺醒版)</title>
     <style>
         /* --- 全局設定 --- */
         body {
@@ -35,6 +35,7 @@
         /* --- 遊戲主區域 --- */
         #game-wrapper {
             display: flex; gap: 10px; align-items: flex-start; justify-content: center;
+            position: relative;
         }
 
         /* --- 地圖 --- */
@@ -150,6 +151,23 @@
         .skill-item { font-size: 0.8em; padding: 5px; background: #252525; border-left: 2px solid #666; }
         .skill-heal { border-left-color: #00ff00; color: #ccffcc; } 
         .skill-ult { border-left-color: #ffd700; color: #ffeb3b; font-weight: bold; border-width: 4px; } 
+        
+        /* 結算選單 Modal */
+        #modal-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85); z-index: 100;
+            display: none; justify-content: center; align-items: center; flex-direction: column;
+        }
+        .modal-content {
+            background: #222; padding: 20px; border: 2px solid #d4af37; border-radius: 10px;
+            text-align: center; width: 300px;
+        }
+        .modal-btn {
+            display: block; width: 100%; margin: 10px 0; padding: 15px;
+            font-size: 1.1em; font-weight: bold; color: #fff; cursor: pointer; border: none; border-radius: 5px;
+        }
+        .btn-replay { background: #2e8b57; } .btn-replay:hover { background: #3cb371; }
+        .btn-next { background: #1e90ff; } .btn-next:hover { background: #4682b4; }
 
         #log-box { height: 150px; overflow-y: auto; font-size: 0.8em; color: #bbb; line-height: 1.4; background: #111; padding: 5px; }
         .log-dmg { color: #ff6b6b; font-weight: bold; }
@@ -169,6 +187,14 @@
 
     <div id="game-wrapper">
         <div id="grid-container"></div>
+
+        <div id="modal-overlay">
+            <div class="modal-content">
+                <h2 style="color: #ffd700; margin-bottom:15px;">🎉 關卡完成！</h2>
+                <button class="modal-btn btn-replay" onclick="replayLevel()">🔄 重新遊玩此關 (練功)</button>
+                <button class="modal-btn btn-next" onclick="nextLevel()">➡ 前往下一關</button>
+            </div>
+        </div>
 
         <div id="ui-panel">
             <div class="panel">
@@ -242,55 +268,63 @@
     // --- 遊戲常數 ---
     const COLS = 24; ROWS = 18; MAX_LEVEL = 25; TILE_SIZE = 30; // 等級上限 25
     
-    // --- 技能資料庫 ---
+    // --- 技能資料庫 (加入 Lv12 斑紋覺醒) ---
     const SKILL_DB = {
         tanjiro: [
             { name: "水之呼吸·壹之型", reqLv: 1, range: 1, val: 1.2, cost: 0, aoe: false },
             { name: "火之神神樂", reqLv: 3, range: 1, val: 1.6, cost: 0, aoe: false },
             { name: "日之呼吸·陽華突", reqLv: 6, range: 2, val: 2.2, cost: 0, aoe: true },
-            { name: "奧義·第十三型", reqLv: 9, range: 3, val: 3.5, cost: 0, aoe: false, ult: true } 
+            { name: "奧義·第十三型", reqLv: 9, range: 3, val: 3.5, cost: 0, aoe: false, ult: true },
+            { name: "斑紋覺醒·赫刀一閃", reqLv: 12, range: 4, val: 5.0, cost: 0, aoe: true, ult: true, cd: 6 } 
         ],
         zenitsu: [
             { name: "霹靂一閃", reqLv: 1, range: 3, val: 1.1, cost: 0, aoe: false },
             { name: "霹靂一閃·六連", reqLv: 3, range: 4, val: 1.4, cost: 0, aoe: false },
             { name: "神速", reqLv: 6, range: 5, val: 2.0, cost: 0, aoe: false },
-            { name: "奧義·火雷神", reqLv: 9, range: 6, val: 3.0, cost: 0, aoe: false, ult: true }
+            { name: "奧義·火雷神", reqLv: 9, range: 6, val: 3.0, cost: 0, aoe: false, ult: true },
+            { name: "斑紋覺醒·神速·極", reqLv: 12, range: 4, val: 5.0, cost: 0, aoe: true, ult: true, cd: 6 }
         ],
         inosuke: [
             { name: "獸之呼吸·獠牙", reqLv: 1, range: 1, val: 1.0, cost: 0, aoe: true },
             { name: "空間感知·殺", reqLv: 3, range: 1, val: 1.5, cost: 0, aoe: true },
             { name: "投擲炸裂", reqLv: 6, range: 3, val: 2.5, cost: 0, aoe: false },
-            { name: "奧義·靈魂衝撞", reqLv: 9, range: 3, val: 3.0, cost: 0, aoe: true, ult: true } 
+            { name: "奧義·靈魂衝撞", reqLv: 9, range: 3, val: 3.0, cost: 0, aoe: true, ult: true },
+            { name: "斑紋覺醒·獸之呼吸·終式", reqLv: 12, range: 4, val: 5.0, cost: 0, aoe: true, ult: true, cd: 6 } 
         ],
         nezuko: [
             { name: "再生回復", reqLv: 1, range: 2, val: 50, cost: 0, aoe: false, isHeal: true }, 
             { name: "爆血·廣域治癒", reqLv: 3, range: 0, val: 40, cost: 0, aoe: true, isHeal: true, global: true },
             { name: "爆血·燒灼", reqLv: 6, range: 2, val: 2.5, cost: 0, aoe: false, isHeal: false },
-            { name: "奧義·完全覺醒", reqLv: 9, range: 2, val: 3.5, cost: 0, aoe: true, isHeal: false, ult: true }
+            { name: "奧義·完全覺醒", reqLv: 9, range: 2, val: 3.5, cost: 0, aoe: true, isHeal: false, ult: true },
+            { name: "斑紋覺醒·鬼化暴走", reqLv: 12, range: 4, val: 5.0, cost: 0, aoe: true, isHeal: false, ult: true, cd: 6 }
         ],
         giyu: [
             { name: "凪", reqLv: 1, range: 1, val: 1.5, cost: 0, aoe: false },
             { name: "生生流轉", reqLv: 3, range: 2, val: 2.0, cost: 0, aoe: false },
             { name: "水之呼吸·拾壹之型", reqLv: 6, range: 1, val: 2.8, cost: 0, aoe: true },
-            { name: "奧義·驚濤駭浪", reqLv: 9, range: 3, val: 3.5, cost: 0, aoe: true, ult: true }
+            { name: "奧義·驚濤駭浪", reqLv: 9, range: 3, val: 3.5, cost: 0, aoe: true, ult: true },
+            { name: "斑紋覺醒·靜水流深", reqLv: 12, range: 4, val: 5.0, cost: 0, aoe: true, ult: true, cd: 6 }
         ],
         rengoku: [
             { name: "不知火", reqLv: 1, range: 2, val: 1.8, cost: 0, aoe: false },
             { name: "盛炎之漩渦", reqLv: 3, range: 1, val: 2.2, cost: 0, aoe: true },
             { name: "炎虎", reqLv: 6, range: 4, val: 3.0, cost: 0, aoe: false },
-            { name: "奧義·煉獄", reqLv: 9, range: 3, val: 4.5, cost: 0, aoe: true, ult: true } 
+            { name: "奧義·煉獄", reqLv: 9, range: 3, val: 4.5, cost: 0, aoe: true, ult: true },
+            { name: "斑紋覺醒·第九型·煉獄·改", reqLv: 12, range: 4, val: 5.0, cost: 0, aoe: true, ult: true, cd: 6 } 
         ],
         uzui: [ 
             { name: "鳴弦奏奏", reqLv: 1, range: 2, val: 2.0, cost: 0, aoe: true },
             { name: "轟", reqLv: 3, range: 1, val: 2.5, cost: 0, aoe: true },
             { name: "譜面完成", reqLv: 6, range: 3, val: 3.2, cost: 0, aoe: false },
-            { name: "奧義·華麗大爆炸", reqLv: 9, range: 3, val: 4.0, cost: 0, aoe: true, ult: true }
+            { name: "奧義·華麗大爆炸", reqLv: 9, range: 3, val: 4.0, cost: 0, aoe: true, ult: true },
+            { name: "斑紋覺醒·音之呼吸·響", reqLv: 12, range: 4, val: 5.0, cost: 0, aoe: true, ult: true, cd: 6 }
         ],
         himejima: [ 
             { name: "蛇紋岩·雙極", reqLv: 1, range: 2, val: 2.5, cost: 0, aoe: false },
             { name: "天面碎", reqLv: 3, range: 1, val: 3.0, cost: 0, aoe: true },
             { name: "岩軀之膚", reqLv: 6, range: 3, val: 3.5, cost: 0, aoe: false },
-            { name: "奧義·流紋岩·速征", reqLv: 9, range: 3, val: 5.0, cost: 0, aoe: true, ult: true }
+            { name: "奧義·流紋岩·速征", reqLv: 9, range: 3, val: 5.0, cost: 0, aoe: true, ult: true },
+            { name: "斑紋覺醒·岩之呼吸·不動", reqLv: 12, range: 4, val: 5.0, cost: 0, aoe: true, ult: true, cd: 6 }
         ]
     };
 
@@ -301,10 +335,13 @@
             this.level = stats.level || 1;
             this.maxHp = stats.hp; this.hp = stats.hp; this.atk = stats.atk; this.def = stats.def;
             
-            // 移動力邏輯 (基礎2, Lv5->3, Lv9->4, 天元+1)
+            // 移動力邏輯 (基礎2, Lv5->3, Lv9->4, Lv12->5, 天元+1)
             let baseMove = 2;
-            if (this.level >= 9) baseMove = 4; else if (this.level >= 5) baseMove = 3;
-            if (this.role === 'uzui') baseMove += 1; // 天元特權
+            if (this.level >= 12) baseMove = 5;
+            else if (this.level >= 9) baseMove = 4;
+            else if (this.level >= 5) baseMove = 3;
+            
+            if (this.role === 'uzui') baseMove += 1;
             this.moveRange = baseMove;
             
             this.range = stats.range || 1; 
@@ -325,13 +362,15 @@
             this.atk = Math.floor(this.atk * 1.12); this.def = Math.floor(this.def * 1.12);
             this.hp = this.maxHp;
             
-            // 升級更新移動力
+            // 更新移動力
             let newMove = 2;
-            if (this.level >= 9) newMove = 4; else if (this.level >= 5) newMove = 3;
+            if (this.level >= 12) newMove = 5; else if (this.level >= 9) newMove = 4; else if (this.level >= 5) newMove = 3;
             if (this.role === 'uzui') newMove += 1;
             this.moveRange = newMove;
 
-            log(`✨ ${this.name} 升級 Lv.${this.level}！`, 'log-sys'); renderMap();
+            let msg = `✨ ${this.name} 升級 Lv.${this.level}！`;
+            if (this.level === 12) msg += " 斑紋覺醒！獲得最終奧義！";
+            log(msg, 'log-sys'); renderMap();
         }
         tickCooldowns() {
             for (let s in this.cooldowns) {
@@ -407,7 +446,7 @@
             log("🔥 炎柱・煉獄杏壽郎 加入戰場！", 'log-join');
         }
         if (lvl === 7 && !allies.find(u => u.role === 'uzui')) {
-            // 宇隨強化
+            // 宇隨強化 (HP 260->290, ATK 58->64, DEF 22->26)
             allies.push(new Unit(7, '宇隨天元', 'slayer', 'uzui', 0, 0, { hp: 290, atk: 64, def: 26, level: 7 }));
             log("🎵 音柱・宇隨天元 華麗登場！", 'log-join');
         }
@@ -543,7 +582,7 @@
             
             let rangeTxt = skill.global ? "全體" : `距${skill.range}`; if(skill.aoe && !skill.global) rangeTxt += "/範圍";
             
-            // CD 顯示與禁用
+            // CD 檢查
             let cd = selectedUnit.cooldowns[skill.name] || 0;
             if (cd > 0) {
                 btn.innerHTML = `${skill.name} (CD:${cd})`;
@@ -582,11 +621,15 @@
     function executeSkillAction(attacker, targetObj, skill) {
         let targets = []; const isHeal = skill && skill.isHeal; let totalXp = 0;
         
-        // 設定 CD
+        // 設定 CD (增加1回合)
         if (skill) {
-            let cdTurns = 2; // 普通技 2
-            if (skill.ult) cdTurns = 3; // 奧義 3
+            let cdTurns = 0;
+            if (skill.cd) cdTurns = skill.cd; // 特殊指定CD (如Lv12招式)
+            else if (skill.ult) cdTurns = 3; // 奧義 3
+            else cdTurns = 2; // 普通戰技 2
+            
             if (attacker.role === 'nezuko' && skill.isHeal) cdTurns = 0; // 禰豆子補血 0
+            
             if (cdTurns > 0) attacker.cooldowns[skill.name] = cdTurns;
         }
 
@@ -632,7 +675,31 @@
         document.getElementById('unit-info').innerHTML = html;
     }
     function log(msg, type) { const box = document.getElementById('log-box'); box.innerHTML += `<div class="${type}">${msg}</div>`; box.scrollTop = box.scrollHeight; }
-    function checkWinLose() { if (allies.every(u => u.hp <= 0)) { alert("全軍覆沒..."); location.reload(); return true; } if (enemies.every(u => u.hp <= 0)) { setTimeout(() => { if (currentLevel >= MAX_LEVEL) alert("恭喜通關！"); else startLevel(currentLevel + 1); }, 500); return true; } return false; }
+    
+    function checkWinLose() { 
+        if (allies.every(u => u.hp <= 0)) { alert("全軍覆沒..."); location.reload(); return true; } 
+        if (enemies.every(u => u.hp <= 0)) { 
+            document.getElementById('modal-overlay').style.display = 'flex'; // 顯示選單
+            return true; 
+        } 
+        return false; 
+    }
+    
+    // 關卡重玩與下一關
+    function replayLevel() {
+        document.getElementById('modal-overlay').style.display = 'none';
+        // 全員補血
+        allies.forEach(u => { u.hp = u.maxHp; u.cooldowns = {}; });
+        startLevel(currentLevel);
+    }
+    function nextLevel() {
+        document.getElementById('modal-overlay').style.display = 'none';
+        if (currentLevel >= MAX_LEVEL) { alert("恭喜通關！無限城崩塌！"); location.reload(); return; }
+        // 全員補血
+        allies.forEach(u => { u.hp = u.maxHp; u.cooldowns = {}; });
+        startLevel(currentLevel + 1);
+    }
+
     function getBossName(l, index) { const bossMap = { 1: ["下弦之陸"], 2: ["下弦之伍", "下弦之壹"], 3: ["墮姬"], 4: ["墮姬", "妓夫太郎"], 5: ["玉壺"], 6: ["半天狗", "憎珀天"], 7: ["猗窩座"], 8: ["童磨", "猗窩座"], 9: ["黑死牟", "鬼舞辻無慘"] }; const list = bossMap[l] || ["無慘"]; return list[index - 1] || list[0]; }
     
     // 存檔功能保留
