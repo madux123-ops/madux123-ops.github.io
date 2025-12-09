@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>全功能甘特圖：編輯/排程/多視角</title>
+    <title>全功能甘特圖：內容欄位 + 年視圖</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         :root {
@@ -13,9 +13,7 @@
             --border-color: #e2e8f0;
             --main-task-color: #3b82f6;
             --sub-task-color: #10b981;
-            --weekend-color: #e2e8f0; 
-            
-            /* 動態變數 */
+            --weekend-color: #f1f5f9;
             --column-width: 40px; 
             --row-height: 42px;
         }
@@ -47,17 +45,17 @@
         .btn-tool:hover { background: #dbeafe; }
         
         .view-switcher {
-            display: flex; background: #fff; border: 1px solid #ccc; border-radius: 4px; overflow: hidden; margin-left: 20px;
+            display: flex; background: #fff; border: 1px solid #ccc; border-radius: 4px; overflow: hidden; margin-left: auto;
         }
         .view-btn {
-            border: none; background: #fff; padding: 8px 15px; cursor: pointer; border-right: 1px solid #ccc;
+            border: none; background: #fff; padding: 8px 15px; cursor: pointer; border-right: 1px solid #ccc; font-size: 14px;
         }
         .view-btn:last-child { border-right: none; }
         .view-btn.active { background: #2563eb; color: white; }
 
         /* 輸入區 */
         .input-group {
-            display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
             gap: 15px; margin-bottom: 20px; align-items: end;
             background: #f1f5f9; padding: 15px; border-radius: 6px; border: 1px solid #e2e8f0;
         }
@@ -68,7 +66,7 @@
 
         .btn-action { padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; color: white; }
         .btn-add { background-color: var(--primary-color); }
-        .btn-update { background-color: #d97706; display: none; } /* 預設隱藏 */
+        .btn-update { background-color: #d97706; display: none; }
         .btn-cancel { background-color: #64748b; margin-left: 5px; display: none; }
 
         /* 列表區 */
@@ -77,7 +75,7 @@
         }
         .task-list { width: 100%; border-collapse: collapse; }
         .task-list th { position: sticky; top: 0; background: #eee; z-index: 2; padding: 10px; text-align: left; }
-        .task-list td { padding: 8px 10px; border-bottom: 1px solid var(--border-color); font-size: 0.9em; }
+        .task-list td { padding: 8px 10px; border-bottom: 1px solid var(--border-color); font-size: 0.9em; vertical-align: middle; }
         .type-main { font-weight: bold; color: var(--primary-color); }
         .type-sub { padding-left: 20px; color: var(--secondary-color); }
         
@@ -92,28 +90,27 @@
             display: none; border: 1px solid var(--border-color); background: white; margin-top: 20px; position: relative;
         }
         .gantt-header { display: flex; border-bottom: 1px solid #ddd; background: #f8f9fa; height: 40px; }
-        .gantt-sidebar-header { min-width: 200px; width: 200px; padding: 10px; font-weight: bold; border-right: 1px solid #ddd; background: #f8f9fa; z-index: 20; box-sizing: border-box; }
+        .gantt-sidebar-header { min-width: 220px; width: 220px; padding: 10px; font-weight: bold; border-right: 1px solid #ddd; background: #f8f9fa; z-index: 20; box-sizing: border-box; }
         
         .timeline-header-container { overflow: hidden; flex-grow: 1; position: relative; }
-        .timeline-header { display: flex; }
+        .timeline-header { display: flex; height: 100%; position: relative; }
         
+        /* 標題儲存格樣式 */
         .header-cell {
-            min-width: var(--column-width); width: var(--column-width);
             text-align: center; border-right: 1px solid #eee; font-size: 0.8em; padding: 10px 0; box-sizing: border-box;
-            white-space: nowrap; overflow: hidden;
+            white-space: nowrap; overflow: hidden; display: inline-block;
         }
 
         .gantt-scroll-wrapper { display: flex; overflow: auto; max-height: 500px; position: relative; }
-        .gantt-sidebar { min-width: 200px; width: 200px; position: sticky; left: 0; background: white; z-index: 10; border-right: 1px solid #ddd; }
+        .gantt-sidebar { min-width: 220px; width: 220px; position: sticky; left: 0; background: white; z-index: 10; border-right: 1px solid #ddd; }
+        
         .task-name-cell { height: var(--row-height); padding: 0 10px; border-bottom: 1px solid #f0f0f0; display: flex; align-items: center; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; box-sizing: border-box; }
         
         .gantt-timeline-area { position: relative; flex-grow: 1; }
-        .grid-background { position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; z-index: 0; pointer-events: none; }
+        .grid-background { position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: block; z-index: 0; pointer-events: none; }
         .grid-line {
-            min-width: var(--column-width); width: var(--column-width);
-            border-right: 1px solid #f5f5f5; height: 100%; box-sizing: border-box;
+            border-right: 1px solid #f5f5f5; height: 100%; box-sizing: border-box; position: absolute; top: 0;
         }
-        /* 週末樣式 */
         .weekend { background-color: var(--weekend-color); }
 
         #arrow-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none; }
@@ -134,29 +131,34 @@
 <body>
 
 <div class="container">
-    <h2>專案管理甘特圖 (Expert Edition)</h2>
+    <h2>專案管理甘特圖 (Pro)</h2>
 
     <div class="toolbar">
-        <button class="btn-tool" onclick="saveProject()">💾 存檔 (JSON)</button>
+        <button class="btn-tool" onclick="saveProject()">💾 存檔</button>
         <button class="btn-tool" onclick="document.getElementById('fileInput').click()">📂 讀檔</button>
         <input type="file" id="fileInput" accept=".json" style="display: none;" onchange="loadProject(this)">
         <button class="btn-tool" onclick="exportToImage()">📷 匯出圖片</button>
 
-        <div style="flex-grow:1"></div>
-        
-        <span>顯示模式：</span>
         <div class="view-switcher">
             <button class="view-btn active" onclick="switchView('day')" id="view-day">日</button>
             <button class="view-btn" onclick="switchView('week')" id="view-week">週</button>
             <button class="view-btn" onclick="switchView('month')" id="view-month">月</button>
+            <button class="view-btn" onclick="switchView('year')" id="view-year">年</button>
         </div>
     </div>
 
     <div class="input-group">
-        <input type="hidden" id="taskId"> <div class="form-control">
+        <input type="hidden" id="taskId">
+        
+        <div class="form-control">
             <label>任務名稱</label>
-            <input type="text" id="taskName" placeholder="輸入任務名稱">
+            <input type="text" id="taskName" placeholder="任務名稱">
         </div>
+        <div class="form-control" style="flex-grow: 2;">
+            <label>任務內容</label>
+            <input type="text" id="taskContent" placeholder="簡述任務內容">
+        </div>
+        
         <div class="form-control">
             <label>類型</label>
             <select id="taskType">
@@ -165,7 +167,7 @@
             </select>
         </div>
         <div class="form-control">
-            <label>前置任務</label>
+            <label>前置</label>
             <select id="predecessor" onchange="checkPredecessor(this)">
                 <option value="">(無)</option>
             </select>
@@ -176,12 +178,12 @@
         </div>
         <div class="form-control">
             <label>天數</label>
-            <input type="number" id="duration" min="1" value="3">
+            <input type="number" id="duration" min="1" value="3" style="width: 60px;">
         </div>
         
         <div style="display:flex;">
-            <button class="btn-action btn-add" id="btnAdd" onclick="addOrUpdateTask()">+ 加入清單</button>
-            <button class="btn-action btn-update" id="btnUpdate" onclick="addOrUpdateTask()">更新任務</button>
+            <button class="btn-action btn-add" id="btnAdd" onclick="addOrUpdateTask()">+ 加入</button>
+            <button class="btn-action btn-update" id="btnUpdate" onclick="addOrUpdateTask()">更新</button>
             <button class="btn-action btn-cancel" id="btnCancel" onclick="cancelEdit()">取消</button>
         </div>
     </div>
@@ -190,12 +192,12 @@
         <table class="task-list">
             <thead>
                 <tr>
-                    <th width="30%">任務名稱</th>
-                    <th>開始日期</th>
+                    <th width="20%">任務名稱</th>
+                    <th width="25%">內容</th> <th>開始日期</th>
                     <th>結束日期</th>
                     <th>天數</th>
                     <th>前置</th>
-                    <th width="120">操作</th>
+                    <th width="100">操作</th>
                 </tr>
             </thead>
             <tbody id="taskListBody"></tbody>
@@ -226,17 +228,17 @@
 <script>
     let tasks = [];
     
-    // 視圖設定
-    let currentView = 'day'; // day, week, month
+    // 視圖設定：年模式增加
+    let currentView = 'day'; 
     const VIEW_CONFIG = {
-        day: { pxPerDay: 40, labelFormat: 'MM/dd' },
-        week: { pxPerDay: 15, labelFormat: 'Week' },  // 一週約 105px
-        month: { pxPerDay: 5, labelFormat: 'Month' }  // 一月約 150px
+        day: { pxPerDay: 40 },
+        week: { pxPerDay: 15 },
+        month: { pxPerDay: 4 },
+        year: { pxPerDay: 1 } // 一年約 365px
     };
 
     const ROW_HEIGHT = 42;
 
-    // 初始化
     document.getElementById('startDate').valueAsDate = new Date();
 
     // ----------------------------
@@ -249,18 +251,15 @@
         return d;
     }
     
-    // 檢查是否有選前置任務，若有則鎖定日期並自動計算
     function checkPredecessor(select) {
         const predId = select.value;
         const dateInput = document.getElementById('startDate');
-        
         if (predId) {
             const predTask = tasks.find(t => t.id === predId);
             if (predTask) {
-                // 規則：開始日期 = 前置任務開始 + 天數 (即前置任務結束的隔天，或當天，這裡設為接續)
                 const newStart = addDays(predTask.start, predTask.duration);
                 dateInput.value = formatDate(newStart);
-                dateInput.disabled = true; // 鎖定
+                dateInput.disabled = true;
                 dateInput.title = "由前置任務自動決定";
             }
         } else {
@@ -270,12 +269,13 @@
     }
 
     // ----------------------------
-    // 核心資料操作 (CRUD)
+    // 資料操作 (CRUD)
     // ----------------------------
 
     function addOrUpdateTask() {
         const id = document.getElementById('taskId').value;
         const name = document.getElementById('taskName').value;
+        const content = document.getElementById('taskContent').value; // 讀取內容
         const type = document.getElementById('taskType').value;
         let start = document.getElementById('startDate').value;
         const duration = parseInt(document.getElementById('duration').value);
@@ -283,7 +283,6 @@
 
         if (!name || !start || !duration) { alert("請填寫完整資訊"); return; }
 
-        // 如果有前置任務，強制覆寫開始時間 (後端防護)
         if (predecessorId) {
             const predTask = tasks.find(t => t.id === predecessorId);
             if (predTask) {
@@ -293,34 +292,31 @@
         }
 
         if (id) {
-            // 更新模式
             const taskIndex = tasks.findIndex(t => t.id === id);
             if (taskIndex > -1) {
-                tasks[taskIndex] = { id, name, type, start, duration, predecessorId };
+                // 更新物件包含 content
+                tasks[taskIndex] = { id, name, content, type, start, duration, predecessorId };
             }
-            cancelEdit(); // 恢復按鈕狀態
+            cancelEdit();
         } else {
-            // 新增模式
             const newTask = {
                 id: Date.now().toString(),
-                name, type, start, duration, predecessorId
+                name, content, type, start, duration, predecessorId
             };
             tasks.push(newTask);
         }
 
-        // 強制重算所有關聯日期 (Cascade Update)
         recalculateAllDates();
         updateUI();
         
         if (!id) {
             document.getElementById('taskName').value = '';
+            document.getElementById('taskContent').value = ''; // 清空內容
             document.getElementById('taskName').focus();
         }
     }
 
-    // 遞迴重算日期 (解決連鎖相依性)
     function recalculateAllDates() {
-        // 簡單的多次掃描法 (適合少量數據)
         let changed = true;
         let loops = 0;
         while(changed && loops < tasks.length + 1) {
@@ -347,18 +343,15 @@
 
         document.getElementById('taskId').value = task.id;
         document.getElementById('taskName').value = task.name;
+        document.getElementById('taskContent').value = task.content || ''; // 填入內容
         document.getElementById('taskType').value = task.type;
         document.getElementById('duration').value = task.duration;
         
-        // 更新下拉選單 (避免自己選自己)
         updatePredecessorSelect(task.id); 
         document.getElementById('predecessor').value = task.predecessorId || "";
-        
-        // 設定日期並觸發鎖定檢查
         document.getElementById('startDate').value = task.start;
         checkPredecessor(document.getElementById('predecessor'));
 
-        // 切換按鈕
         document.getElementById('btnAdd').style.display = 'none';
         document.getElementById('btnUpdate').style.display = 'inline-block';
         document.getElementById('btnCancel').style.display = 'inline-block';
@@ -367,6 +360,7 @@
     function cancelEdit() {
         document.getElementById('taskId').value = '';
         document.getElementById('taskName').value = '';
+        document.getElementById('taskContent').value = ''; // 清空內容
         document.getElementById('duration').value = '3';
         document.getElementById('predecessor').value = '';
         document.getElementById('startDate').disabled = false;
@@ -375,18 +369,14 @@
         document.getElementById('btnUpdate').style.display = 'none';
         document.getElementById('btnCancel').style.display = 'none';
         
-        updatePredecessorSelect(); // 恢復完整的下拉選單
+        updatePredecessorSelect();
     }
 
     function removeTask(id) {
         if(!confirm("確定刪除此任務？")) return;
         tasks = tasks.filter(t => t.id !== id);
-        // 清除別人的相依
         tasks.forEach(t => { if (t.predecessorId === id) t.predecessorId = null; });
-        
-        // 如果正在編輯這個被刪除的任務，取消編輯
         if(document.getElementById('taskId').value === id) cancelEdit();
-        
         updateUI();
     }
 
@@ -400,13 +390,12 @@
         const currentVal = select.value;
         select.innerHTML = '<option value="">(無)</option>';
         tasks.forEach(task => {
-            if (task.id === excludeId) return; // 編輯時不能選自己
+            if (task.id === excludeId) return;
             const option = document.createElement('option');
             option.value = task.id;
             option.textContent = task.name;
             select.appendChild(option);
         });
-        // 嘗試恢復選取
         if(currentVal && currentVal !== excludeId) select.value = currentVal;
     }
 
@@ -422,8 +411,10 @@
             const nameClass = task.type === 'main' ? 'type-main' : 'type-sub';
             const prefix = task.type === 'sub' ? '└ ' : '';
             
+            // 新增內容欄位的顯示
             tr.innerHTML = `
                 <td class="${nameClass}">${prefix}${task.name}</td>
+                <td style="color:#555;">${task.content || ''}</td>
                 <td>${task.start}</td>
                 <td style="color:#666; font-size:0.85em">${endDate}</td>
                 <td>${task.duration}</td>
@@ -438,39 +429,25 @@
     }
 
     // ----------------------------
-    // 甘特圖繪製邏輯
+    // 甘特圖繪製邏輯 (支援年模式)
     // ----------------------------
 
     function switchView(mode) {
         currentView = mode;
-        // 更新按鈕樣式
         document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
         document.getElementById(`view-${mode}`).classList.add('active');
-        
-        // 更新 CSS 變數中的欄位寬度
-        const pxPerDay = VIEW_CONFIG[mode].pxPerDay;
-        let colWidth = 40; // 預設
-        
-        if (mode === 'day') colWidth = 40;
-        else if (mode === 'week') colWidth = pxPerDay * 7; // 一格一週
-        else if (mode === 'month') colWidth = pxPerDay * 30; // 粗略一格一月
-        
-        // 這裡我們主要依賴 pxPerDay 來算位置，CSS 的 --column-width 用於 Grid 繪製
-        // 為了讓 Grid 對齊，我們在 generateGantt 裡動態生成 Grid，不完全依賴 CSS repeat
-        
         if(tasks.length > 0) generateGantt();
     }
 
     function generateGantt() {
         if (tasks.length === 0) return;
-        recalculateAllDates(); // 繪製前確保日期正確
+        recalculateAllDates();
 
         const chartView = document.getElementById('gantt-chart-view');
         chartView.style.display = 'block';
         
         const pxPerDay = VIEW_CONFIG[currentView].pxPerDay;
 
-        // 計算時間範圍
         let minTime = new Date(tasks[0].start).getTime();
         let maxTime = new Date(tasks[0].start).getTime();
 
@@ -483,21 +460,16 @@
         });
 
         const minDate = new Date(minTime);
-        minDate.setDate(minDate.getDate() - 7); // 緩衝
+        minDate.setDate(minDate.getDate() - 7);
         const finalDate = new Date(maxTime);
-        finalDate.setDate(finalDate.getDate() + 30); // 緩衝
+        finalDate.setDate(finalDate.getDate() + 30);
 
         const totalDays = Math.ceil((finalDate - minDate) / (1000 * 60 * 60 * 24));
         
-        // 設定 CSS 變數給 Grid 用 (只有 Day mode 需要嚴格對齊 CSS grid，其他模式我們手繪 div)
-        document.documentElement.style.setProperty('--column-width', `${pxPerDay}px`);
-
-        // 建構
         buildHeaderAndGrid(minDate, totalDays, pxPerDay);
         buildBars(minDate, pxPerDay);
         drawArrows(minDate, pxPerDay);
         
-        // 同步捲動
         const scrollWrapper = document.getElementById('ganttScrollWrapper');
         const headerContainer = document.getElementById('timelineHeaderContainer');
         scrollWrapper.onscroll = function() {
@@ -513,24 +485,27 @@
         
         let totalWidth = totalDays * pxPerDay;
         
-        // 根據不同視圖產生 Header 和 Grid
+        // 絕對定位模式 (適用所有視圖，更靈活)
+        // Day view: 畫 Grid
+        // Week view: 畫 Grid per week
+        // Month view: 畫 Grid per month
+        // Year view: 畫 Grid per year
+        
         if (currentView === 'day') {
             for (let i = 0; i < totalDays; i++) {
                 const d = new Date(minDate);
                 d.setDate(d.getDate() + i);
                 
-                // Header Cell
                 const cell = document.createElement('div');
                 cell.className = 'header-cell';
                 cell.style.width = `${pxPerDay}px`;
                 cell.innerText = `${d.getMonth()+1}/${d.getDate()}`;
                 
-                // Grid Line
                 const line = document.createElement('div');
                 line.className = 'grid-line';
+                line.style.left = `${i * pxPerDay}px`;
                 line.style.width = `${pxPerDay}px`;
                 
-                // 假日顏色判斷
                 const day = d.getDay();
                 if (day === 0 || day === 6) {
                     cell.style.backgroundColor = '#f1f5f9';
@@ -542,75 +517,71 @@
             }
         } 
         else if (currentView === 'week') {
-            // 週檢視：Header 顯示每週的開始，Grid 一格一週
-            const weeks = Math.ceil(totalDays / 7);
-            totalWidth = weeks * (pxPerDay * 7);
-            
-            for (let i = 0; i < weeks; i++) {
+             // 簡化 Week 處理，直接用 Days 跑，但只在每週第一天畫線
+             // 為了對齊，還是用 absolute grid line
+             for (let i = 0; i < totalDays; i++) {
                 const d = new Date(minDate);
-                d.setDate(d.getDate() + (i * 7));
+                d.setDate(d.getDate() + i);
                 
-                const wWidth = pxPerDay * 7;
-                
-                const cell = document.createElement('div');
-                cell.className = 'header-cell';
-                cell.style.width = `${wWidth}px`;
-                cell.innerText = `W${getWeekNumber(d)} (${d.getMonth()+1}/${d.getDate()})`;
-                
-                const line = document.createElement('div');
-                line.className = 'grid-line';
-                line.style.width = `${wWidth}px`;
-                
-                header.appendChild(cell);
-                gridBg.appendChild(line);
-            }
+                // 假設每週日為起始
+                if (d.getDay() === 0 || i === 0) {
+                     const label = document.createElement('div');
+                     label.className = 'header-cell';
+                     label.style.position = 'absolute';
+                     label.style.left = `${i * pxPerDay}px`;
+                     label.style.width = `${pxPerDay * 7}px`;
+                     label.innerText = `Week of ${d.getMonth()+1}/${d.getDate()}`;
+                     header.appendChild(label);
+
+                     const line = document.createElement('div');
+                     line.className = 'grid-line';
+                     line.style.left = `${i * pxPerDay}px`;
+                     line.style.borderLeft = '1px solid #ddd';
+                     gridBg.appendChild(line);
+                }
+             }
         }
-        else if (currentView === 'month') {
-            // 月檢視：簡單處理，loop totalDays，但只在每個月的一號畫線和標題
-            // 這種畫法比較複雜，為了對齊 Bar，我們用絕對定位的 Grid 比較好？
-            // 為了簡化邏輯，我們維持 "天" 的寬度，但 Header 合併顯示
-            
-            // 使用絕對定位畫 Grid 會比較準，但這裡為了維持 DOM 結構一致：
-            // 我們產生 "天" 的 Grid，但寬度很窄，Header 則動態計算
-            
-            // 修正策略：Header 使用絕對定位覆蓋
-            header.style.position = 'relative';
-            header.style.height = '40px';
-            
-            let currentMonth = -1;
-            
+        else if (currentView === 'month' || currentView === 'year') {
+            // Month 和 Year 視圖邏輯
             for (let i = 0; i < totalDays; i++) {
                 const d = new Date(minDate);
                 d.setDate(d.getDate() + i);
                 
-                // Grid 還是每天畫一條細線(或不畫)，這裡選擇只畫月分隔線
-                // 為了效能，我們只畫月分隔線
-                if (d.getDate() === 1 || i === 0) {
-                    // 月份 Header
-                    const mLabel = document.createElement('div');
-                    mLabel.style.position = 'absolute';
-                    mLabel.style.left = `${i * pxPerDay}px`;
-                    mLabel.style.width = '100px'; // 預估寬度
-                    mLabel.style.padding = '10px 5px';
-                    mLabel.style.fontSize = '0.8em';
-                    mLabel.style.borderLeft = '1px solid #ccc';
-                    mLabel.innerText = `${d.getFullYear()}-${d.getMonth()+1}`;
-                    header.appendChild(mLabel);
-                    
-                    // 月份 Grid Line
+                const isFirstDayOfMonth = d.getDate() === 1;
+                const isFirstDayOfYear = d.getMonth() === 0 && d.getDate() === 1;
+                
+                // 根據模式決定畫線時機
+                let drawLine = false;
+                let labelText = '';
+                
+                if (currentView === 'month' && (isFirstDayOfMonth || i === 0)) {
+                    drawLine = true;
+                    labelText = `${d.getFullYear()}-${d.getMonth()+1}`;
+                } else if (currentView === 'year' && (isFirstDayOfYear || i === 0)) {
+                    drawLine = true;
+                    labelText = `${d.getFullYear()}`;
+                }
+
+                if (drawLine) {
+                    const label = document.createElement('div');
+                    label.className = 'header-cell';
+                    label.style.position = 'absolute';
+                    label.style.left = `${i * pxPerDay}px`;
+                    label.style.width = currentView === 'year' ? `${365 * pxPerDay}px` : `${30 * pxPerDay}px`;
+                    label.style.textAlign = 'left';
+                    label.style.paddingLeft = '5px';
+                    label.innerText = labelText;
+                    header.appendChild(label);
+
                     const line = document.createElement('div');
                     line.className = 'grid-line';
-                    line.style.position = 'absolute';
                     line.style.left = `${i * pxPerDay}px`;
-                    line.style.width = '1px'; // 線寬
-                    line.style.height = '100%';
-                    line.style.borderRight = '1px solid #ddd';
+                    line.style.borderLeft = '1px solid #ccc';
                     gridBg.appendChild(line);
                 }
             }
         }
 
-        // 設定容器寬度
         gridBg.style.width = `${totalWidth}px`;
         document.getElementById('arrow-layer').style.width = `${totalWidth}px`;
     }
@@ -625,32 +596,34 @@
         document.getElementById('arrow-layer').style.height = `${tasks.length * ROW_HEIGHT}px`;
 
         tasks.forEach((task, index) => {
-            // 左側列表
             const nameDiv = document.createElement('div');
             nameDiv.className = 'task-name-cell';
             const prefix = task.type === 'sub' ? '&nbsp;&nbsp;└ ' : '';
+            // 這裡側邊欄只顯示名稱，保持簡潔
             nameDiv.innerHTML = `<span class="${task.type === 'main' ? 'type-main' : 'type-sub'}">${prefix}${task.name}</span>`;
             sidebar.appendChild(nameDiv);
 
-            // 條狀圖列
             const rowDiv = document.createElement('div');
             rowDiv.className = 'bar-row';
             barsContainer.appendChild(rowDiv);
 
-            // Bar
             const bar = document.createElement('div');
             bar.className = `bar ${task.type}`;
             bar.id = `bar-${task.id}`;
-            bar.innerText = currentView === 'month' ? '' : `${task.duration}天`; // 月檢視太擠不顯示文字
+            
+            // 年模式或月模式下，如果寬度太窄就不顯示文字
+            const isCompact = ['month', 'year'].includes(currentView);
+            bar.innerText = isCompact ? '' : `${task.duration}天`;
+            bar.title = `名稱: ${task.name}\n內容: ${task.content || '無'}\n日期: ${task.start} (${task.duration}天)`; // Tooltip 增加內容顯示
             
             const diffTime = new Date(task.start) - minDate;
-            const diffDays = diffTime / (1000 * 60 * 60 * 24); // 支援小數點
+            const diffDays = diffTime / (1000 * 60 * 60 * 24);
             
             bar.style.left = `${diffDays * pxPerDay}px`;
-            bar.style.width = `${Math.max(task.duration * pxPerDay - 2, 2)}px`;
+            // 最小寬度設為 2px 確保看得到
+            bar.style.width = `${Math.max(task.duration * pxPerDay, 2)}px`; 
             bar.style.top = `${(index * ROW_HEIGHT) + 9}px`;
             
-            // 拖拉資料綁定
             bar.dataset.taskId = task.id;
             bar.dataset.minDate = minDate.getTime();
             
@@ -660,19 +633,17 @@
     }
 
     // ----------------------------
-    // 拖拉邏輯 (更新版，支援不同 View)
+    // 拖拉邏輯
     // ----------------------------
     let draggedBar = null, startX = 0, originalLeft = 0;
     
     function handleDragStart(e) {
-        // 如果有前置任務，禁止拖拉（因為日期被鎖定）
         const taskId = e.target.dataset.taskId;
         const task = tasks.find(t => t.id === taskId);
         if (task && task.predecessorId) {
-            alert("此任務受前置任務限制，無法手動拖移。請調整前置任務。");
+            alert("此任務受前置任務限制，無法手動拖移。");
             return;
         }
-
         draggedBar = e.target;
         startX = e.clientX;
         originalLeft = parseFloat(draggedBar.style.left || 0);
@@ -687,7 +658,7 @@
         let newLeft = originalLeft + deltaX;
         if (newLeft < 0) newLeft = 0;
         draggedBar.style.left = `${newLeft}px`;
-        requestAnimationFrame(() => drawArrows(null, VIEW_CONFIG[currentView].pxPerDay, true)); // 簡易重繪
+        requestAnimationFrame(() => drawArrows(null, VIEW_CONFIG[currentView].pxPerDay));
     }
 
     function handleDragEnd(e) {
@@ -698,7 +669,6 @@
         const pxPerDay = VIEW_CONFIG[currentView].pxPerDay;
         const currentLeft = parseFloat(draggedBar.style.left || 0);
         
-        // 磁吸計算
         const dayIndex = Math.round(currentLeft / pxPerDay);
         const snappedLeft = dayIndex * pxPerDay;
         
@@ -713,26 +683,19 @@
             const newDate = new Date(minDateTs);
             newDate.setDate(newDate.getDate() + dayIndex);
             task.start = formatDate(newDate);
-            
-            // 拖拉後可能影響後續任務，需全域重算
             recalculateAllDates();
-            updateUI(); // 更新列表日期
-            generateGantt(); // 重新繪製圖表 (確保連動的 Bar 也跟著動)
+            updateUI();
+            generateGantt();
         }
         draggedBar = null;
     }
 
     // ----------------------------
-    // 連線繪製 (SVG)
+    // 連線繪製
     // ----------------------------
-    function drawArrows(minDateObj = null, pxPerDay = 40, simpleMode = false) {
-        // 如果是 simpleMode (拖拉中)，不需重算 minDate，直接抓 DOM 位置即可
-        // 但為了箭頭準確，我們通常在 generateGantt 時已經傳入正確參數
-        
+    function drawArrows(minDateObj = null, pxPerDay = 40) {
         const svg = document.getElementById('arrow-layer');
         svg.innerHTML = '';
-        
-        // 定義箭頭
         const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
         const marker = document.createElementNS("http://www.w3.org/2000/svg", "marker");
         marker.setAttribute("id", "arrowhead");
@@ -760,17 +723,13 @@
                     const y2 = parseFloat(currentBar.style.top) + 12;
                     
                     const midX = x1 + 10;
-                    
                     let d = `M ${x1} ${y1} L ${midX} ${y1}`;
-                    
                     if (x2 > midX) {
                         d += ` L ${midX} ${y2} L ${x2} ${y2}`;
                     } else {
-                        // 迴轉路徑
                         const midY = y2 > y1 ? y1 + 20 : y1 - 20;
                         d += ` L ${midX} ${midY} L ${x2 - 10} ${midY} L ${x2 - 10} ${y2} L ${x2} ${y2}`;
                     }
-                    
                     const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
                     path.setAttribute("d", d);
                     path.setAttribute("class", "arrow-line");
@@ -781,15 +740,6 @@
         });
     }
 
-    function getWeekNumber(d) {
-        const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-        const dayNum = date.getUTCDay() || 7;
-        date.setUTCDate(date.getUTCDate() + 4 - dayNum);
-        const yearStart = new Date(Date.UTC(date.getUTCFullYear(),0,1));
-        return Math.ceil((((date - yearStart) / 86400000) + 1)/7);
-    }
-
-    // 存取檔功能 (維持原樣)
     function saveProject() {
         if(tasks.length===0) return alert("無資料");
         const a = document.createElement('a');
@@ -809,23 +759,17 @@
     function exportToImage() {
         const el = document.getElementById("gantt-chart-view");
         if(el.style.display==='none') return alert("請先產出圖表");
-        
         const wrapper = document.getElementById("ganttScrollWrapper");
         const header = document.getElementById("timelineHeaderContainer");
         const origW = el.style.width;
-        
-        // 暫時展開
-        el.style.width = (wrapper.scrollWidth + 220) + "px";
+        el.style.width = (wrapper.scrollWidth + 240) + "px";
         wrapper.style.overflow = "visible";
         header.style.overflow = "visible";
-        
         html2canvas(el, { scale: 2 }).then(c => {
             const link = document.createElement('a');
             link.download = 'gantt.png';
             link.href = c.toDataURL();
             link.click();
-            
-            // 復原
             el.style.width = origW;
             wrapper.style.overflow = "";
             header.style.overflow = "";
