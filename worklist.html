@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>全功能甘特圖：內容欄位 + 年視圖</title>
+    <title>全功能甘特圖：可拖曳欄寬版</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         :root {
@@ -14,6 +14,12 @@
             --main-task-color: #3b82f6;
             --sub-task-color: #10b981;
             --weekend-color: #f1f5f9;
+            
+            /* 動態寬度變數 */
+            --name-width: 200px;
+            --content-width: 200px;
+            --sidebar-total-width: calc(var(--name-width) + var(--content-width));
+            
             --column-width: 40px; 
             --row-height: 42px;
         }
@@ -26,7 +32,8 @@
         }
 
         .container {
-            max-width: 1400px; margin: 0 auto;
+            max-width: 1600px; /* 加寬以容納新欄位 */
+            margin: 0 auto;
             background: white; padding: 20px;
             border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
         }
@@ -85,27 +92,99 @@
 
         .btn-generate { width: 100%; padding: 12px; background: #0f172a; color: white; font-weight: bold; border: none; border-radius: 4px; font-size: 1.1em; cursor: pointer; }
 
-        /* 甘特圖核心 */
+        /* ============================
+           甘特圖顯示區域 (核心修改)
+           ============================ */
         #gantt-chart-view {
             display: none; border: 1px solid var(--border-color); background: white; margin-top: 20px; position: relative;
         }
-        .gantt-header { display: flex; border-bottom: 1px solid #ddd; background: #f8f9fa; height: 40px; }
-        .gantt-sidebar-header { min-width: 220px; width: 220px; padding: 10px; font-weight: bold; border-right: 1px solid #ddd; background: #f8f9fa; z-index: 20; box-sizing: border-box; }
         
+        /* 頂部標題列 */
+        .gantt-header {
+            display: flex;
+            border-bottom: 1px solid #ddd;
+            background: #f8f9fa;
+            height: 40px;
+        }
+
+        /* 側邊欄標題區 (改為 Flex 以容納多個欄位) */
+        .gantt-sidebar-header {
+            min-width: var(--sidebar-total-width);
+            width: var(--sidebar-total-width);
+            display: flex;
+            background: #f8f9fa;
+            z-index: 20;
+            box-sizing: border-box;
+            border-right: 1px solid #ddd;
+        }
+
+        .header-col {
+            padding: 10px;
+            font-weight: bold;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+            box-sizing: border-box;
+            display: flex;
+            align-items: center;
+        }
+
+        /* 寬度控制類別 */
+        .col-name { width: var(--name-width); }
+        .col-content { width: var(--content-width); }
+
+        /* 拖曳手柄 (Resizer) */
+        .resizer {
+            width: 5px;
+            cursor: col-resize;
+            background-color: #ddd;
+            border-right: 1px solid #ccc;
+            height: 100%;
+            transition: background 0.2s;
+            flex-shrink: 0; /* 防止被壓縮 */
+        }
+        .resizer:hover, .resizer.resizing {
+            background-color: var(--primary-color);
+        }
+
+        /* 右側時間軸標題 */
         .timeline-header-container { overflow: hidden; flex-grow: 1; position: relative; }
         .timeline-header { display: flex; height: 100%; position: relative; }
-        
-        /* 標題儲存格樣式 */
         .header-cell {
             text-align: center; border-right: 1px solid #eee; font-size: 0.8em; padding: 10px 0; box-sizing: border-box;
             white-space: nowrap; overflow: hidden; display: inline-block;
         }
 
+        /* 滾動區域 Wrapper */
         .gantt-scroll-wrapper { display: flex; overflow: auto; max-height: 500px; position: relative; }
-        .gantt-sidebar { min-width: 220px; width: 220px; position: sticky; left: 0; background: white; z-index: 10; border-right: 1px solid #ddd; }
         
-        .task-name-cell { height: var(--row-height); padding: 0 10px; border-bottom: 1px solid #f0f0f0; display: flex; align-items: center; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; box-sizing: border-box; }
+        /* 左側固定側邊欄 (內容區) */
+        .gantt-sidebar {
+            min-width: var(--sidebar-total-width);
+            width: var(--sidebar-total-width);
+            position: sticky; left: 0; background: white; z-index: 10; 
+            border-right: 1px solid #ddd;
+        }
         
+        .sidebar-row {
+            height: var(--row-height);
+            border-bottom: 1px solid #f0f0f0;
+            display: flex;
+            box-sizing: border-box;
+        }
+
+        .sidebar-cell {
+            padding: 0 10px;
+            display: flex;
+            align-items: center;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+            border-right: 1px solid #f0f0f0; /* 欄位間的分隔線 */
+            box-sizing: border-box;
+        }
+
+        /* 右側時間軸內容區 */
         .gantt-timeline-area { position: relative; flex-grow: 1; }
         .grid-background { position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: block; z-index: 0; pointer-events: none; }
         .grid-line {
@@ -131,7 +210,7 @@
 <body>
 
 <div class="container">
-    <h2>專案管理甘特圖 (Pro)</h2>
+    <h2>專案管理甘特圖 (可拖曳欄寬版)</h2>
 
     <div class="toolbar">
         <button class="btn-tool" onclick="saveProject()">💾 存檔</button>
@@ -158,7 +237,6 @@
             <label>任務內容</label>
             <input type="text" id="taskContent" placeholder="簡述任務內容">
         </div>
-        
         <div class="form-control">
             <label>類型</label>
             <select id="taskType">
@@ -193,7 +271,8 @@
             <thead>
                 <tr>
                     <th width="20%">任務名稱</th>
-                    <th width="25%">內容</th> <th>開始日期</th>
+                    <th width="25%">內容</th>
+                    <th>開始日期</th>
                     <th>結束日期</th>
                     <th>天數</th>
                     <th>前置</th>
@@ -208,7 +287,13 @@
 
     <div id="gantt-chart-view">
         <div class="gantt-header">
-            <div class="gantt-sidebar-header">項目列表</div>
+            <div class="gantt-sidebar-header" id="sidebarHeader">
+                <div class="header-col col-name">任務名稱</div>
+                <div class="resizer" onmousedown="initResize(event, 'name')"></div>
+                <div class="header-col col-content">任務內容</div>
+                <div class="resizer" onmousedown="initResize(event, 'content')"></div>
+            </div>
+            
             <div class="timeline-header-container" id="timelineHeaderContainer">
                 <div class="timeline-header" id="timelineHeader"></div>
             </div>
@@ -227,19 +312,58 @@
 
 <script>
     let tasks = [];
-    
-    // 視圖設定：年模式增加
     let currentView = 'day'; 
     const VIEW_CONFIG = {
         day: { pxPerDay: 40 },
         week: { pxPerDay: 15 },
         month: { pxPerDay: 4 },
-        year: { pxPerDay: 1 } // 一年約 365px
+        year: { pxPerDay: 1 }
     };
-
     const ROW_HEIGHT = 42;
 
     document.getElementById('startDate').valueAsDate = new Date();
+
+    // ----------------------------
+    // 欄寬拖曳邏輯 (新增)
+    // ----------------------------
+    let isResizing = false;
+    let resizeTarget = ''; // 'name' or 'content'
+    let startX = 0;
+    let startWidth = 0;
+
+    function initResize(e, target) {
+        isResizing = true;
+        resizeTarget = target;
+        startX = e.clientX;
+        
+        // 取得當前的 CSS 變數值 (去 px)
+        const root = document.documentElement;
+        const currentVal = getComputedStyle(root).getPropertyValue(`--${target}-width`).trim();
+        startWidth = parseInt(currentVal, 10);
+
+        // 加上 resizing 樣式
+        e.target.classList.add('resizing');
+
+        document.addEventListener('mousemove', handleResizeMove);
+        document.addEventListener('mouseup', handleResizeUp);
+        e.preventDefault(); // 防止選取文字
+    }
+
+    function handleResizeMove(e) {
+        if (!isResizing) return;
+        const deltaX = e.clientX - startX;
+        const newWidth = Math.max(50, startWidth + deltaX); // 最小 50px
+
+        // 更新 CSS 變數，即時反映到所有欄位
+        document.documentElement.style.setProperty(`--${resizeTarget}-width`, `${newWidth}px`);
+    }
+
+    function handleResizeUp(e) {
+        isResizing = false;
+        document.querySelectorAll('.resizer').forEach(el => el.classList.remove('resizing'));
+        document.removeEventListener('mousemove', handleResizeMove);
+        document.removeEventListener('mouseup', handleResizeUp);
+    }
 
     // ----------------------------
     // 工具函式
@@ -275,7 +399,7 @@
     function addOrUpdateTask() {
         const id = document.getElementById('taskId').value;
         const name = document.getElementById('taskName').value;
-        const content = document.getElementById('taskContent').value; // 讀取內容
+        const content = document.getElementById('taskContent').value;
         const type = document.getElementById('taskType').value;
         let start = document.getElementById('startDate').value;
         const duration = parseInt(document.getElementById('duration').value);
@@ -294,7 +418,6 @@
         if (id) {
             const taskIndex = tasks.findIndex(t => t.id === id);
             if (taskIndex > -1) {
-                // 更新物件包含 content
                 tasks[taskIndex] = { id, name, content, type, start, duration, predecessorId };
             }
             cancelEdit();
@@ -311,7 +434,7 @@
         
         if (!id) {
             document.getElementById('taskName').value = '';
-            document.getElementById('taskContent').value = ''; // 清空內容
+            document.getElementById('taskContent').value = '';
             document.getElementById('taskName').focus();
         }
     }
@@ -343,7 +466,7 @@
 
         document.getElementById('taskId').value = task.id;
         document.getElementById('taskName').value = task.name;
-        document.getElementById('taskContent').value = task.content || ''; // 填入內容
+        document.getElementById('taskContent').value = task.content || '';
         document.getElementById('taskType').value = task.type;
         document.getElementById('duration').value = task.duration;
         
@@ -360,7 +483,7 @@
     function cancelEdit() {
         document.getElementById('taskId').value = '';
         document.getElementById('taskName').value = '';
-        document.getElementById('taskContent').value = ''; // 清空內容
+        document.getElementById('taskContent').value = '';
         document.getElementById('duration').value = '3';
         document.getElementById('predecessor').value = '';
         document.getElementById('startDate').disabled = false;
@@ -411,7 +534,6 @@
             const nameClass = task.type === 'main' ? 'type-main' : 'type-sub';
             const prefix = task.type === 'sub' ? '└ ' : '';
             
-            // 新增內容欄位的顯示
             tr.innerHTML = `
                 <td class="${nameClass}">${prefix}${task.name}</td>
                 <td style="color:#555;">${task.content || ''}</td>
@@ -429,7 +551,7 @@
     }
 
     // ----------------------------
-    // 甘特圖繪製邏輯 (支援年模式)
+    // 甘特圖繪製邏輯
     // ----------------------------
 
     function switchView(mode) {
@@ -485,12 +607,6 @@
         
         let totalWidth = totalDays * pxPerDay;
         
-        // 絕對定位模式 (適用所有視圖，更靈活)
-        // Day view: 畫 Grid
-        // Week view: 畫 Grid per week
-        // Month view: 畫 Grid per month
-        // Year view: 畫 Grid per year
-        
         if (currentView === 'day') {
             for (let i = 0; i < totalDays; i++) {
                 const d = new Date(minDate);
@@ -517,20 +633,16 @@
             }
         } 
         else if (currentView === 'week') {
-             // 簡化 Week 處理，直接用 Days 跑，但只在每週第一天畫線
-             // 為了對齊，還是用 absolute grid line
              for (let i = 0; i < totalDays; i++) {
                 const d = new Date(minDate);
                 d.setDate(d.getDate() + i);
-                
-                // 假設每週日為起始
                 if (d.getDay() === 0 || i === 0) {
                      const label = document.createElement('div');
                      label.className = 'header-cell';
                      label.style.position = 'absolute';
                      label.style.left = `${i * pxPerDay}px`;
                      label.style.width = `${pxPerDay * 7}px`;
-                     label.innerText = `Week of ${d.getMonth()+1}/${d.getDate()}`;
+                     label.innerText = `W${d.getMonth()+1}/${d.getDate()}`;
                      header.appendChild(label);
 
                      const line = document.createElement('div');
@@ -542,15 +654,12 @@
              }
         }
         else if (currentView === 'month' || currentView === 'year') {
-            // Month 和 Year 視圖邏輯
             for (let i = 0; i < totalDays; i++) {
                 const d = new Date(minDate);
                 d.setDate(d.getDate() + i);
-                
                 const isFirstDayOfMonth = d.getDate() === 1;
                 const isFirstDayOfYear = d.getMonth() === 0 && d.getDate() === 1;
                 
-                // 根據模式決定畫線時機
                 let drawLine = false;
                 let labelText = '';
                 
@@ -596,31 +705,42 @@
         document.getElementById('arrow-layer').style.height = `${tasks.length * ROW_HEIGHT}px`;
 
         tasks.forEach((task, index) => {
-            const nameDiv = document.createElement('div');
-            nameDiv.className = 'task-name-cell';
-            const prefix = task.type === 'sub' ? '&nbsp;&nbsp;└ ' : '';
-            // 這裡側邊欄只顯示名稱，保持簡潔
-            nameDiv.innerHTML = `<span class="${task.type === 'main' ? 'type-main' : 'type-sub'}">${prefix}${task.name}</span>`;
-            sidebar.appendChild(nameDiv);
-
+            // 建構側邊欄列 (包含名稱和內容兩欄)
             const rowDiv = document.createElement('div');
-            rowDiv.className = 'bar-row';
-            barsContainer.appendChild(rowDiv);
+            rowDiv.className = 'sidebar-row';
+            
+            // 任務名稱欄
+            const nameCell = document.createElement('div');
+            nameCell.className = 'sidebar-cell col-name';
+            const prefix = task.type === 'sub' ? '&nbsp;&nbsp;└ ' : '';
+            nameCell.innerHTML = `<span class="${task.type === 'main' ? 'type-main' : 'type-sub'}">${prefix}${task.name}</span>`;
+            
+            // 任務內容欄
+            const contentCell = document.createElement('div');
+            contentCell.className = 'sidebar-cell col-content';
+            contentCell.style.color = '#555';
+            contentCell.innerText = task.content || '';
+
+            rowDiv.appendChild(nameCell);
+            rowDiv.appendChild(contentCell);
+            sidebar.appendChild(rowDiv);
+
+            // 建構右側 Bar
+            const barRowDiv = document.createElement('div');
+            barRowDiv.className = 'bar-row';
+            barsContainer.appendChild(barRowDiv);
 
             const bar = document.createElement('div');
             bar.className = `bar ${task.type}`;
             bar.id = `bar-${task.id}`;
-            
-            // 年模式或月模式下，如果寬度太窄就不顯示文字
             const isCompact = ['month', 'year'].includes(currentView);
             bar.innerText = isCompact ? '' : `${task.duration}天`;
-            bar.title = `名稱: ${task.name}\n內容: ${task.content || '無'}\n日期: ${task.start} (${task.duration}天)`; // Tooltip 增加內容顯示
+            bar.title = `名稱: ${task.name}\n內容: ${task.content || '無'}\n日期: ${task.start} (${task.duration}天)`;
             
             const diffTime = new Date(task.start) - minDate;
             const diffDays = diffTime / (1000 * 60 * 60 * 24);
             
             bar.style.left = `${diffDays * pxPerDay}px`;
-            // 最小寬度設為 2px 確保看得到
             bar.style.width = `${Math.max(task.duration * pxPerDay, 2)}px`; 
             bar.style.top = `${(index * ROW_HEIGHT) + 9}px`;
             
@@ -633,9 +753,9 @@
     }
 
     // ----------------------------
-    // 拖拉邏輯
+    // 拖拉 Bar 邏輯
     // ----------------------------
-    let draggedBar = null, startX = 0, originalLeft = 0;
+    let draggedBar = null, barStartX = 0, barOriginalLeft = 0;
     
     function handleDragStart(e) {
         const taskId = e.target.dataset.taskId;
@@ -645,8 +765,8 @@
             return;
         }
         draggedBar = e.target;
-        startX = e.clientX;
-        originalLeft = parseFloat(draggedBar.style.left || 0);
+        barStartX = e.clientX;
+        barOriginalLeft = parseFloat(draggedBar.style.left || 0);
         document.addEventListener('mousemove', handleDragMove);
         document.addEventListener('mouseup', handleDragEnd);
         draggedBar.style.opacity = '0.7';
@@ -654,8 +774,8 @@
 
     function handleDragMove(e) {
         if (!draggedBar) return;
-        const deltaX = e.clientX - startX;
-        let newLeft = originalLeft + deltaX;
+        const deltaX = e.clientX - barStartX;
+        let newLeft = barOriginalLeft + deltaX;
         if (newLeft < 0) newLeft = 0;
         draggedBar.style.left = `${newLeft}px`;
         requestAnimationFrame(() => drawArrows(null, VIEW_CONFIG[currentView].pxPerDay));
@@ -762,7 +882,10 @@
         const wrapper = document.getElementById("ganttScrollWrapper");
         const header = document.getElementById("timelineHeaderContainer");
         const origW = el.style.width;
-        el.style.width = (wrapper.scrollWidth + 240) + "px";
+        // 匯出時要包含側邊欄的總寬度
+        const sidebarW = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--sidebar-total-width')) || 400;
+        
+        el.style.width = (wrapper.scrollWidth + sidebarW + 40) + "px";
         wrapper.style.overflow = "visible";
         header.style.overflow = "visible";
         html2canvas(el, { scale: 2 }).then(c => {
